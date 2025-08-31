@@ -2,41 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* SimFab Design System - Premium Flight Sim Equipment Theme */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core Brand Colors */
+    --background: 0 0% 4.3%; /* #0b0b0b */
+    --foreground: 0 0% 90%; /* #e5e5e5 */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 10.2%; /* #1a1a1a */
+    --card-foreground: 0 0% 100%; /* #ffffff */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 10.2%;
+    --popover-foreground: 0 0% 100%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* SimFab Red Brand Color */
+    --primary: 4 77% 58%; /* #e53935 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 0 0% 16.9%; /* #2b2b2b */
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 16.9%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 4 77% 58%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 4 77% 58%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 0 0% 16.9%;
+    --input: 0 0% 16.9%;
+    --ring: 4 77% 58%;
 
     --radius: 0.5rem;
+
+    /* Custom SimFab Tokens */
+    --simfab-red: 4 77% 58%;
+    --simfab-dark: 0 0% 4.3%;
+    --simfab-gray: 0 0% 10.2%;
+    --simfab-border: 0 0% 16.9%;
+    --text-primary: 0 0% 100%;
+    --text-secondary: 0 0% 90%;
+    --text-muted: 0 0% 60%;
+
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(var(--background)), hsl(0 0% 6%));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(0 0% 12%));
+    --gradient-red: linear-gradient(135deg, hsl(var(--simfab-red)), hsl(4 77% 50%));
+
+    /* Effects */
+    --shadow-card: 0 4px 20px -2px hsl(0 0% 0% / 0.3);
+    --shadow-hover: 0 8px 32px -4px hsl(0 0% 0% / 0.4);
+    --shadow-red-glow: 0 0 20px hsl(var(--simfab-red) / 0.3);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.15s ease-out;
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +123,97 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Button Variants */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 
+           px-6 py-3 rounded-lg font-semibold uppercase tracking-wide
+           transition-all duration-200 hover:scale-105 hover:shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply border border-secondary text-secondary-foreground hover:bg-secondary/20
+           px-6 py-3 rounded-lg font-semibold uppercase tracking-wide
+           transition-all duration-200 hover:scale-105;
+  }
+
+  .btn-outline {
+    @apply border border-border text-foreground hover:bg-card
+           px-6 py-3 rounded-lg font-semibold uppercase tracking-wide
+           transition-all duration-200 hover:scale-105;
+  }
+
+  /* Navigation Styles */
+  .nav-link {
+    @apply text-foreground/80 hover:text-foreground uppercase tracking-wider
+           text-sm font-medium transition-colors relative;
+  }
+
+  .nav-link::after {
+    @apply content-[''] absolute -bottom-1 left-0 w-0 h-0.5 bg-primary
+           transition-all duration-300;
+  }
+
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+
+  /* Card Styles */
+  .product-card {
+    @apply bg-card border border-border rounded-lg p-6 
+           transition-all duration-300 hover:shadow-lg hover:-translate-y-1
+           hover:border-primary/30;
+  }
+
+  .feature-card {
+    @apply bg-gradient-to-br from-card to-card/80 border border-border 
+           rounded-xl p-8 transition-all duration-300 hover:shadow-xl
+           hover:-translate-y-2 hover:border-primary/40;
+  }
+
+  /* Typography */
+  .heading-xl {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold text-card-foreground;
+  }
+
+  .heading-lg {
+    @apply text-3xl md:text-4xl font-bold text-card-foreground;
+  }
+
+  .heading-md {
+    @apply text-2xl md:text-3xl font-bold text-card-foreground;
+  }
+
+  .text-accent-underline {
+    @apply relative;
+  }
+
+  .text-accent-underline::after {
+    @apply content-[''] absolute -bottom-2 left-0 w-full h-0.5 bg-primary;
+  }
+
+  /* Utilities */
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-hover {
+    box-shadow: var(--shadow-hover);
+  }
+
+  .transition-smooth {
+    transition: var(--transition-smooth);
   }
 }
