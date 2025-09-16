@@ -13,8 +13,10 @@ const pgSession = require('connect-pg-simple')(session);
 
 // Middleware
 const corsOptions = {
-  origin: '*', // Allow all origins
-  credentials: false, // Must be false when origin is '*'
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://simfabdev-d6add0a229a7.herokuapp.com', 'https://simfab-facelift.vercel.app', 'https://simfab-facelift.netlify.app']
+    : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
+  credentials: true, // Allow credentials for specific origins
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
