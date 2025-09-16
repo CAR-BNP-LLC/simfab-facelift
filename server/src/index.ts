@@ -8,8 +8,7 @@ import authRouter from './routes/auth';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Session store - using require for connect-sqlite3 to avoid TypeScript issues
-const SQLiteStore = require('connect-sqlite3')(session);
+// Session store - using PostgreSQL for all environments
 const pgSession = require('connect-pg-simple')(session);
 
 // Middleware
@@ -28,25 +27,12 @@ app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware
-let sessionStore;
-if (process.env.DATABASE_URL) {
-  // Use PostgreSQL session store for production
-  sessionStore = new pgSession({
-    conString: process.env.DATABASE_URL,
-    tableName: 'user_sessions'
-  });
-} else {
-  // Use SQLite session store for development
-  const sessionDir = './data';
-  if (!fs.existsSync(sessionDir)) {
-    fs.mkdirSync(sessionDir, { recursive: true });
-  }
-  sessionStore = new SQLiteStore({
-    db: 'sessions.db',
-    dir: sessionDir
-  });
-}
+// Session middleware - PostgreSQL for all environments
+const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev';
+const sessionStore = new pgSession({
+  conString: connectionString,
+  tableName: 'user_sessions'
+});
 
 app.use(session({
   store: sessionStore,

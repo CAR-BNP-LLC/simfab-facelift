@@ -19,22 +19,22 @@
 
 ## Environment Variables
 
-The app automatically detects the environment:
-- **Production (Heroku)**: Uses PostgreSQL via `DATABASE_URL` environment variable
-- **Development (Local)**: Uses SQLite in `./data/` directory
+The app uses PostgreSQL everywhere:
+- **Production (Heroku)**: Uses PostgreSQL via `DATABASE_URL` environment variable (auto-set by Heroku)
+- **Development (Local)**: Uses local PostgreSQL at `postgresql://localhost:5432/simfab_dev`
 
 ## Database Schema
 
 The app will automatically create the required tables on first run:
 - `products` table for product data
-- `user_sessions` table for session storage (PostgreSQL only)
+- `user_sessions` table for session storage
 
 ## Deployment Commands
 
 1. **Deploy to Heroku:**
    ```bash
    git add .
-   git commit -m "Add PostgreSQL support"
+   git commit -m "Simplify to PostgreSQL only"
    git push heroku main
    ```
 
@@ -48,13 +48,29 @@ The app will automatically create the required tables on first run:
    heroku open
    ```
 
-## Local Development
+## Local Development Setup
 
-For local development, the app will automatically use SQLite:
-- Database file: `./data/products.db`
-- Session file: `./data/sessions.db`
+1. **Install PostgreSQL locally:**
+   - Windows: Download from [postgresql.org](https://www.postgresql.org/download/windows/)
+   - macOS: `brew install postgresql`
+   - Linux: `sudo apt-get install postgresql`
 
-No additional setup required for local development.
+2. **Create local database:**
+   ```bash
+   createdb simfab_dev
+   ```
+
+3. **Start PostgreSQL service:**
+   ```bash
+   # Windows (if installed as service)
+   net start postgresql
+   
+   # macOS
+   brew services start postgresql
+   
+   # Linux
+   sudo systemctl start postgresql
+   ```
 
 ## Troubleshooting
 
@@ -73,6 +89,16 @@ If you encounter issues:
 3. **Check database connection:**
    ```bash
    heroku pg:psql
+   ```
+
+4. **Local PostgreSQL not running:**
+   ```bash
+   # Check if running
+   pg_isready
+   
+   # Start if needed
+   brew services start postgresql  # macOS
+   sudo systemctl start postgresql  # Linux
    ```
 
 ## Free Tier Limits
