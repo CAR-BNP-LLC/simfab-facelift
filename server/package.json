@@ -7,14 +7,19 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
-    "dev:build": "tsc && npm start"
+    "dev:build": "tsc && npm start",
+    "postinstall": "npm run build"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "connect-sqlite3": "^0.9.13",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
     "express": "^4.18.2",
+    "express-session": "^1.17.3",
     "multer": "^1.4.5-lts.1",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
