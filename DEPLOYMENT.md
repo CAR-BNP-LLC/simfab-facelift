@@ -1,65 +1,81 @@
-# Deployment Guide
+# Heroku Deployment Guide
 
-## Heroku Deployment
+## Setup Heroku Postgres Addon
 
-### Prerequisites
-- Heroku CLI installed
-- Git repository set up
-
-### Steps
-
-1. **Create Heroku App**
+1. **Add Heroku Postgres addon to your app:**
    ```bash
-   heroku create your-app-name
+   heroku addons:create heroku-postgresql:hobby-dev
    ```
 
-2. **Set Environment Variables**
+2. **Verify the addon was added:**
    ```bash
-   heroku config:set NODE_ENV=production
-   heroku config:set SESSION_SECRET=your-production-secret-key
+   heroku addons
    ```
 
-3. **Deploy**
+3. **Check your DATABASE_URL:**
+   ```bash
+   heroku config:get DATABASE_URL
+   ```
+
+## Environment Variables
+
+The app automatically detects the environment:
+- **Production (Heroku)**: Uses PostgreSQL via `DATABASE_URL` environment variable
+- **Development (Local)**: Uses SQLite in `./data/` directory
+
+## Database Schema
+
+The app will automatically create the required tables on first run:
+- `products` table for product data
+- `user_sessions` table for session storage (PostgreSQL only)
+
+## Deployment Commands
+
+1. **Deploy to Heroku:**
    ```bash
    git add .
-   git commit -m "Deploy to Heroku"
+   git commit -m "Add PostgreSQL support"
    git push heroku main
    ```
 
-### Environment Variables
+2. **Check logs:**
+   ```bash
+   heroku logs --tail
+   ```
 
-- `PORT` - Automatically set by Heroku
-- `NODE_ENV` - Set to "production" for production
-- `SESSION_SECRET` - Secret key for session encryption
-
-### Database Notes
-
-- SQLite databases will be created in the `data/` folder
-- For production, consider using PostgreSQL or another persistent database
-- Heroku's filesystem is ephemeral, so SQLite data will be lost on restart
-
-### Build Process
-
-The root package.json handles the complete deployment process:
-1. `postinstall` script installs server dependencies
-2. Automatically builds TypeScript code
-3. Starts the server with `npm start`
+3. **Open your app:**
+   ```bash
+   heroku open
+   ```
 
 ## Local Development
 
-### Frontend (React)
-```bash
-npm run dev
-```
+For local development, the app will automatically use SQLite:
+- Database file: `./data/products.db`
+- Session file: `./data/sessions.db`
 
-### Backend (Express)
-```bash
-npm run dev
-```
+No additional setup required for local development.
 
-## Production Build
+## Troubleshooting
 
-```bash
-npm run build
-npm start
-```
+If you encounter issues:
+
+1. **Check if Postgres addon is provisioned:**
+   ```bash
+   heroku addons:info heroku-postgresql:hobby-dev
+   ```
+
+2. **Reset database (if needed):**
+   ```bash
+   heroku pg:reset DATABASE_URL
+   ```
+
+3. **Check database connection:**
+   ```bash
+   heroku pg:psql
+   ```
+
+## Free Tier Limits
+
+- **Heroku Postgres hobby-dev**: 10,000 rows, 20 connections
+- **Perfect for development and small applications**

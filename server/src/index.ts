@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import fs from 'fs';
 import productsRouter from './routes/products';
 import authRouter from './routes/auth';
 
@@ -9,6 +10,7 @@ const PORT = process.env.PORT || 3001;
 
 // Session store - using require for connect-sqlite3 to avoid TypeScript issues
 const SQLiteStore = require('connect-sqlite3')(session);
+const pgSession = require('connect-pg-simple')(session);
 
 // Middleware
 const corsOptions = {
@@ -27,11 +29,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Session middleware
-app.use(session({
-  store: new SQLiteStore({
+let sessionStore;
+if (process.env.DATABASE_URL) {
+  // Use PostgreSQL session store for production
+  sessionStore = new pgSession({
+    conString: process.env.DATABASE_URL,
+    tableName: 'user_sessions'
+  });
+} else {
+  // Use SQLite session store for development
+  const sessionDir = './data';
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+  }
+  sessionStore = new SQLiteStore({
     db: 'sessions.db',
-    dir: './data/'
-  }),
+    dir: sessionDir
+  });
+}
+
+app.use(session({
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: false,
