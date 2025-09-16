@@ -72,6 +72,36 @@ router.get('/:id', async (req: Request, res: Response) => {
   }
 });
 
+// POST /products - Create a new product
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const productData = req.body;
+    
+    // Validate required fields
+    if (!productData.sku || !productData.name) {
+      return res.status(400).json({
+        success: false,
+        error: 'SKU and name are required'
+      });
+    }
+
+    // Insert the product
+    await database.insertProduct(productData);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      data: productData
+    });
+  } catch (error) {
+    console.error('Error creating product:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create product'
+    });
+  }
+});
+
 // POST /products/upload - Upload products from CSV
 router.post('/upload', upload.single('csv'), async (req: Request, res: Response) => {
   try {
