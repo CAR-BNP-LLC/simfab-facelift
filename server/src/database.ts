@@ -48,6 +48,11 @@ class Database {
       connectionString,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
     });
+    
+    // Initialize database tables
+    this.initDatabase().catch(err => {
+      console.error('Failed to initialize database:', err);
+    });
   }
 
   async initDatabase(): Promise<void> {
