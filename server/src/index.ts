@@ -12,19 +12,8 @@ const SQLiteStore = require('connect-sqlite3')(session);
 
 // Middleware
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] // Add your production domain
-    : [
-        'http://localhost:3000', 
-        'http://localhost:8080', 
-        'http://localhost:8081', 
-        'http://localhost:5173', // Vite default
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:8080',
-        'http://127.0.0.1:8081',
-        'http://127.0.0.1:5173'
-      ],
-  credentials: true,
+  origin: '*', // Allow all origins
+  credentials: false, // Must be false when origin is '*'
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };

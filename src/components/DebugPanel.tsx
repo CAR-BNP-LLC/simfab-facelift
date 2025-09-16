@@ -38,7 +38,7 @@ const DebugPanel = () => {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = 'http://localhost:3001/api';
+  const API_BASE = 'https://simfabdev-d6add0a229a7.herokuapp.com/api';
 
   const fetchProducts = async () => {
     setLoading(true);
