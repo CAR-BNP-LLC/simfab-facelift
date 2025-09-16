@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import sqlite3 from 'sqlite3';
 import UserModel, { User, NewsletterSubscription } from '../models/user';
 
 // Use crypto for generating UUIDs instead of uuid package
@@ -14,9 +13,8 @@ declare module 'express-session' {
   }
 }
 
-// Create a new database instance for auth
-const authDb = new sqlite3.Database('./data/auth.db');
-const userModel = new UserModel(authDb);
+// Create user model instance
+const userModel = new UserModel();
 
 export class AuthController {
   // Register a new user

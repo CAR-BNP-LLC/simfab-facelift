@@ -1,4 +1,4 @@
-import sqlite3 from 'sqlite3';
+import { Pool } from 'pg';
 
 export interface User {
   id?: number;
@@ -29,232 +29,195 @@ export interface NewsletterSubscription {
 }
 
 class UserModel {
-  private db: sqlite3.Database;
+  private pool: Pool;
 
-  constructor(db: sqlite3.Database) {
-    this.db = db;
+  constructor() {
+    // Use DATABASE_URL for production (Heroku), or local PostgreSQL for development
+    const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev';
+    
+    this.pool = new Pool({
+      connectionString,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    });
+    
     this.initTables();
   }
 
-  private initTables(): void {
-    // Create users table
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        first_name TEXT NOT NULL,
-        last_name TEXT NOT NULL,
-        is_active BOOLEAN DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, (err) => {
-      if (err) {
-        console.error('Error creating users table:', err);
-      } else {
-        console.log('Users table created successfully');
-      }
-    });
+  private async initTables(): Promise<void> {
+    try {
+      // Create users table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          password TEXT NOT NULL,
+          first_name TEXT NOT NULL,
+          last_name TEXT NOT NULL,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Users table created successfully');
 
-    // Create password_resets table
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS password_resets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        reset_code TEXT NOT NULL,
-        expires_at DATETIME NOT NULL,
-        used BOOLEAN DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-      )
-    `, (err) => {
-      if (err) {
-        console.error('Error creating password_resets table:', err);
-      } else {
-        console.log('Password resets table created successfully');
-      }
-    });
+      // Create password_resets table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          reset_code TEXT NOT NULL,
+          expires_at TIMESTAMP NOT NULL,
+          used BOOLEAN DEFAULT false,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+      console.log('Password resets table created successfully');
 
-    // Create newsletter_subscriptions table
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS newsletter_subscriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        subscribed_at DATETIME NOT NULL,
-        is_active BOOLEAN DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `, (err) => {
-      if (err) {
-        console.error('Error creating newsletter_subscriptions table:', err);
-      } else {
-        console.log('Newsletter subscriptions table created successfully');
-      }
-    });
+      // Create newsletter_subscriptions table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS newsletter_subscriptions (
+          id SERIAL PRIMARY KEY,
+          email TEXT UNIQUE NOT NULL,
+          subscribed_at TIMESTAMP NOT NULL,
+          is_active BOOLEAN DEFAULT true,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('Newsletter subscriptions table created successfully');
+    } catch (err) {
+      console.error('Error creating tables:', err);
+      throw err;
+    }
   }
 
   // User methods
   async createUser(user: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> {
-    return new Promise((resolve, reject) => {
-      const db = this.db;
-      this.db.run(`
+    try {
+      const result = await this.pool.query(`
         INSERT INTO users (email, password, first_name, last_name, is_active)
-        VALUES (?, ?, ?, ?, ?)
-      `, [user.email, user.password, user.first_name, user.last_name, user.is_active], function(err: any) {
-        if (err) {
-          reject(err);
-        } else {
-          // Get the created user
-          db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err: any, row: any) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(row as User);
-            }
-          });
-        }
-      });
-    });
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING *
+      `, [user.email, user.password, user.first_name, user.last_name, user.is_active]);
+      
+      return result.rows[0];
+    } catch (err) {
+      console.error('Error creating user:', err);
+      throw err;
+    }
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row as User || null);
-        }
-      });
-    });
+    try {
+      const result = await this.pool.query('SELECT * FROM users WHERE email = $1', [email]);
+      return result.rows[0] || null;
+    } catch (err) {
+      console.error('Error getting user by email:', err);
+      throw err;
+    }
   }
 
   async getUserById(id: number): Promise<User | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get('SELECT * FROM users WHERE id = ?', [id], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row as User || null);
-        }
-      });
-    });
+    try {
+      const result = await this.pool.query('SELECT * FROM users WHERE id = $1', [id]);
+      return result.rows[0] || null;
+    } catch (err) {
+      console.error('Error getting user by ID:', err);
+      throw err;
+    }
   }
 
   async updateUserPassword(id: number, hashedPassword: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(`
+    try {
+      await this.pool.query(`
         UPDATE users 
-        SET password = ?, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = ?
-      `, [hashedPassword, id], (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+        SET password = $1, updated_at = CURRENT_TIMESTAMP 
+        WHERE id = $2
+      `, [hashedPassword, id]);
+    } catch (err) {
+      console.error('Error updating user password:', err);
+      throw err;
+    }
   }
 
   // Password reset methods
   async createPasswordReset(userId: number, resetCode: string, expiresAt: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(`
+    try {
+      await this.pool.query(`
         INSERT INTO password_resets (user_id, reset_code, expires_at)
-        VALUES (?, ?, ?)
-      `, [userId, resetCode, expiresAt], (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+        VALUES ($1, $2, $3)
+      `, [userId, resetCode, expiresAt]);
+    } catch (err) {
+      console.error('Error creating password reset:', err);
+      throw err;
+    }
   }
 
   async getPasswordResetByCode(resetCode: string): Promise<PasswordReset | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get(`
+    try {
+      const result = await this.pool.query(`
         SELECT * FROM password_resets 
-        WHERE reset_code = ? AND used = 0 AND expires_at > datetime('now')
-      `, [resetCode], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row as PasswordReset || null);
-        }
-      });
-    });
+        WHERE reset_code = $1 AND used = false AND expires_at > NOW()
+      `, [resetCode]);
+      return result.rows[0] || null;
+    } catch (err) {
+      console.error('Error getting password reset by code:', err);
+      throw err;
+    }
   }
 
   async markPasswordResetAsUsed(resetCode: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(`
+    try {
+      await this.pool.query(`
         UPDATE password_resets 
-        SET used = 1 
-        WHERE reset_code = ?
-      `, [resetCode], (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+        SET used = true 
+        WHERE reset_code = $1
+      `, [resetCode]);
+    } catch (err) {
+      console.error('Error marking password reset as used:', err);
+      throw err;
+    }
   }
 
   // Newsletter subscription methods
   async subscribeToNewsletter(email: string, subscribedAt: string): Promise<NewsletterSubscription> {
-    return new Promise((resolve, reject) => {
-      const db = this.db;
-      this.db.run(`
-        INSERT OR REPLACE INTO newsletter_subscriptions (email, subscribed_at, is_active)
-        VALUES (?, ?, 1)
-      `, [email, subscribedAt], function(err: any) {
-        if (err) {
-          reject(err);
-        } else {
-          // Get the subscription
-          db.get('SELECT * FROM newsletter_subscriptions WHERE email = ?', [email], (err: any, row: any) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(row as NewsletterSubscription);
-            }
-          });
-        }
-      });
-    });
+    try {
+      const result = await this.pool.query(`
+        INSERT INTO newsletter_subscriptions (email, subscribed_at, is_active)
+        VALUES ($1, $2, true)
+        ON CONFLICT (email) 
+        DO UPDATE SET subscribed_at = $2, is_active = true
+        RETURNING *
+      `, [email, subscribedAt]);
+      
+      return result.rows[0];
+    } catch (err) {
+      console.error('Error subscribing to newsletter:', err);
+      throw err;
+    }
   }
 
   async unsubscribeFromNewsletter(email: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.run(`
+    try {
+      await this.pool.query(`
         UPDATE newsletter_subscriptions 
-        SET is_active = 0 
-        WHERE email = ?
-      `, [email], (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
-    });
+        SET is_active = false 
+        WHERE email = $1
+      `, [email]);
+    } catch (err) {
+      console.error('Error unsubscribing from newsletter:', err);
+      throw err;
+    }
   }
 
   async getNewsletterSubscription(email: string): Promise<NewsletterSubscription | null> {
-    return new Promise((resolve, reject) => {
-      this.db.get('SELECT * FROM newsletter_subscriptions WHERE email = ?', [email], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(row as NewsletterSubscription || null);
-        }
-      });
-    });
+    try {
+      const result = await this.pool.query('SELECT * FROM newsletter_subscriptions WHERE email = $1', [email]);
+      return result.rows[0] || null;
+    } catch (err) {
+      console.error('Error getting newsletter subscription:', err);
+      throw err;
+    }
   }
 }
 
