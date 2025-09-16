@@ -3,10 +3,14 @@
   "version": "1.0.0",
   "description": "SimFab website with Express.js backend",
   "scripts": {
-    "start": "cd server && npm start",
-    "build": "cd server && npm run build",
-    "postinstall": "cd server && npm install && npm run build",
-    "dev": "cd server && npm run dev"
+    "start": "vite",
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "server:start": "cd server && npm start",
+    "server:build": "cd server && npm run build",
+    "server:dev": "cd server && npm run dev",
+    "postinstall": "cd server && npm install && npm run build"
   },
   "engines": {
     "node": ">=18.0.0",
