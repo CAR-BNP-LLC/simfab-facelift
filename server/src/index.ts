@@ -11,12 +11,10 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 // Session store - using PostgreSQL for all environments
 const pgSession = require('connect-pg-simple')(session);
 
-// Middleware
+// Middleware - Temporary permissive CORS for debugging
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://simfabdev-d6add0a229a7.herokuapp.com', 'https://simfab-facelift.vercel.app', 'https://simfab-facelift.netlify.app']
-    : ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
-  credentials: true, // Allow credentials for specific origins
+  origin: true, // Allow all origins temporarily
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 };
@@ -57,7 +55,10 @@ app.get('/health', (req, res) => {
   res.json({
     success: true,
     message: 'Server is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    origin: req.headers.origin,
+    referer: req.headers.referer,
+    userAgent: req.headers['user-agent']
   });
 });
 
