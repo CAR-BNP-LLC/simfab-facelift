@@ -249,7 +249,10 @@ const Header = () => {
                 <Settings className="w-5 h-5" />
               </button>
               
-              <Button className="btn-primary hidden md:inline-flex">
+              <Button 
+                className="btn-primary hidden md:inline-flex"
+                onClick={() => window.location.href = '/shop'}
+              >
                 SHOP
               </Button>
 
@@ -276,7 +279,10 @@ const Header = () => {
                     </button>
                   </div>
                 ))}
-                <Button className="btn-primary w-full mt-4">
+                <Button 
+                  className="btn-primary w-full mt-4"
+                  onClick={() => window.location.href = '/shop'}
+                >
                   SHOP
                 </Button>
               </div>
