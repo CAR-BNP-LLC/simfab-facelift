@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -169,12 +170,14 @@ const Shop = () => {
                   </div>
                   
                   {/* Buy Now Button */}
-                  <Button 
-                    variant="outline" 
-                    className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
-                  >
-                    BUY NOW
-                  </Button>
+                  <Link to={`/product/${product.id}`}>
+                    <Button 
+                      variant="outline" 
+                      className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                    >
+                      BUY NOW
+                    </Button>
+                  </Link>
                 </div>
               </CardContent>
             </Card>
