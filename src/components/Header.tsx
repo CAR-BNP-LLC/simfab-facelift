@@ -8,42 +8,132 @@ const Header = () => {
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
 
-  const megaMenuItems = {
-    'FLIGHT SIM': [
-      'DCS Flight Sim Modular Cockpit',
-      'MSFS Flight Sim Modular Cockpit', 
-      'Hybrid Flight Sim Modular Cockpit',
-      'Trainer Station Modular Cockpit',
-      'Rotorcraft Flight Sim Modular Cockpit',
-      'Flight Sim Add-On Modules',
-      'Flight Sim Accessories'
-    ],
-    'SIM RACING': [
-      'Gen3 Racing Modular Cockpit',
-      'Gen3 Racing Modular Cockpit',
-      'Conversion Kits',
-      'Individual Parts'
-    ],
-    'RACING & FLIGHT SEATS': [
-      'Racing and Flight Sim Seat',
-      'Racing and Flight Sim Seat (removable foam)'
-    ],
-    'MONITOR STANDS': [
-      'Single Monitor Stand',
-      'Triple Monitor Stand', 
-      'Overhead or Sub-Mount Monitor Bracket Kit'
-    ],
-    'ACCESSORIES': [
-      'Active Articulating Arm with Keyboard & Mouse or Laptop Tray kit',
-      'Sim Racing Pedal Plate Foot Rest',
-      'Lumbar Pillow for Racing & Flight Sim Cockpits',
-      'Neck Pillow for Racing & Flight Sim Cockpits',
-      'Sim Racing & Flight Simulation Cockpit Four Point Harness',
-      'Rear Surround Speaker Tray Kit',
-      'Flight Sim Accessories',
-      'Sim Racing Individual Parts',
-      'All Accessories'
-    ]
+  const megaMenuContent = {
+    'FLIGHT SIM': {
+      products: [
+        {
+          name: 'DCS Flight Sim Modular Cockpit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'MSFS Flight Sim Modular Cockpit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Hybrid Flight Sim Modular Cockpit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Trainer Station Modular Cockpit',
+          image: '/src/assets/trainer-station.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Rotorcraft Flight Sim Modular Cockpit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        }
+      ],
+      categories: [
+        'FLIGHT SIM ADD-ON MODULES',
+        'FLIGHT SIM ACCESSORIES'
+      ]
+    },
+    'SIM RACING': {
+      products: [
+        {
+          name: 'Gen3 Racing Modular Cockpit',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Gen3 Racing Pro Cockpit',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SEE MORE'
+        }
+      ],
+      categories: [
+        'CONVERSION KITS',
+        'INDIVIDUAL PARTS'
+      ]
+    },
+    'RACING & FLIGHT SEATS': {
+      products: [
+        {
+          name: 'Racing and Flight Sim Seat',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Racing Seat (removable foam)',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SEE MORE'
+        }
+      ],
+      categories: []
+    },
+    'MONITOR STANDS': {
+      products: [
+        {
+          name: 'Single Monitor Stand',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Triple Monitor Stand',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        },
+        {
+          name: 'Overhead Monitor Bracket Kit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SEE MORE'
+        }
+      ],
+      categories: []
+    },
+    'ACCESSORIES': {
+      products: [
+        {
+          name: 'Active Articulating Arm With Keyboard & Mouse Or Laptop Tray Kit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SHOP NOW'
+        },
+        {
+          name: 'Sim Racing Pedal Plate Foot Rest',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SHOP NOW'
+        },
+        {
+          name: 'Lumbar Pillow For Racing & Flight Sim Cockpits',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SHOP NOW'
+        },
+        {
+          name: 'Neck Pillow For Racing & Flight Sim Cockpits',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SHOP NOW'
+        },
+        {
+          name: 'Sim Racing & Flight Simulation Cockpit Four Point Harness',
+          image: '/src/assets/sim-racing-cockpit.jpg',
+          action: 'SHOP NOW'
+        },
+        {
+          name: 'Rear Surround Speaker Tray Kit',
+          image: '/src/assets/flight-sim-cockpit.jpg',
+          action: 'SHOP NOW'
+        }
+      ],
+      categories: [
+        'FLIGHT SIM ACCESSORIES',
+        'SIM RACING INDIVIDUAL PARTS',
+        'ALL ACCESSORIES'
+      ]
+    }
   };
 
   const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED STOCK', 'SERVICES'];
@@ -80,19 +170,55 @@ const Header = () => {
                   </button>
                   
                   {/* Mega Menu */}
-                  {activeMegaMenu === item && megaMenuItems[item as keyof typeof megaMenuItems] && (
-                    <div className="absolute top-full left-0 bg-card border border-border rounded-lg shadow-lg p-6 min-w-[300px] z-50">
-                      <div className="grid gap-2">
-                        {megaMenuItems[item as keyof typeof megaMenuItems].map((subItem) => (
-                          <a
-                            key={subItem}
-                            href="#"
-                            className="text-card-foreground hover:text-primary transition-colors py-2 text-sm"
-                          >
-                            {subItem}
-                          </a>
+                  {activeMegaMenu === item && megaMenuContent[item as keyof typeof megaMenuContent] && (
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 bg-background border border-border rounded-lg shadow-2xl p-8 min-w-[900px] max-w-[1200px] z-50">
+                      <div className="grid grid-cols-3 gap-8 mb-8">
+                        {megaMenuContent[item as keyof typeof megaMenuContent].products.map((product) => (
+                          <div key={product.name} className="group cursor-pointer">
+                            <div className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105">
+                              <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
+                                <img 
+                                  src={product.image} 
+                                  alt={product.name}
+                                  className="w-full h-full object-contain"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                              <div className="p-4 text-center">
+                                <h3 className="text-sm font-medium text-card-foreground mb-3 leading-tight">
+                                  {product.name}
+                                </h3>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  className="w-full border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                                >
+                                  {product.action}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                         ))}
                       </div>
+                      
+                      {megaMenuContent[item as keyof typeof megaMenuContent].categories.length > 0 && (
+                        <div className="border-t border-border pt-6">
+                          <div className="flex flex-wrap gap-4 justify-center">
+                            {megaMenuContent[item as keyof typeof megaMenuContent].categories.map((category) => (
+                              <Button
+                                key={category}
+                                variant="outline"
+                                className="border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                              >
+                                {category}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
