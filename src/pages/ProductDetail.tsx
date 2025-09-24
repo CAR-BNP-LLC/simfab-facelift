@@ -239,7 +239,7 @@ const ProductDetail = () => {
           </div>
 
           {/* Product Info */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-6 max-h-screen overflow-y-auto pr-4">
             <div>
               <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
               <p className="text-4xl font-bold">

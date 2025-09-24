@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -59,16 +58,11 @@ const ProductAdditionalInfo = ({
   }
 
   return (
-    <div className="mt-16">
-      <Tabs defaultValue="description" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="description">Additional Information</TabsTrigger>
-          <TabsTrigger value="faq">FAQs</TabsTrigger>
-          <TabsTrigger value="manuals">Assembly Manuals</TabsTrigger>
-        </TabsList>
-
-        {/* Additional Descriptions */}
-        <TabsContent value="description" className="space-y-8">
+    <div className="mt-16 space-y-16">
+      {/* Additional Descriptions */}
+      {additionalDescriptions.length > 0 && (
+        <div className="space-y-8">
+          <h2 className="text-3xl font-bold text-primary">Additional Information</h2>
           {additionalDescriptions.map((desc, index) => {
             const key = `desc-${index}`;
             const currentIndex = currentImageIndex[key] || 0;
@@ -122,59 +116,59 @@ const ProductAdditionalInfo = ({
               </div>
             );
           })}
-        </TabsContent>
+        </div>
+      )}
 
-        {/* FAQs */}
-        <TabsContent value="faq">
-          <div className="space-y-4">
-            <h3 className="text-2xl font-bold text-primary">FAQs</h3>
-            <Accordion type="single" collapsible className="w-full">
-              {faqs.map((faq, index) => (
-                <AccordionItem key={index} value={`faq-${index}`}>
-                  <AccordionTrigger className="text-left hover:text-primary transition-colors">
-                    {faq.question}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">
-                    {faq.answer}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
-        </TabsContent>
+      {/* FAQs */}
+      {faqs.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold text-primary">FAQs</h2>
+          <Accordion type="single" collapsible className="w-full">
+            {faqs.map((faq, index) => (
+              <AccordionItem key={index} value={`faq-${index}`}>
+                <AccordionTrigger className="text-left hover:text-primary transition-colors">
+                  {faq.question}
+                </AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      )}
 
-        {/* Assembly Manuals */}
-        <TabsContent value="manuals">
-          <div className="space-y-6">
-            <h3 className="text-2xl font-bold text-primary">Assembly Manuals</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {assemblyManuals.map((manual, index) => (
-                <div key={index} className="bg-muted rounded-lg p-4 space-y-4">
-                  <div className="aspect-video bg-background rounded-lg overflow-hidden">
-                    <img
-                      src={manual.image}
-                      alt={manual.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <h4 className="font-semibold">{manual.name}</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => window.open(manual.fileUrl, '_blank')}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Manual
-                    </Button>
-                  </div>
+      {/* Assembly Manuals */}
+      {assemblyManuals.length > 0 && (
+        <div className="space-y-6">
+          <h2 className="text-3xl font-bold text-primary">Assembly Manuals</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {assemblyManuals.map((manual, index) => (
+              <div key={index} className="bg-muted rounded-lg p-4 space-y-4">
+                <div className="aspect-video bg-background rounded-lg overflow-hidden">
+                  <img
+                    src={manual.image}
+                    alt={manual.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-2">
+                  <h4 className="font-semibold">{manual.name}</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.open(manual.fileUrl, '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Manual
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
     </div>
   );
 };
