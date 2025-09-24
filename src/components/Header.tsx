@@ -197,7 +197,10 @@ const Header = () => {
                   onMouseEnter={() => setActiveMegaMenu(item)}
                   onMouseLeave={() => setActiveMegaMenu(null)}
                 >
-                  <button className="nav-link">
+                  <button 
+                    className="nav-link"
+                    onClick={() => item === 'FLIGHT SIM' ? window.location.href = '/flight-sim' : null}
+                  >
                     {item}
                   </button>
                   
@@ -314,7 +317,10 @@ const Header = () => {
               <div className="space-y-4">
                 {mainNavItems.map((item) => (
                   <div key={item} className="border-b border-border pb-2">
-                    <button className="text-card-foreground font-medium uppercase tracking-wider text-sm w-full text-left">
+                    <button 
+                      className="text-card-foreground font-medium uppercase tracking-wider text-sm w-full text-left"
+                      onClick={() => item === 'FLIGHT SIM' ? window.location.href = '/flight-sim' : null}
+                    >
                       {item}
                     </button>
                   </div>
