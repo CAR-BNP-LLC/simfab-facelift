@@ -2,11 +2,43 @@ import { useState } from 'react';
 import { Search, User, ShoppingCart, Menu, X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DebugPanel from './DebugPanel';
+import CartSidebar from './CartSidebar';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  // Mock cart data - in real app this would come from context/state management
+  const [cartItems, setCartItems] = useState([
+    {
+      id: '1',
+      name: 'Sim Racing & Flight Simulation Cockpit Four Point Harness - Blue',
+      price: 79.99,
+      quantity: 1,
+      image: '/src/assets/sim-racing-cockpit.jpg',
+      color: 'Blue'
+    }
+  ]);
+
+  const updateCartQuantity = (id: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeCartItem(id);
+      return;
+    }
+    setCartItems(items => 
+      items.map(item => 
+        item.id === id ? { ...item, quantity } : item
+      )
+    );
+  };
+
+  const removeCartItem = (id: string) => {
+    setCartItems(items => items.filter(item => item.id !== id));
+  };
+
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const megaMenuContent = {
     'FLIGHT SIM': {
@@ -236,11 +268,16 @@ const Header = () => {
               >
                 <User className="w-5 h-5" />
               </button>
-              <button className="text-foreground hover:text-primary transition-colors relative">
+              <button 
+                className="text-foreground hover:text-primary transition-colors relative"
+                onClick={() => setIsCartOpen(true)}
+              >
                 <ShoppingCart className="w-5 h-5" />
-                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  0
-                </span>
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                    {cartItemCount}
+                  </span>
+                )}
               </button>
               
               {/* Debug Button */}
@@ -314,6 +351,15 @@ const Header = () => {
           </div>
         </div>
       )}
+
+      {/* Cart Sidebar */}
+      <CartSidebar 
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cartItems}
+        onUpdateQuantity={updateCartQuantity}
+        onRemoveItem={removeCartItem}
+      />
     </header>
   );
 };
