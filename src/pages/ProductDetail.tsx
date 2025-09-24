@@ -288,6 +288,26 @@ const ProductDetail = () => {
             </div>
 
 
+            {/* Product Configuration */}
+            <div className="space-y-6">
+              <ProductVariations
+                modelVariations={product.modelVariations}
+                dropdownVariations={product.dropdownVariations}
+                selectedModelVariation={selectedModelVariation}
+                selectedDropdownVariations={selectedDropdownVariations}
+                onModelVariationChange={setSelectedModelVariation}
+                onDropdownVariationChange={handleDropdownVariationChange}
+              />
+              
+              <ProductAddons
+                addons={product.addons}
+                selectedAddons={selectedAddons}
+                selectedAddonOptions={selectedAddonOptions}
+                onAddonToggle={handleAddonToggle}
+                onAddonOptionChange={handleAddonOptionChange}
+              />
+            </div>
+
             {/* Stock Status */}
             <div className="text-green-400 font-medium">In stock</div>
 
@@ -327,26 +347,6 @@ const ProductDetail = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Product Configuration */}
-        <div className="mt-16 space-y-12">
-          <ProductVariations
-            modelVariations={product.modelVariations}
-            dropdownVariations={product.dropdownVariations}
-            selectedModelVariation={selectedModelVariation}
-            selectedDropdownVariations={selectedDropdownVariations}
-            onModelVariationChange={setSelectedModelVariation}
-            onDropdownVariationChange={handleDropdownVariationChange}
-          />
-          
-          <ProductAddons
-            addons={product.addons}
-            selectedAddons={selectedAddons}
-            selectedAddonOptions={selectedAddonOptions}
-            onAddonToggle={handleAddonToggle}
-            onAddonOptionChange={handleAddonOptionChange}
-          />
         </div>
 
         {/* Additional Information */}
