@@ -239,7 +239,23 @@ const ProductDetail = () => {
           </div>
 
           {/* Product Info */}
-          <div className="lg:col-span-4 space-y-6 max-h-screen overflow-y-auto pr-4">
+          <div 
+            className="lg:col-span-4 space-y-6 max-h-screen overflow-y-auto pr-4 sticky top-0"
+            onWheel={(e) => {
+              const element = e.currentTarget;
+              const { scrollTop, scrollHeight, clientHeight } = element;
+              const atTop = scrollTop === 0;
+              const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+              
+              if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
+                // Allow page scroll when at top/bottom of sidebar
+                return;
+              } else {
+                // Prevent page scroll when sidebar is scrolling
+                e.stopPropagation();
+              }
+            }}
+          >
             <div>
               <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
               <p className="text-4xl font-bold">

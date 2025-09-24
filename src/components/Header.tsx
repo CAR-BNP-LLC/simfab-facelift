@@ -230,7 +230,10 @@ const Header = () => {
               <button className="text-foreground hover:text-primary transition-colors">
                 <Search className="w-5 h-5" />
               </button>
-              <button className="text-foreground hover:text-primary transition-colors">
+              <button 
+                className="text-foreground hover:text-primary transition-colors"
+                onClick={() => window.location.href = '/login'}
+              >
                 <User className="w-5 h-5" />
               </button>
               <button className="text-foreground hover:text-primary transition-colors relative">
