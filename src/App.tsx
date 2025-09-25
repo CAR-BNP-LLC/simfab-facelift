@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
 import FlightSim from "./pages/FlightSim";
+import SimRacing from "./pages/SimRacing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Cart from "./pages/Cart";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/shop" element={<Shop />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/flight-sim" element={<FlightSim />} />
+          <Route path="/sim-racing" element={<SimRacing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/cart" element={<Cart />} />

@@ -199,7 +199,10 @@ const Header = () => {
                 >
                   <button 
                     className="nav-link"
-                    onClick={() => item === 'FLIGHT SIM' ? window.location.href = '/flight-sim' : null}
+                    onClick={() => {
+                      if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
+                      if (item === 'SIM RACING') window.location.href = '/sim-racing';
+                    }}
                   >
                     {item}
                   </button>
@@ -319,7 +322,10 @@ const Header = () => {
                   <div key={item} className="border-b border-border pb-2">
                     <button 
                       className="text-card-foreground font-medium uppercase tracking-wider text-sm w-full text-left"
-                      onClick={() => item === 'FLIGHT SIM' ? window.location.href = '/flight-sim' : null}
+                      onClick={() => {
+                        if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
+                        if (item === 'SIM RACING') window.location.href = '/sim-racing';
+                      }}
                     >
                       {item}
                     </button>
