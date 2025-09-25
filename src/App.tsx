@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import MonitorStands from "./pages/MonitorStands";
 import NotFound from "./pages/NotFound";
 import CookieNotice from "./components/CookieNotice";
 
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/register" element={<Register />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
+          <Route path="/monitor-stands" element={<MonitorStands />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

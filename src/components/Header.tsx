@@ -202,6 +202,7 @@ const Header = () => {
                     onClick={() => {
                       if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
                       if (item === 'SIM RACING') window.location.href = '/sim-racing';
+                      if (item === 'MONITOR STANDS') window.location.href = '/monitor-stands';
                     }}
                   >
                     {item}
@@ -325,6 +326,7 @@ const Header = () => {
                       onClick={() => {
                         if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
                         if (item === 'SIM RACING') window.location.href = '/sim-racing';
+                        if (item === 'MONITOR STANDS') window.location.href = '/monitor-stands';
                       }}
                     >
                       {item}
