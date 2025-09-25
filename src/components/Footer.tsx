@@ -48,16 +48,51 @@ const Footer = () => {
               Quick Links
             </h4>
             <ul className="space-y-2">
-              {quickLinks.map((link, index) => (
-                <li key={index}>
-                  <a 
-                    href="#" 
-                    className="text-foreground/70 hover:text-primary transition-colors text-sm"
-                  >
-                    {link}
-                  </a>
-                </li>
-              ))}
+              <li>
+                <a href="/services" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Services
+                </a>
+              </li>
+              <li>
+                <a href="/assembly-manuals" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Assembly Manuals
+                </a>
+              </li>
+              <li>
+                <a href="/compatible-brands" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Compatible Brands
+                </a>
+              </li>
+              <li>
+                <a href="/gallery" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Gallery
+                </a>
+              </li>
+              <li>
+                <a href="/blog" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Blog
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Bundles
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  FlightSimExpo 2023
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  FlightSimExpo 2024
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  CES 2024
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -67,16 +102,41 @@ const Footer = () => {
               Useful Links
             </h4>
             <ul className="space-y-2">
-              {usefulLinks.map((link, index) => (
-                <li key={index}>
-                  <a 
-                    href="#" 
-                    className="text-foreground/70 hover:text-primary transition-colors text-sm"
-                  >
-                    {link}
-                  </a>
-                </li>
-              ))}
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  IP
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Cookie Policy (EU)
+                </a>
+              </li>
+              <li>
+                <a href="/terms-conditions" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Terms & Conditions
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Backorders Terms
+                </a>
+              </li>
+              <li>
+                <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  International Shipping
+                </a>
+              </li>
+              <li>
+                <a href="/privacy-policy" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  Privacy
+                </a>
+              </li>
+              <li>
+                <a href="/faq" className="text-foreground/70 hover:text-primary transition-colors text-sm">
+                  FAQs
+                </a>
+              </li>
             </ul>
           </div>
 

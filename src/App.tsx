@@ -13,6 +13,14 @@ import Register from "./pages/Register";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import MonitorStands from "./pages/MonitorStands";
+import Services from "./pages/Services";
+import AssemblyManuals from "./pages/AssemblyManuals";
+import CompatibleBrands from "./pages/CompatibleBrands";
+import Gallery from "./pages/Gallery";
+import Blog from "./pages/Blog";
+import TermsConditions from "./pages/TermsConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import CookieNotice from "./components/CookieNotice";
 
@@ -35,6 +43,14 @@ const App = () => (
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/monitor-stands" element={<MonitorStands />} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/assembly-manuals" element={<AssemblyManuals />} />
+          <Route path="/compatible-brands" element={<CompatibleBrands />} />
+          <Route path="/gallery" element={<Gallery />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/terms-conditions" element={<TermsConditions />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/faq" element={<FAQ />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
