@@ -4,26 +4,8 @@ import { Button } from '@/components/ui/button';
 import flightSimImage from '@/assets/flight-sim-cockpit.jpg';
 import heroCockpitImage from '@/assets/hero-cockpit.jpg';
 import trainerStationImage from '@/assets/trainer-station.jpg';
-import cockpitDiagram from '@/assets/cockpit-diagram.png';
-import { useState } from 'react';
 
 const FlightSim = () => {
-  const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
-
-  const interactivePoints = [
-    { id: 'flight-sim-12', name: 'Flight Sim #12', x: '58%', y: '15%', description: 'Advanced multi-function display system' },
-    { id: 'flight-sim-4', name: 'Flight Sim #4', x: '52%', y: '35%', description: 'Primary flight display module' },
-    { id: 'flight-sim-6-7', name: 'Flight Sim #6 & #7', x: '60%', y: '45%', description: 'Dual engine control modules' },
-    { id: 'seat', name: 'Seat', x: '50%', y: '50%', description: 'Ergonomic pilot seat with adjustable positioning' },
-    { id: 'flight-sim-10', name: 'Flight Sim #10', x: '35%', y: '55%', description: 'Navigation and communication panel' },
-    { id: 'flight-sim-11', name: 'Flight Sim #11', x: '50%', y: '75%', description: 'Landing gear and flaps control' },
-    { id: 'ez-rolling-wheels', name: 'EZ rolling wheels', x: '50%', y: '88%', description: 'Smooth mobility system' },
-    { id: 'keyboard-mouse', name: 'Keyboard & Mouse or Laptop Tray kit', x: '75%', y: '35%', description: 'Integrated workspace solution' },
-    { id: 'flight-sim-2', name: 'Flight Sim #2', x: '80%', y: '45%', description: 'Secondary control interface' },
-    { id: 'arm-rest', name: 'Arm rest kit', x: '72%', y: '58%', description: 'Comfortable arm support system' },
-    { id: 'shaker-bracket', name: 'Universal shaker bracket', x: '85%', y: '88%', description: 'Enhanced immersion vibration system' }
-  ];
-
   const baseModels = [
     {
       name: 'DCS Flight Sim Modular Cockpit',
@@ -60,69 +42,6 @@ const FlightSim = () => {
       <Header />
       
       <main>
-        {/* Interactive Cockpit Diagram */}
-        <section className="relative bg-background py-20">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h1 className="heading-xl text-accent-underline mb-6">
-                FLIGHT SIM
-              </h1>
-              <p className="text-lg text-foreground/80 mb-8 max-w-3xl mx-auto">
-                Modular flight simulation cockpits with high levels of fidelity, realism and immersion
-              </p>
-            </div>
-            
-            <div className="relative max-w-6xl mx-auto">
-              <img 
-                src={cockpitDiagram}
-                alt="Interactive flight simulator cockpit diagram"
-                className="w-full h-auto"
-              />
-              
-              {/* Interactive Points */}
-              {interactivePoints.map((point) => (
-                <button
-                  key={point.id}
-                  className="absolute w-6 h-6 bg-primary rounded-full border-2 border-background shadow-lg hover:scale-125 transition-all duration-200 animate-pulse hover:animate-none"
-                  style={{ left: point.x, top: point.y, transform: 'translate(-50%, -50%)' }}
-                  onMouseEnter={() => setSelectedPoint(point.id)}
-                  onMouseLeave={() => setSelectedPoint(null)}
-                >
-                  <span className="sr-only">{point.name}</span>
-                </button>
-              ))}
-              
-              {/* Tooltip */}
-              {selectedPoint && (
-                <div className="absolute z-10 bg-card border border-border rounded-lg p-4 shadow-lg max-w-xs">
-                  {(() => {
-                    const point = interactivePoints.find(p => p.id === selectedPoint);
-                    if (!point) return null;
-                    return (
-                      <>
-                        <h3 className="font-semibold text-card-foreground mb-2">{point.name}</h3>
-                        <p className="text-sm text-foreground/70">{point.description}</p>
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-            
-            <div className="text-center mt-12">
-              <p className="text-foreground/60 text-sm mb-4">
-                Hover over the points to explore different components
-              </p>
-              <div className="bg-card rounded-lg p-6 max-w-md mx-auto">
-                <h3 className="font-semibold text-card-foreground mb-2">Universal shaker bracket</h3>
-                <p className="text-sm text-foreground/70 mb-4">
-                  Add a shaker to your pit for enhanced immersion.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Hero Section */}
         <section className="relative bg-card py-20 overflow-hidden">
           <div className="container mx-auto px-4">
