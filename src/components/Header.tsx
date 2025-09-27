@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, User, ShoppingCart, Menu, X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DebugPanel from './DebugPanel';
@@ -9,6 +9,7 @@ const Header = () => {
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<'left' | 'center' | 'right'>('center');
 
   // Mock cart data - in real app this would come from context/state management
   const [cartItems, setCartItems] = useState([
@@ -39,6 +40,26 @@ const Header = () => {
   };
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Function to calculate optimal menu position
+  const calculateMenuPosition = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const menuWidth = 1200; // max-w-[1200px] from the menu
+    const menuHalfWidth = menuWidth / 2;
+    
+    // Calculate if menu would extend beyond right edge
+    const rightEdge = rect.left + rect.width / 2 + menuHalfWidth;
+    const leftEdge = rect.left + rect.width / 2 - menuHalfWidth;
+    
+    if (rightEdge > viewportWidth - 20) { // 20px margin from edge
+      setMenuPosition('right');
+    } else if (leftEdge < 20) { // 20px margin from edge
+      setMenuPosition('left');
+    } else {
+      setMenuPosition('center');
+    }
+  };
 
   const megaMenuContent = {
     'FLIGHT SIM': {
@@ -170,6 +191,19 @@ const Header = () => {
 
   const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED STOCK', 'SERVICES'];
 
+  // Handle window resize to recalculate menu position
+  useEffect(() => {
+    const handleResize = () => {
+      if (activeMegaMenu) {
+        // Reset to center position on resize, will be recalculated on next hover
+        setMenuPosition('center');
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeMegaMenu]);
+
   return (
     <header className="relative">
       {/* Utility Bar */}
@@ -194,8 +228,22 @@ const Header = () => {
                 <div
                   key={item}
                   className="relative"
-                  onMouseEnter={() => setActiveMegaMenu(item)}
-                  onMouseLeave={() => setActiveMegaMenu(null)}
+                  onMouseEnter={(e) => {
+                    calculateMenuPosition(e);
+                    setActiveMegaMenu(item);
+                  }}
+                  onMouseLeave={(e) => {
+                    // Only hide menu if mouse is leaving the entire navigation area
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const mouseY = e.clientY;
+                    const mouseX = e.clientX;
+                    
+                    // Check if mouse is still within the navigation item bounds or moving to menu
+                    if (mouseY < rect.bottom + 10 && mouseX >= rect.left && mouseX <= rect.right) {
+                      return; // Don't hide menu
+                    }
+                    setActiveMegaMenu(null);
+                  }}
                 >
                   <button 
                     className="nav-link"
@@ -210,7 +258,15 @@ const Header = () => {
                   
                   {/* Mega Menu */}
                   {activeMegaMenu === item && megaMenuContent[item as keyof typeof megaMenuContent] && (
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 bg-background border border-border rounded-lg shadow-2xl p-8 min-w-[900px] max-w-[1200px] z-50">
+                    <div 
+                      className={`absolute top-full mt-2 bg-background border border-border rounded-lg shadow-2xl p-8 min-w-[900px] max-w-[1200px] z-50 ${
+                        menuPosition === 'left' ? 'left-0' : 
+                        menuPosition === 'right' ? 'right-0' : 
+                        'left-1/2 transform -translate-x-1/2'
+                      }`}
+                      onMouseEnter={() => setActiveMegaMenu(item)}
+                      onMouseLeave={() => setActiveMegaMenu(null)}
+                    >
                       <div className="grid grid-cols-3 gap-8 mb-8">
                         {megaMenuContent[item as keyof typeof megaMenuContent].products.map((product) => (
                           <div key={product.name} className="group cursor-pointer">
