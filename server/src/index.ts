@@ -119,14 +119,15 @@ app.use('*', (req, res) => {
 });
 
 // Start server
-const HOST = process.env.NODE_ENV === 'production' ? '0.0.0.0' : 'localhost';
+// Always bind to 0.0.0.0 in Docker to be accessible from outside the container
+const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Server is running on ${HOST}:${PORT}`);
-  console.log(`📊 Health check: http://${HOST}:${PORT}/health`);
-  console.log(`📦 Products API: http://${HOST}:${PORT}/api/products`);
-  console.log(`📤 Upload endpoint: http://${HOST}:${PORT}/api/products/upload`);
-  console.log(`🔐 Auth endpoints: http://${HOST}:${PORT}/api/auth/*`);
-  console.log(`📧 Newsletter: http://${HOST}:${PORT}/api/auth/newsletter/*`);
+  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`📦 Products API: http://localhost:${PORT}/api/products`);
+  console.log(`📤 Upload endpoint: http://localhost:${PORT}/api/products/upload`);
+  console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth/*`);
+  console.log(`📧 Newsletter: http://localhost:${PORT}/api/auth/newsletter/*`);
 });
 
 export default app;

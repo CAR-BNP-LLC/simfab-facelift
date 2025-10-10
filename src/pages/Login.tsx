@@ -1,17 +1,22 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
+  const navigate = useNavigate();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
-    password: ""
+    password: "",
+    rememberMe: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -22,12 +27,11 @@ const Login = () => {
     setError("");
 
     try {
-      // TODO: Implement actual login logic
-      console.log("Login attempt:", formData);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await login(formData.email, formData.password, formData.rememberMe);
+      // Redirect to home page on successful login
+      navigate('/');
     } catch (err) {
-      setError("Invalid email or password");
+      setError(err instanceof Error ? err.message : "Invalid email or password");
     } finally {
       setLoading(false);
     }
@@ -85,6 +89,22 @@ const Login = () => {
                     onChange={handleChange}
                     required
                   />
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rememberMe"
+                    checked={formData.rememberMe}
+                    onCheckedChange={(checked) => 
+                      setFormData(prev => ({ ...prev, rememberMe: checked as boolean }))
+                    }
+                  />
+                  <Label 
+                    htmlFor="rememberMe" 
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Remember me
+                  </Label>
                 </div>
                 
                 <Button 

@@ -6,7 +6,6 @@ export interface User {
   password: string;
   first_name: string;
   last_name: string;
-  is_active: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -23,9 +22,13 @@ export interface PasswordReset {
 export interface NewsletterSubscription {
   id?: number;
   email: string;
-  subscribed_at: string;
-  is_active: boolean;
+  verification_token?: string;
+  verified_at?: string;
+  status?: string;
+  source?: string;
+  preferences?: any;
   created_at?: string;
+  updated_at?: string;
 }
 
 class UserModel {
@@ -95,10 +98,10 @@ class UserModel {
   async createUser(user: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> {
     try {
       const result = await this.pool.query(`
-        INSERT INTO users (email, password, first_name, last_name, is_active)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO users (email, password, first_name, last_name)
+        VALUES ($1, $2, $3, $4)
         RETURNING *
-      `, [user.email, user.password, user.first_name, user.last_name, user.is_active]);
+      `, [user.email, user.password, user.first_name, user.last_name]);
       
       return result.rows[0];
     } catch (err) {
@@ -183,12 +186,12 @@ class UserModel {
   async subscribeToNewsletter(email: string, subscribedAt: string): Promise<NewsletterSubscription> {
     try {
       const result = await this.pool.query(`
-        INSERT INTO newsletter_subscriptions (email, subscribed_at, is_active)
-        VALUES ($1, $2, true)
+        INSERT INTO newsletter_subscriptions (email, status, source)
+        VALUES ($1, 'active', 'website')
         ON CONFLICT (email) 
-        DO UPDATE SET subscribed_at = $2, is_active = true
+        DO UPDATE SET status = 'active', updated_at = CURRENT_TIMESTAMP
         RETURNING *
-      `, [email, subscribedAt]);
+      `, [email]);
       
       return result.rows[0];
     } catch (err) {
@@ -201,7 +204,7 @@ class UserModel {
     try {
       await this.pool.query(`
         UPDATE newsletter_subscriptions 
-        SET is_active = false 
+        SET status = 'unsubscribed', updated_at = CURRENT_TIMESTAMP
         WHERE email = $1
       `, [email]);
     } catch (err) {

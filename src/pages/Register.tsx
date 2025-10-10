@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,12 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Register = () => {
+  const navigate = useNavigate();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
     subscribeNewsletter: false
   });
   const [loading, setLoading] = useState(false);
@@ -32,25 +38,19 @@ const Register = () => {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long with uppercase, lowercase, and numbers");
       setLoading(false);
       return;
     }
 
     try {
-      // TODO: Implement actual registration logic
-      console.log("Registration attempt:", {
-        email: formData.email,
-        password: formData.password,
-        subscribeNewsletter: formData.subscribeNewsletter
-      });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await register(formData);
       setSuccess("Account created successfully! Please check your email to verify your account.");
+      // Redirect to home after 2 seconds
+      setTimeout(() => navigate('/'), 2000);
     } catch (err) {
-      setError("Registration failed. Please try again.");
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -98,16 +98,56 @@ const Register = () => {
                   </Alert>
                 )}
                 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      placeholder="John"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      placeholder="Doe"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     name="email"
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder="john@example.com"
                     value={formData.email}
                     onChange={handleChange}
                     required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone (Optional)</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="+1-555-0123"
+                    value={formData.phone}
+                    onChange={handleChange}
                   />
                 </div>
                 
@@ -117,7 +157,7 @@ const Register = () => {
                     id="password"
                     name="password"
                     type="password"
-                    placeholder="Create a password (min. 6 characters)"
+                    placeholder="Min. 8 chars with uppercase, lowercase, and numbers"
                     value={formData.password}
                     onChange={handleChange}
                     required

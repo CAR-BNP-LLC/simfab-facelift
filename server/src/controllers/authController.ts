@@ -20,10 +20,29 @@ export class AuthController {
   // Register a new user
   static async register(req: Request, res: Response): Promise<void> {
     try {
-      const { email, password, first_name, last_name, subscribe_newsletter } = req.body;
+      // Accept both camelCase (from frontend) and snake_case (legacy)
+      const { 
+        email, 
+        password, 
+        confirmPassword,
+        firstName, 
+        lastName, 
+        phone,
+        company,
+        subscribeNewsletter,
+        // Legacy snake_case support
+        first_name, 
+        last_name, 
+        subscribe_newsletter 
+      } = req.body;
+
+      // Use camelCase or fallback to snake_case
+      const userFirstName = firstName || first_name;
+      const userLastName = lastName || last_name;
+      const subscribeToNewsletter = subscribeNewsletter !== undefined ? subscribeNewsletter : subscribe_newsletter;
 
       // Validate required fields
-      if (!email || !password || !first_name || !last_name) {
+      if (!email || !password || !userFirstName || !userLastName) {
         res.status(400).json({
           success: false,
           error: 'All fields are required'
@@ -68,13 +87,12 @@ export class AuthController {
       const newUser = await userModel.createUser({
         email,
         password: hashedPassword,
-        first_name,
-        last_name,
-        is_active: true
+        first_name: userFirstName,
+        last_name: userLastName
       });
 
       // Subscribe to newsletter if requested
-      if (subscribe_newsletter) {
+      if (subscribeToNewsletter) {
         const subscribedAt = new Date().toISOString();
         await userModel.subscribeToNewsletter(email, subscribedAt);
       }
@@ -87,11 +105,16 @@ export class AuthController {
         success: true,
         message: 'User registered successfully',
         data: {
-          id: newUser.id,
-          email: newUser.email,
-          first_name: newUser.first_name,
-          last_name: newUser.last_name,
-          newsletter_subscribed: subscribe_newsletter || false
+          user: {
+            id: newUser.id,
+            email: newUser.email,
+            firstName: newUser.first_name,
+            lastName: newUser.last_name,
+            role: 'customer',
+            emailVerified: false,
+            createdAt: newUser.created_at
+          },
+          verificationEmailSent: false
         }
       });
     } catch (error) {
@@ -126,15 +149,6 @@ export class AuthController {
         return;
       }
 
-      // Check if user is active
-      if (!user.is_active) {
-        res.status(401).json({
-          success: false,
-          error: 'Account is deactivated'
-        });
-        return;
-      }
-
       // Verify password
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
@@ -149,19 +163,22 @@ export class AuthController {
       req.session.userId = user.id;
       req.session.userEmail = user.email;
 
-      // Check newsletter subscription
-      const newsletterSubscription = await userModel.getNewsletterSubscription(email);
-
       res.json({
         success: true,
         message: 'Login successful',
         data: {
-          id: user.id,
-          email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          newsletter_subscribed: newsletterSubscription?.is_active || false,
-          newsletter_subscribed_at: newsletterSubscription?.subscribed_at || null
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: 'customer',
+            emailVerified: false,
+            lastLogin: new Date().toISOString()
+          },
+          session: {
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          }
         }
       });
     } catch (error) {
@@ -333,8 +350,8 @@ export class AuthController {
         message: 'Successfully subscribed to newsletter',
         data: {
           email: subscription.email,
-          subscribed_at: subscription.subscribed_at,
-          is_active: subscription.is_active
+          status: subscription.status,
+          created_at: subscription.created_at
         }
       });
     } catch (error) {
@@ -402,13 +419,20 @@ export class AuthController {
       res.json({
         success: true,
         data: {
-          id: user.id,
-          email: user.email,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          newsletter_subscribed: newsletterSubscription?.is_active || false,
-          newsletter_subscribed_at: newsletterSubscription?.subscribed_at || null,
-          created_at: user.created_at
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: 'customer',
+            emailVerified: false,
+            createdAt: user.created_at
+          },
+          addresses: [],
+          stats: {
+            totalOrders: 0,
+            totalSpent: 0
+          }
         }
       });
     } catch (error) {
