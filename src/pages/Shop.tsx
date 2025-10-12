@@ -1,94 +1,167 @@
-import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Loader2, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-
-// Sample product data matching the reference images
-const products = [
-  {
-    id: 1,
-    name: 'Flight Sim Modular Cockpit',
-    price: 599.00,
-    image: '/api/placeholder/300/200',
-    category: 'FLIGHT SIM'
-  },
-  {
-    id: 2,
-    name: 'Active Articulating Arm with Keyboard',
-    price: 199.00,
-    priceRange: '199.00 - 278.98',
-    image: '/api/placeholder/300/200',
-    category: 'All Accessories'
-  },
-  {
-    id: 3,
-    name: 'SimFab Single Monitor Mount Stand',
-    price: 219.00,
-    priceRange: '219.00 - 249.00',
-    image: '/api/placeholder/300/200',
-    category: 'MONITOR STANDS'
-  },
-  {
-    id: 4,
-    name: 'Flight Sim #11 Helicopter Collective',
-    price: 79.00,
-    image: '/api/placeholder/300/200',
-    category: 'FLIGHT SIM'
-  },
-  {
-    id: 5,
-    name: 'Flight Sim #12 MFD Holder Bracket Kit',
-    price: 199.00,
-    image: '/api/placeholder/300/200',
-    category: 'Flight Sim Add-On Modules'
-  },
-  {
-    id: 6,
-    name: 'Large Universal Flight Plate (Plate A)',
-    price: 29.99,
-    image: '/api/placeholder/300/200',
-    category: 'Flight Sim Add-On Modules'
-  },
-  {
-    id: 7,
-    name: 'Flight Sim #10A Left Or Right Vertical',
-    price: 129.00,
-    image: '/api/placeholder/300/200',
-    category: 'FLIGHT SIM'
-  },
-  {
-    id: 8,
-    name: 'SimFab 4-way coupler',
-    price: 24.99,
-    image: '/api/placeholder/300/200',
-    category: 'All Accessories'
-  }
-];
-
-const categories = [
-  'All',
-  'All Accessories',
-  'Conversion Kits',
-  'FLIGHT SIM',
-  'Flight Sim Add-On Modules',
-  'MONITOR STANDS',
-  'RACING & FLIGHT SEATS',
-  'SIM RACING'
-];
+import { productsAPI, Product } from '@/services/api';
+import { useToast } from '@/hooks/use-toast';
 
 const Shop = () => {
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const { toast } = useToast();
 
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Fetch products
+  useEffect(() => {
+    fetchProducts();
+  }, [selectedCategory, page]);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('Fetching products...', { page, selectedCategory, searchQuery });
+
+      const params: any = {
+        page,
+        limit: 20,
+      };
+
+      if (selectedCategory) {
+        params.category = selectedCategory;
+      }
+
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+
+      const response = await productsAPI.getAll(params);
+      console.log('Products response:', response);
+      
+      setProducts(response.data.products || []);
+      setTotalPages(response.data.pagination?.totalPages || 1);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load products';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      
+      // Set empty array so UI isn't stuck
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await productsAPI.getCategories();
+      setCategories(response.data);
+    } catch (err) {
+      console.error('Failed to load categories:', err);
+    }
+  };
+
+  const handleSearch = () => {
+    setPage(1); // Reset to first page
+    fetchProducts();
+  };
+
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setPage(1); // Reset to first page
+  };
+
+  const getProductPrice = (product: any) => {
+    try {
+      // Handle both nested and flat price structures
+      if (product.price && typeof product.price === 'object') {
+        // New API structure
+        if (product.price.min !== undefined && product.price.max !== undefined && product.price.min !== product.price.max) {
+          return `$${product.price.min.toFixed(2)} - $${product.price.max.toFixed(2)}`;
+        }
+        if (product.price.regular) {
+          return `$${product.price.regular.toFixed(2)}`;
+        }
+        if (product.price.min) {
+          return `$${product.price.min.toFixed(2)}`;
+        }
+      }
+      
+      // Database structure (flat fields)
+      if (product.price_min !== undefined && product.price_max !== undefined && product.price_min !== product.price_max) {
+        return `$${product.price_min.toFixed(2)} - $${product.price_max.toFixed(2)}`;
+      }
+      if (product.regular_price !== undefined && product.regular_price !== null) {
+        return `$${product.regular_price.toFixed(2)}`;
+      }
+      if (product.sale_price !== undefined && product.sale_price !== null) {
+        return `$${product.sale_price.toFixed(2)}`;
+      }
+      
+      return 'Price TBD';
+    } catch (error) {
+      console.error('Error getting product price:', error, product);
+      return 'Price TBD';
+    }
+  };
+
+  const getProductImage = (product: any) => {
+    try {
+      // Handle array of images
+      if (Array.isArray(product.images) && product.images.length > 0) {
+        const primaryImage = product.images.find((img: any) => img.isPrimary || img.is_primary) || product.images[0];
+        return primaryImage.url || primaryImage.image_url || '/api/placeholder/300/200';
+      }
+      
+      // Handle single image string
+      if (typeof product.images === 'string' && product.images) {
+        return product.images;
+      }
+      
+      return '/api/placeholder/300/200';
+    } catch (error) {
+      console.error('Error getting product image:', error, product);
+      return '/api/placeholder/300/200';
+    }
+  };
+
+  const isProductInStock = (product: any) => {
+    try {
+      // Handle both structures
+      if (product.stock !== undefined) {
+        return product.stock > 0;
+      }
+      if (product.stock_quantity !== undefined) {
+        return product.stock_quantity > 0;
+      }
+      if (product.in_stock === '1' || product.in_stock === true) {
+        return true;
+      }
+      return true; // Default to in stock
+    } catch (error) {
+      return true;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -104,31 +177,53 @@ const Shop = () => {
           
           {/* Search Bar */}
           <div className="relative w-80">
-            <Search className="absolute left-3 top-1/2 transform -y-1/2 text-muted-foreground h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search..."
+              placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               className="pl-10 bg-card border-border"
             />
+            <Button
+              onClick={handleSearch}
+              size="sm"
+              className="absolute right-1 top-1/2 transform -translate-y-1/2"
+              disabled={loading}
+            >
+              Search
+            </Button>
           </div>
         </div>
 
         {/* Category Navigation */}
         <div className="mb-12">
           <nav className="flex flex-wrap gap-8">
+            <button
+              onClick={() => handleCategoryChange('')}
+              className={`text-sm font-medium pb-2 transition-colors relative ${
+                selectedCategory === ''
+                  ? 'text-destructive'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              All
+              {selectedCategory === '' && (
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-destructive"></div>
+              )}
+            </button>
             {categories.map((category) => (
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                key={category.id}
+                onClick={() => handleCategoryChange(category.id)}
                 className={`text-sm font-medium pb-2 transition-colors relative ${
-                  selectedCategory === category
+                  selectedCategory === category.id
                     ? 'text-destructive'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {category}
-                {selectedCategory === category && (
+                {category.name}
+                {selectedCategory === category.id && (
                   <div className="absolute bottom-0 left-0 w-full h-0.5 bg-destructive"></div>
                 )}
               </button>
@@ -136,58 +231,118 @@ const Shop = () => {
           </nav>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-12 w-12 animate-spin text-destructive mb-4" />
+            <p className="text-muted-foreground">Loading products...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+            <p className="text-destructive text-lg font-medium mb-2">Error loading products</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={fetchProducts} variant="outline">
+              Try Again
+            </Button>
+          </div>
+        )}
+
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredProducts.map((product) => (
-            <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group">
-              <CardContent className="p-0">
-                {/* Product Image */}
-                <div className="aspect-square bg-muted rounded-t-lg overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                
-                {/* Product Info */}
-                <div className="p-4">
-                  <h3 className="text-sm font-medium text-foreground mb-3 line-clamp-2 min-h-[2.5rem]">
-                    {product.name}
-                  </h3>
-                  
-                  {/* Price */}
-                  <div className="mb-4">
-                    {product.priceRange ? (
-                      <span className="text-lg font-bold text-foreground">
-                        ${product.priceRange}
-                      </span>
-                    ) : (
-                      <span className="text-lg font-bold text-foreground">
-                        ${product.price.toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Buy Now Button */}
-                  <Link to={`/product/${product.id}`}>
-                    <Button 
-                      variant="outline" 
-                      className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
-                    >
-                      BUY NOW
-                    </Button>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {!loading && !error && products.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {products.map((product) => (
+                <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group">
+                  <CardContent className="p-0">
+                    {/* Product Image */}
+                    <div className="aspect-square bg-muted rounded-t-lg overflow-hidden">
+                      <img
+                        src={getProductImage(product)}
+                        alt={product.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    </div>
+                    
+                    {/* Product Info */}
+                    <div className="p-4">
+                      <h3 className="text-sm font-medium text-foreground mb-3 line-clamp-2 min-h-[2.5rem]">
+                        {product.name}
+                      </h3>
+                      
+                      {/* Price */}
+                      <div className="mb-4">
+                        <span className="text-lg font-bold text-foreground">
+                          {getProductPrice(product)}
+                        </span>
+                      </div>
+                      
+                      {/* Stock Status */}
+                      {!isProductInStock(product) && (
+                        <p className="text-sm text-destructive mb-2">Out of Stock</p>
+                      )}
+                      
+                      {/* Buy Now Button */}
+                      <Link to={`/product/${product.slug}`}>
+                        <Button 
+                          variant="outline" 
+                          className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                          disabled={!isProductInStock(product)}
+                        >
+                          {!isProductInStock(product) ? 'OUT OF STOCK' : 'BUY NOW'}
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-12">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <span className="px-4 py-2 text-sm text-muted-foreground">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
+        )}
 
         {/* No Results */}
-        {filteredProducts.length === 0 && (
+        {!loading && !error && products.length === 0 && (
           <div className="text-center py-20">
             <p className="text-muted-foreground text-lg">No products found matching your criteria.</p>
+            {(selectedCategory || searchQuery) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedCategory('');
+                  setSearchQuery('');
+                  setPage(1);
+                }}
+                className="mt-4"
+              >
+                Clear Filters
+              </Button>
+            )}
           </div>
         )}
       </main>

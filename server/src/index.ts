@@ -1,9 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import fs from 'fs';
-import productsRouter from './routes/products';
+import path from 'path';
 import authRouter from './routes/auth';
+import { createProductRoutes } from './routes/products';
+import { createAdminProductRoutes } from './routes/admin/products';
+import { createCartRoutes } from './routes/cart';
+import { createOrderRoutes } from './routes/orders';
+import { pool } from './config/database';
+import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -38,17 +43,24 @@ app.use(session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
-  saveUninitialized: false,
+  saveUninitialized: true, // Changed to true for anonymous cart sessions
   cookie: {
     secure: false, // Set to true in production with HTTPS
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for cart persistence
+    sameSite: 'lax' // Allow cookies in cross-site requests
   }
 }));
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Routes
-app.use('/api/products', productsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/products', createProductRoutes(pool));
+app.use('/api/cart', createCartRoutes(pool));
+app.use('/api/orders', createOrderRoutes(pool));
+app.use('/api/admin/products', createAdminProductRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -86,37 +98,20 @@ app.get('/', (req, res) => {
   });
 });
 
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
-  
-  if (err.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({
-      success: false,
-      error: 'File too large. Maximum size is 10MB.'
-    });
-  }
-  
-  if (err.message === 'Only CSV files are allowed') {
-    return res.status(400).json({
-      success: false,
-      error: 'Only CSV files are allowed'
-    });
-  }
-  
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error'
-  });
-});
-
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    error: 'Endpoint not found'
+    error: {
+      code: 'NOT_FOUND',
+      message: 'Endpoint not found',
+      path: req.originalUrl
+    }
   });
 });
+
+// Error handling middleware (must be last)
+app.use(errorHandler);
 
 // Start server
 // Always bind to 0.0.0.0 in Docker to be accessible from outside the container
@@ -124,10 +119,12 @@ const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
   console.log(`🚀 Server is running on ${HOST}:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`📦 Products API: http://localhost:${PORT}/api/products`);
-  console.log(`📤 Upload endpoint: http://localhost:${PORT}/api/products/upload`);
-  console.log(`🔐 Auth endpoints: http://localhost:${PORT}/api/auth/*`);
-  console.log(`📧 Newsletter: http://localhost:${PORT}/api/auth/newsletter/*`);
+  console.log(`\n📦 Public API:`);
+  console.log(`   Products: http://localhost:${PORT}/api/products`);
+  console.log(`   Auth: http://localhost:${PORT}/api/auth`);
+  console.log(`\n🔐 Admin API:`);
+  console.log(`   Products: http://localhost:${PORT}/api/admin/products`);
+  console.log(`\n📁 Static files: http://localhost:${PORT}/uploads`);
 });
 
 export default app;

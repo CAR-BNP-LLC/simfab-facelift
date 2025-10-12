@@ -1,200 +1,131 @@
-import { Router, Request, Response } from 'express';
-import multer from 'multer';
-import { database } from '../database';
-import { parseCSV, validateCSVProduct, convertCSVToProduct } from '../csvParser';
+/**
+ * Public Product Routes
+ * Routes for public product endpoints
+ */
 
-const router = Router();
+import { Router } from 'express';
+import { Pool } from 'pg';
+import { ProductController } from '../controllers/productController';
+import {
+  validateRequest,
+  validateQuery,
+  productQuerySchema,
+  searchQuerySchema,
+  calculatePriceSchema
+} from '../validators/product';
+import { apiRateLimiter } from '../middleware/rateLimiter';
 
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only CSV files are allowed'));
-    }
-  }
-});
+export const createProductRoutes = (pool: Pool): Router => {
+  const router = Router();
+  const controller = new ProductController(pool);
 
-// GET /products - Get all products
-router.get('/', async (req: Request, res: Response) => {
-  try {
-    const products = await database.getAllProducts();
-    res.json({
-      success: true,
-      data: products,
-      count: products.length
-    });
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch products'
-    });
-  }
-});
+  // Apply rate limiting to all product routes
+  router.use(apiRateLimiter);
 
-// GET /products/:id - Get product by ID
-router.get('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    
-    if (isNaN(id)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid product ID'
-      });
-    }
+  /**
+   * @route   GET /api/products
+   * @desc    List products with filters and pagination
+   * @access  Public
+   */
+  router.get(
+    '/',
+    validateQuery(productQuerySchema),
+    controller.listProducts
+  );
 
-    const product = await database.getProductById(id);
-    
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        error: 'Product not found'
-      });
-    }
+  /**
+   * @route   GET /api/products/featured
+   * @desc    Get featured products
+   * @access  Public
+   */
+  router.get(
+    '/featured',
+    controller.getFeaturedProducts
+  );
 
-    res.json({
-      success: true,
-      data: product
-    });
-  } catch (error) {
-    console.error('Error fetching product:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch product'
-    });
-  }
-});
+  /**
+   * @route   GET /api/products/categories
+   * @desc    Get product categories
+   * @access  Public
+   */
+  router.get(
+    '/categories',
+    controller.getCategories
+  );
 
-// POST /products - Create a new product
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const productData = req.body;
-    
-    // Validate required fields
-    if (!productData.sku || !productData.name) {
-      return res.status(400).json({
-        success: false,
-        error: 'SKU and name are required'
-      });
-    }
+  /**
+   * @route   GET /api/products/search
+   * @desc    Search products
+   * @access  Public
+   */
+  router.get(
+    '/search',
+    validateQuery(searchQuerySchema),
+    controller.searchProducts
+  );
 
-    // Insert the product
-    await database.insertProduct(productData);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully',
-      data: productData
-    });
-  } catch (error) {
-    console.error('Error creating product:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create product'
-    });
-  }
-});
+  /**
+   * @route   GET /api/products/categories/:slug
+   * @desc    Get products by category
+   * @access  Public
+   */
+  router.get(
+    '/categories/:slug',
+    validateQuery(productQuerySchema),
+    controller.getProductsByCategory
+  );
 
-// POST /products/upload - Upload products from CSV
-router.post('/upload', upload.single('csv'), async (req: Request, res: Response) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        error: 'No CSV file provided'
-      });
-    }
+  /**
+   * @route   GET /api/products/slug/:slug
+   * @desc    Get product by slug
+   * @access  Public
+   */
+  router.get(
+    '/slug/:slug',
+    controller.getProductBySlug
+  );
 
-    // Convert buffer to string
-    const csvData = req.file.buffer.toString('utf-8');
-    
-    if (!csvData.trim()) {
-      return res.status(400).json({
-        success: false,
-        error: 'CSV file is empty'
-      });
-    }
+  /**
+   * @route   GET /api/products/:id
+   * @desc    Get product by ID
+   * @access  Public
+   */
+  router.get(
+    '/:id',
+    controller.getProduct
+  );
 
-    // Parse CSV data
-    const csvProducts = await parseCSV(csvData);
-    
-    if (csvProducts.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid products found in CSV'
-      });
-    }
+  /**
+   * @route   POST /api/products/:id/calculate-price
+   * @desc    Calculate price for configured product
+   * @access  Public
+   */
+  router.post(
+    '/:id/calculate-price',
+    validateRequest(calculatePriceSchema),
+    controller.calculatePrice
+  );
 
-    // Validate and convert products
-    const validProducts: any[] = [];
-    const errors: string[] = [];
+  /**
+   * @route   GET /api/products/:id/price-range
+   * @desc    Get price range for product
+   * @access  Public
+   */
+  router.get(
+    '/:id/price-range',
+    controller.getPriceRange
+  );
 
-    for (let i = 0; i < csvProducts.length; i++) {
-      const csvProduct = csvProducts[i];
-      const validation = validateCSVProduct(csvProduct);
-      
-      if (validation.isValid) {
-        try {
-          const product = convertCSVToProduct(csvProduct);
-          validProducts.push(product);
-        } catch (error) {
-          errors.push(`Row ${i + 1}: Error converting product data`);
-        }
-      } else {
-        errors.push(`Row ${i + 1}: ${validation.errors.join(', ')}`);
-      }
-    }
+  /**
+   * @route   POST /api/products/:id/validate-configuration
+   * @desc    Validate product configuration
+   * @access  Public
+   */
+  router.post(
+    '/:id/validate-configuration',
+    validateRequest(calculatePriceSchema),
+    controller.validateConfiguration
+  );
 
-    if (validProducts.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid products to upload',
-        details: errors
-      });
-    }
-
-    // Drop existing products table and recreate
-    await database.dropProductsTable();
-
-    // Insert new products
-    let successCount = 0;
-    let insertErrors: string[] = [];
-
-    for (let i = 0; i < validProducts.length; i++) {
-      try {
-        await database.insertProduct(validProducts[i]);
-        successCount++;
-      } catch (error) {
-        insertErrors.push(`Row ${i + 1}: Failed to insert product - ${error}`);
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Successfully uploaded ${successCount} products`,
-      data: {
-        totalProcessed: csvProducts.length,
-        validProducts: validProducts.length,
-        successfullyInserted: successCount,
-        validationErrors: errors,
-        insertErrors: insertErrors
-      }
-    });
-
-  } catch (error) {
-    console.error('Error uploading products:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to upload products'
-    });
-  }
-});
-
-export default router;
+  return router;
+};

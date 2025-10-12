@@ -5,12 +5,17 @@ import { Request, Response } from 'express';
  * Rate limiter error handler
  */
 const rateLimitHandler = (req: Request, res: Response) => {
+  const rateLimitInfo = (req as any).rateLimit;
+  const retryAfter = rateLimitInfo?.resetTime 
+    ? Math.ceil((rateLimitInfo.resetTime.getTime() - Date.now()) / 1000) 
+    : 60;
+
   res.status(429).json({
     success: false,
     error: {
       code: 'RATE_LIMIT_EXCEEDED',
       message: 'Too many requests, please try again later',
-      retryAfter: req.rateLimit?.resetTime ? Math.ceil((req.rateLimit.resetTime.getTime() - Date.now()) / 1000) : 60,
+      retryAfter,
       timestamp: new Date().toISOString()
     }
   });
@@ -137,4 +142,7 @@ export const createRateLimiter = (options: {
   });
 };
 
+// Aliases for consistency with route imports
+export const apiRateLimiter = generalLimiter;
+export const adminRateLimiter = adminLimiter;
 

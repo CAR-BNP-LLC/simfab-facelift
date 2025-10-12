@@ -1,34 +1,75 @@
-import { useEffect } from "react";
+/**
+ * Profile/Account Page
+ * Shows user profile, order history, and account management
+ */
+
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Package, User, MapPin, CreditCard, LogOut, ShoppingBag } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
+import { orderAPI } from "@/services/api";
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, loading, logout } = useAuth();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
 
+  // Redirect if not authenticated
   useEffect(() => {
+    console.log('👤 Profile page - Auth state:', { 
+      loading, 
+      isAuthenticated, 
+      user: user?.email,
+      hasUser: !!user 
+    });
+    
     if (!loading && !isAuthenticated) {
+      console.log('❌ Not authenticated, redirecting to login...');
       navigate('/login');
     }
-  }, [isAuthenticated, loading, navigate]);
+  }, [isAuthenticated, loading, navigate, user]);
+
+  // Load orders
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadOrders();
+    }
+  }, [isAuthenticated, user]);
+
+  const loadOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const response = await orderAPI.getUserOrders({ page: 1, limit: 10 });
+      if (response.success && response.data.orders) {
+        setOrders(response.data.orders);
+      }
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground">
         <Header />
         <main className="container mx-auto px-4 py-8 mt-20">
           <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-            <p>Loading...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         </main>
         <Footer />
@@ -36,8 +77,9 @@ const Profile = () => {
     );
   }
 
+  // Not authenticated (will redirect)
   if (!isAuthenticated || !user) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
   return (
@@ -45,79 +87,196 @@ const Profile = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8 mt-20">
-        <div className="max-w-4xl mx-auto">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold">My Profile</h1>
-            <p className="text-muted-foreground">Manage your account settings</p>
+        <div className="max-w-6xl mx-auto">
+          {/* Page Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-2">My Account</h1>
+            <p className="text-muted-foreground">
+              Welcome back, {user.firstName}!
+            </p>
           </div>
 
-          <div className="grid gap-6">
-            {/* Profile Information Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Your personal details</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">First Name</p>
-                    <p className="font-medium">{user.firstName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Last Name</p>
-                    <p className="font-medium">{user.lastName}</p>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <p className="font-medium">{user.email}</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-muted-foreground">Account Status</p>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={user.emailVerified ? "default" : "secondary"}>
-                      {user.emailVerified ? "Verified" : "Not Verified"}
-                    </Badge>
-                    <Badge variant="outline">{user.role}</Badge>
-                  </div>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-muted-foreground">Member Since</p>
-                  <p className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Tabs */}
+          <Tabs defaultValue="profile" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4 lg:w-auto">
+              <TabsTrigger value="profile" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Profile</span>
+              </TabsTrigger>
+              <TabsTrigger value="orders" className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                <span className="hidden sm:inline">Orders</span>
+              </TabsTrigger>
+              <TabsTrigger value="addresses" className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <span className="hidden sm:inline">Addresses</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                <span className="hidden sm:inline">Settings</span>
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Account Actions Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Account Actions</CardTitle>
-                <CardDescription>Manage your account</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
-                  Edit Profile
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  Change Password
-                </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  Manage Addresses
-                </Button>
-                <Button 
-                  variant="destructive" 
-                  className="w-full justify-start"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+            {/* Profile Tab */}
+            <TabsContent value="profile" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Information</CardTitle>
+                  <CardDescription>Your personal details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">First Name</p>
+                      <p className="font-medium">{user.firstName}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Last Name</p>
+                      <p className="font-medium">{user.lastName}</p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email Address</p>
+                    <p className="font-medium">{user.email}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-muted-foreground">Account Status</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={user.emailVerified ? "default" : "secondary"}>
+                        {user.emailVerified ? "✓ Verified" : "Not Verified"}
+                      </Badge>
+                      <Badge variant="outline" className="capitalize">{user.role}</Badge>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-muted-foreground">Member Since</p>
+                    <p className="font-medium">{new Date(user.createdAt).toLocaleDateString()}</p>
+                  </div>
+
+                  <div className="pt-4">
+                    <Button variant="outline">Edit Profile</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Orders Tab */}
+            <TabsContent value="orders" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Order History</CardTitle>
+                  <CardDescription>View and track your orders</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingOrders ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    </div>
+                  ) : orders.length === 0 ? (
+                    <div className="text-center py-12">
+                      <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No orders yet</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Start shopping to see your orders here!
+                      </p>
+                      <Button onClick={() => navigate('/shop')}>
+                        Browse Products
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {orders.map((order) => (
+                        <div
+                          key={order.id}
+                          className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => navigate(`/orders/${order.order_number}`)}
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                              <p className="font-semibold">Order #{order.order_number}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {new Date(order.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <Badge variant={
+                                order.status === 'delivered' ? 'default' :
+                                order.status === 'shipped' ? 'secondary' :
+                                order.status === 'cancelled' ? 'destructive' :
+                                'outline'
+                              }>
+                                {order.status}
+                              </Badge>
+                              <p className="font-semibold">
+                                ${parseFloat(order.total_amount).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Addresses Tab */}
+            <TabsContent value="addresses" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Saved Addresses</CardTitle>
+                  <CardDescription>Manage your shipping and billing addresses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-12">
+                    <MapPin className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No saved addresses</h3>
+                    <p className="text-muted-foreground mb-4">
+                      Add an address to make checkout faster
+                    </p>
+                    <Button variant="outline">Add Address</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Account Settings</CardTitle>
+                  <CardDescription>Manage your account preferences</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Button variant="outline" className="w-full justify-start">
+                    <User className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Change Password
+                  </Button>
+                  <Button variant="outline" className="w-full justify-start">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Manage Addresses
+                  </Button>
+                  <div className="pt-4 border-t border-border">
+                    <Button 
+                      variant="destructive" 
+                      className="w-full justify-start"
+                      onClick={handleLogout}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
       
@@ -127,4 +286,3 @@ const Profile = () => {
 };
 
 export default Profile;
-

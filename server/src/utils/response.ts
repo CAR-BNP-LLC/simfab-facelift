@@ -128,4 +128,46 @@ export const sanitizeOrderBy = (sortBy: string, allowedFields: string[]): string
   return sortBy;
 };
 
+/**
+ * Helper functions for controllers (return objects instead of sending response)
+ */
+
+/**
+ * Create success response object
+ */
+export const successResponse = <T>(
+  data: T,
+  message?: string
+): SuccessResponse<T> => {
+  return {
+    success: true,
+    data,
+    ...(message && { message })
+  };
+};
+
+/**
+ * Create paginated response object
+ */
+export const paginatedResponse = <T>(
+  items: T[],
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrevious: boolean;
+  },
+  additionalData?: any
+): any => {
+  return {
+    success: true,
+    data: {
+      [Array.isArray(items) ? 'products' : 'items']: items,
+      pagination,
+      ...additionalData
+    }
+  };
+};
 

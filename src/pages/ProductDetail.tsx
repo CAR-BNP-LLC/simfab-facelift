@@ -1,154 +1,215 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Heart, ShoppingCart, Truck, Shield, Clock, Headphones } from "lucide-react";
+import { Heart, ShoppingCart, Truck, Shield, Clock, Headphones, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductImageGallery from "@/components/ProductImageGallery";
 import ProductVariations from "@/components/ProductVariations";
 import ProductAddons from "@/components/ProductAddons";
 import ProductAdditionalInfo from "@/components/ProductAdditionalInfo";
+import { productsAPI, ProductWithDetails, ProductConfiguration } from "@/services/api";
+import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/contexts/CartContext";
 
 const ProductDetail = () => {
-  const { id } = useParams();
-  const [selectedColor, setSelectedColor] = useState("black");
-  const [selectedModelVariation, setSelectedModelVariation] = useState("base-configuration");
-  const [selectedDropdownVariations, setSelectedDropdownVariations] = useState<Record<string, string>>({});
-  const [selectedAddons, setSelectedAddons] = useState<Set<string>>(new Set());
-  const [selectedAddonOptions, setSelectedAddonOptions] = useState<Record<string, string>>({});
+  const params = useParams();
+  const productSlug = params.id || params.slug; // Route is defined as :id but we use it as slug
+  const [product, setProduct] = useState<ProductWithDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
+  const [calculating, setCalculating] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  
+  // Configuration state
+  const [selectedColor, setSelectedColor] = useState<number | undefined>(undefined);
+  const [selectedModelVariation, setSelectedModelVariation] = useState<number | undefined>(undefined);
+  const [selectedDropdownVariations, setSelectedDropdownVariations] = useState<Record<number, number>>({});
+  const [selectedAddons, setSelectedAddons] = useState<Set<number>>(new Set());
+  const [selectedAddonOptions, setSelectedAddonOptions] = useState<Record<number, number>>({});
+  
+  const { toast } = useToast();
+  const { addToCart } = useCart();
 
-  // Mock product data - in real app, fetch based on id
-  const product = {
-    id: id || "flight-sim-trainer",
-    name: "SimFab Flight Sim Trainer Station",
-    price: { min: 999.00, max: 3522.00 },
-    description: "Your Gateway to Precision Aviation Training.",
-    details: "SimFab's Trainer Station is focused on providing precise and exact replication of popular aircrafts with true to life controls placement in an ergonomically correct framework.",
-    images: [
-      { url: "/api/placeholder/600/400", alt: "Main cockpit view" },
-      { url: "/api/placeholder/600/400", alt: "Side view" },
-      { url: "/api/placeholder/600/400", alt: "Controls detail" },
-      { url: "/api/placeholder/600/400", alt: "Seat detail" },
-      { url: "/api/placeholder/600/400", alt: "Full setup" },
-      { url: "/api/placeholder/600/400", alt: "Assembly view" }
-    ],
-    colors: [
-      { id: "black", name: "Black", image: "/api/placeholder/80/80" },
-      { id: "blue", name: "Blue", image: "/api/placeholder/80/80" },
-      { id: "gray", name: "Gray", image: "/api/placeholder/80/80" },
-      { id: "olive-green", name: "Olive Green", image: "/api/placeholder/80/80" }
-    ],
-    modelVariations: [
-      {
-        id: "base-configuration",
-        name: "Base Cockpit Configuration",
-        image: "/api/placeholder/300/200",
-        description: "Standard cockpit setup with essential components"
-      }
-    ],
-    dropdownVariations: [
-      {
-        id: "rudder-pedals",
-        name: "What rudder pedals are you using?",
-        options: [
-          { id: "standard", name: "Standard Rudder Pedals", price: 0 },
-          { id: "premium", name: "Premium Rudder Pedals", price: 150 },
-          { id: "custom", name: "Custom Rudder Pedals", price: 300 }
-        ]
-      },
-      {
-        id: "yoke",
-        name: "What yoke are you using?",
-        options: [
-          { id: "basic", name: "Basic Yoke", price: 0 },
-          { id: "advanced", name: "Advanced Yoke", price: 250 },
-          { id: "professional", name: "Professional Yoke", price: 500 }
-        ]
-      },
-      {
-        id: "throttle-quadrant",
-        name: "What throttle quadrant are you using?",
-        options: [
-          { id: "single", name: "Single Throttle", price: 0 },
-          { id: "dual", name: "Dual Throttle", price: 180 },
-          { id: "quad", name: "Quad Throttle", price: 350 }
-        ]
-      }
-    ],
-    addons: [
-      {
-        id: "articulating-arm",
-        name: "Active Articulating Arm with Keyboard & Mouse or Laptop Tray kit",
-        priceRange: { min: 199.00, max: 229.00 }
-      },
-      {
-        id: "monitor-mount",
-        name: "SimFab Single Monitor Mount Stand for Flight Sim & Sim Racing",
-        price: 219.00,
-        options: [
-          {
-            id: "single-mount",
-            name: "Single Monitor Mount",
-            image: "/api/placeholder/200/150",
-            price: 219.00
-          },
-          {
-            id: "triple-mount",
-            name: "Triple Monitor Mount",
-            image: "/api/placeholder/200/150",
-            price: 399.00
+  // Fetch product on mount
+  useEffect(() => {
+    console.log('ProductDetail mounted. Product identifier:', productSlug);
+    
+    if (productSlug) {
+      console.log('Calling fetchProduct with:', productSlug);
+      fetchProduct(productSlug);
+    } else {
+      console.error('No product identifier provided!');
+      setError('No product identifier provided');
+      setLoading(false);
+    }
+  }, [productSlug]);
+
+  // Calculate price when configuration changes (but NOT when product first loads)
+  useEffect(() => {
+    if (product && selectedColor !== undefined) {
+      console.log('Configuration changed, calculating price...');
+      calculatePrice();
+    }
+  }, [selectedColor, selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions]);
+
+  // Set default selections when product loads
+  useEffect(() => {
+    if (product && !selectedColor) {
+      try {
+        // Set default color
+        if (Array.isArray(product.colors) && product.colors.length > 0) {
+          setSelectedColor((product.colors[0] as any).id);
+        }
+        
+        // Set default model variation
+        if (product.variations?.model && Array.isArray(product.variations.model) && product.variations.model.length > 0) {
+          const defaultModel = product.variations.model.find((v: any) => 
+            Array.isArray(v.options) && v.options.find((o: any) => o.is_default || o.isDefault)
+          );
+          if (defaultModel) {
+            const defaultOption = (defaultModel as any).options.find((o: any) => o.is_default || o.isDefault);
+            if (defaultOption) {
+              setSelectedModelVariation(defaultOption.id);
+            }
+          } else if ((product.variations.model[0] as any).options?.[0]) {
+            setSelectedModelVariation((product.variations.model[0] as any).options[0].id);
           }
-        ]
+        }
+
+        // Set default dropdown variations
+        if (product.variations?.dropdown && Array.isArray(product.variations.dropdown)) {
+          const defaults: Record<number, number> = {};
+          product.variations.dropdown.forEach((variation: any) => {
+            if (Array.isArray(variation.options) && variation.options.length > 0) {
+              const defaultOption = variation.options.find((o: any) => o.is_default || o.isDefault) || variation.options[0];
+              if (defaultOption) {
+                defaults[variation.id] = defaultOption.id;
+              }
+            }
+          });
+          setSelectedDropdownVariations(defaults);
+        }
+      } catch (error) {
+        console.error('Error setting default selections:', error);
       }
-    ],
-    additionalDescriptions: [
-      {
-        title: "Triple Monitor Stand Variation Description",
-        images: [
-          "/api/placeholder/800/400",
-          "/api/placeholder/800/400"
-        ],
-        description: "Choose between HD and LD variations for optimal monitor compatibility and setup flexibility."
+    }
+  }, [product]);
+
+  const fetchProduct = async (productSlug: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Fetching product by slug:', productSlug);
+      
+      const response = await productsAPI.getBySlug(productSlug);
+      console.log('Product response:', response);
+      
+      if (response.data) {
+        setProduct(response.data);
+      } else {
+        throw new Error('Invalid product data');
       }
-    ],
-    faqs: [
-      {
-        question: "Can you use the Triple Monitor Stand for bigger monitors? What is the monitor weight limit?",
-        answer: "The Triple Monitor Stand can support monitors up to 55 inches with a maximum weight of 35 lbs per monitor. For larger setups, we recommend our heavy-duty mounting brackets."
-      }
-    ],
-    assemblyManuals: [
-      {
-        name: "Triple Monitor Mount Stand (HD)",
-        image: "/api/placeholder/300/200",
-        fileUrl: "/api/placeholder/document.pdf"
-      },
-      {
-        name: "Triple Monitor Mount Stand (LD)",
-        image: "/api/placeholder/300/200",
-        fileUrl: "/api/placeholder/document.pdf"
-      }
-    ],
-    specs: {
-      weight: "73.6 lbs",
-      dimensions: "37 x 23 x 16 in"
-    },
-    inStock: true
+    } catch (err) {
+      console.error('Error fetching product:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load product';
+      setError(errorMessage);
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDropdownVariationChange = (variationId: string, optionId: string) => {
+  const calculatePrice = async () => {
+    if (!product) return;
+
+    try {
+      setCalculating(true);
+
+      const configuration: ProductConfiguration = {
+        colorId: selectedColor,
+        modelVariationId: selectedModelVariation,
+        dropdownSelections: selectedDropdownVariations,
+        addons: Array.from(selectedAddons).map(addonId => ({
+          addonId,
+          optionId: selectedAddonOptions[addonId]
+        }))
+      };
+
+      console.log('Calculating price for configuration:', configuration);
+      
+      const response = await productsAPI.calculatePrice(product.id, configuration, 1);
+      console.log('Price calculation response:', response);
+      
+      setCalculatedPrice(response.data.pricing.total);
+    } catch (err) {
+      console.error('Price calculation error:', err);
+      // Fallback to base price if calculation fails
+      const fallbackPrice = (product as any).price_min 
+        || (product as any).regular_price 
+        || (product as any).price?.min 
+        || (product as any).price?.regular 
+        || 0;
+      setCalculatedPrice(fallbackPrice);
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  /**
+   * Handle Add to Cart
+   */
+  const handleAddToCart = async () => {
+    if (!product) return;
+
+    try {
+      setAddingToCart(true);
+
+      // Build configuration
+      const configuration: ProductConfiguration = {
+        colorId: selectedColor,
+        modelVariationId: selectedModelVariation,
+        dropdownSelections: selectedDropdownVariations,
+        addons: Array.from(selectedAddons).map(addonId => ({
+          addonId,
+          optionId: selectedAddonOptions[addonId]
+        }))
+      };
+
+      console.log('Adding to cart:', {
+        productId: product.id,
+        configuration,
+        quantity: 1
+      });
+
+      await addToCart(product.id, configuration, 1);
+
+      // Success is handled by CartContext (shows toast)
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      // Error is handled by CartContext (shows error toast)
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  const handleDropdownVariationChange = (variationId: number, optionId: number) => {
     setSelectedDropdownVariations(prev => ({
       ...prev,
       [variationId]: optionId
     }));
   };
 
-  const handleAddonToggle = (addonId: string) => {
+  const handleAddonToggle = (addonId: number) => {
     const newSelected = new Set(selectedAddons);
     if (newSelected.has(addonId)) {
       newSelected.delete(addonId);
-      // Remove addon options when addon is deselected
       const newOptions = { ...selectedAddonOptions };
       delete newOptions[addonId];
       setSelectedAddonOptions(newOptions);
@@ -158,41 +219,45 @@ const ProductDetail = () => {
     setSelectedAddons(newSelected);
   };
 
-  const handleAddonOptionChange = (addonId: string, optionId: string) => {
+  const handleAddonOptionChange = (addonId: number, optionId: number) => {
     setSelectedAddonOptions(prev => ({
       ...prev,
       [addonId]: optionId
     }));
   };
 
-  const calculateTotalPrice = () => {
-    let total = product.price.min;
-    
-    // Add dropdown variation prices
-    Object.entries(selectedDropdownVariations).forEach(([variationId, optionId]) => {
-      const variation = product.dropdownVariations.find(v => v.id === variationId);
-      const option = variation?.options.find(o => o.id === optionId);
-      if (option?.price) {
-        total += option.price;
+  const getDisplayPrice = () => {
+    try {
+      if (calculatedPrice !== null && calculatedPrice !== undefined) {
+        return `$${calculatedPrice.toFixed(2)}`;
       }
-    });
-
-    // Add addon prices
-    selectedAddons.forEach(addonId => {
-      const addon = product.addons.find(a => a.id === addonId);
-      if (addon) {
-        if (addon.price) {
-          total += addon.price;
-        } else if (selectedAddonOptions[addonId]) {
-          const option = addon.options?.find(o => o.id === selectedAddonOptions[addonId]);
-          if (option?.price) {
-            total += option.price;
-          }
-        }
+      
+      if (!product) return 'Loading...';
+      
+      const prod = product as any;
+      
+      // Try different price field combinations
+      if (prod.price_min !== undefined && prod.price_max !== undefined && prod.price_min !== prod.price_max) {
+        return `$${prod.price_min.toFixed(2)} - $${prod.price_max.toFixed(2)}`;
       }
-    });
-
-    return total;
+      if (prod.price?.min !== undefined && prod.price?.max !== undefined) {
+        return `$${prod.price.min.toFixed(2)} - $${prod.price.max.toFixed(2)}`;
+      }
+      if (prod.regular_price !== undefined && prod.regular_price !== null) {
+        return `$${prod.regular_price.toFixed(2)}`;
+      }
+      if (prod.price?.regular) {
+        return `$${prod.price.regular.toFixed(2)}`;
+      }
+      if (prod.sale_price !== undefined && prod.sale_price !== null) {
+        return `$${prod.sale_price.toFixed(2)}`;
+      }
+      
+      return 'Price TBD';
+    } catch (error) {
+      console.error('Error displaying price:', error);
+      return 'Price TBD';
+    }
   };
 
   const features = [
@@ -218,6 +283,116 @@ const ProductDetail = () => {
     }
   ];
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex flex-col items-center justify-center py-40">
+          <Loader2 className="h-12 w-12 animate-spin text-destructive mb-4" />
+          <p className="text-muted-foreground">Loading product...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex flex-col items-center justify-center py-40">
+          <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+          <p className="text-destructive text-lg font-medium mb-2">Product not found</p>
+          <p className="text-muted-foreground mb-4">{error || 'This product does not exist'}</p>
+          <Link to="/shop">
+            <Button variant="outline">Back to Shop</Button>
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Transform product data for components (with safe access)
+  const images = Array.isArray(product.images) && product.images.length > 0
+    ? product.images.map((img: any) => ({
+        url: img.url || img.image_url || '/api/placeholder/600/400',
+        alt: img.alt || img.alt_text || product.name
+      }))
+    : [{ url: '/api/placeholder/600/400', alt: product.name }];
+
+  const colors = Array.isArray(product.colors) && product.colors.length > 0
+    ? product.colors.map((c: any) => ({
+        id: c.id.toString(),
+        name: c.color_name || c.name,
+        image: c.color_image_url || c.imageUrl || '/api/placeholder/80/80'
+      }))
+    : [];
+
+  const modelVariations = product.variations?.model && Array.isArray(product.variations.model)
+    ? product.variations.model.map((v: any) => ({
+        id: v.id.toString(),
+        name: v.name,
+        image: v.options?.[0]?.imageUrl || v.options?.[0]?.image_url || '/api/placeholder/300/200',
+        description: v.description || ''
+      }))
+    : [];
+
+  const dropdownVariations = product.variations?.dropdown && Array.isArray(product.variations.dropdown)
+    ? product.variations.dropdown.map((v: any) => ({
+        id: v.id.toString(),
+        name: v.name,
+        options: Array.isArray(v.options) ? v.options.map((o: any) => ({
+          id: o.id.toString(),
+          name: o.option_name || o.name,
+          price: o.price_adjustment || o.priceAdjustment || 0
+        })) : []
+      }))
+    : [];
+
+  const addons = Array.isArray(product.addons)
+    ? product.addons.map((a: any) => ({
+        id: a.id.toString(),
+        name: a.name,
+        price: a.base_price || a.price?.min,
+        priceRange: a.price_range_min && a.price_range_max && a.price_range_min !== a.price_range_max ? {
+          min: a.price_range_min,
+          max: a.price_range_max
+        } : undefined,
+        options: Array.isArray(a.options) && a.has_options ? a.options.map((o: any) => ({
+          id: o.id.toString(),
+          name: o.name,
+          image: o.image_url || o.imageUrl || '/api/placeholder/200/150',
+          price: o.price
+        })) : undefined
+      }))
+    : [];
+
+  const additionalDescriptions = Array.isArray(product.additionalInfo)
+    ? product.additionalInfo.map((info: any) => ({
+        title: info.title,
+        images: [],
+        description: info.description || ''
+      }))
+    : [];
+
+  const faqs = Array.isArray(product.faqs)
+    ? product.faqs.map((faq: any) => ({
+        question: faq.question,
+        answer: faq.answer
+      }))
+    : [];
+
+  const assemblyManuals = Array.isArray(product.assemblyManuals)
+    ? product.assemblyManuals.map((manual: any) => ({
+        name: manual.name,
+        image: manual.image_url || manual.thumbnailUrl || '/api/placeholder/300/200',
+        fileUrl: manual.file_url || manual.fileUrl
+      }))
+    : [];
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
@@ -229,13 +404,13 @@ const ProductDetail = () => {
           <span>/</span>
           <Link to="/shop" className="hover:text-foreground transition-colors">Shop</Link>
           <span>/</span>
-          <span className="text-foreground">Flight Sim Cockpits</span>
+          <span className="text-foreground">{product.name}</span>
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Image Gallery */}
           <div className="lg:col-span-8">
-            <ProductImageGallery images={product.images} productName={product.name} />
+            <ProductImageGallery images={images} productName={product.name} />
           </div>
 
           {/* Product Info */}
@@ -248,90 +423,119 @@ const ProductDetail = () => {
               const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
               
               if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
-                // Allow page scroll when at top/bottom of sidebar
                 return;
               } else {
-                // Prevent page scroll when sidebar is scrolling
                 e.stopPropagation();
               }
             }}
           >
             <div>
               <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
-              <p className="text-4xl font-bold">
-                ${product.price.min.toFixed(2)} - ${product.price.max.toFixed(2)}
+              <p className="text-muted-foreground leading-relaxed mb-4">
+                {product.shortDescription || product.description}
               </p>
-              <p className="text-2xl font-bold text-muted-foreground mt-2">
-                Current Total: ${calculateTotalPrice().toFixed(2)}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <p className="text-muted-foreground leading-relaxed">{product.description}</p>
-              <p className="text-sm text-muted-foreground">{product.details}</p>
+              <div className="flex items-baseline gap-3">
+                <p className="text-4xl font-bold">
+                  {getDisplayPrice()}
+                </p>
+                {calculating && (
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              {calculatedPrice !== null && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Price updates based on your selections
+                </p>
+              )}
             </div>
 
             {/* Color Selection */}
-            <div className="space-y-3">
-              <label className="text-lg font-medium">
-                Choose Seat Color (Removable Foam) <span className="text-primary">*</span>
-              </label>
-              <div className="grid grid-cols-4 gap-3">
-                {product.colors.map((color) => (
-                  <button
-                    key={color.id}
-                    onClick={() => setSelectedColor(color.id)}
-                    className={`relative p-2 rounded-lg border-2 transition-colors ${
-                      selectedColor === color.id 
-                        ? 'border-primary' 
-                        : 'border-border hover:border-muted-foreground'
-                    }`}
-                  >
-                    <div className="aspect-square rounded-lg overflow-hidden mb-2">
-                      <img 
-                        src={color.image} 
-                        alt={color.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <span className="text-sm font-medium">{color.name}</span>
-                    {selectedColor === color.id && (
-                      <div className="absolute top-1 right-1 w-3 h-3 bg-primary rounded-full"></div>
-                    )}
-                  </button>
-                ))}
+            {colors.length > 0 && (
+              <div className="space-y-3">
+                <label className="text-lg font-medium">
+                  Choose Seat Color (Removable Foam) <span className="text-primary">*</span>
+                </label>
+                <div className="grid grid-cols-4 gap-3">
+                  {colors.map((color) => (
+                    <button
+                      key={color.id}
+                      onClick={() => setSelectedColor(parseInt(color.id))}
+                      className={`relative p-2 rounded-lg border-2 transition-colors ${
+                        selectedColor === parseInt(color.id)
+                          ? 'border-primary' 
+                          : 'border-border hover:border-muted-foreground'
+                      }`}
+                    >
+                      <div className="aspect-square rounded-lg overflow-hidden mb-2">
+                        <img 
+                          src={color.image} 
+                          alt={color.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-sm font-medium">{color.name}</span>
+                      {selectedColor === parseInt(color.id) && (
+                        <div className="absolute top-1 right-1 w-3 h-3 bg-primary rounded-full"></div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-
+            )}
 
             {/* Product Configuration */}
             <div className="space-y-6">
               <ProductVariations
-                modelVariations={product.modelVariations}
-                dropdownVariations={product.dropdownVariations}
-                selectedModelVariation={selectedModelVariation}
-                selectedDropdownVariations={selectedDropdownVariations}
-                onModelVariationChange={setSelectedModelVariation}
-                onDropdownVariationChange={handleDropdownVariationChange}
+                modelVariations={modelVariations}
+                dropdownVariations={dropdownVariations}
+                selectedModelVariation={selectedModelVariation?.toString()}
+                selectedDropdownVariations={Object.fromEntries(
+                  Object.entries(selectedDropdownVariations).map(([k, v]) => [k, v.toString()])
+                )}
+                onModelVariationChange={(id) => setSelectedModelVariation(parseInt(id))}
+                onDropdownVariationChange={(varId, optId) => 
+                  handleDropdownVariationChange(parseInt(varId), parseInt(optId))
+                }
               />
               
-              <ProductAddons
-                addons={product.addons}
-                selectedAddons={selectedAddons}
-                selectedAddonOptions={selectedAddonOptions}
-                onAddonToggle={handleAddonToggle}
-                onAddonOptionChange={handleAddonOptionChange}
-              />
+              {addons.length > 0 && (
+                <ProductAddons
+                  addons={addons}
+                  selectedAddons={new Set(Array.from(selectedAddons).map(id => id.toString()))}
+                  selectedAddonOptions={Object.fromEntries(
+                    Object.entries(selectedAddonOptions).map(([k, v]) => [k, v.toString()])
+                  )}
+                  onAddonToggle={(id) => handleAddonToggle(parseInt(id))}
+                  onAddonOptionChange={(addonId, optId) => 
+                    handleAddonOptionChange(parseInt(addonId), parseInt(optId))
+                  }
+                />
+              )}
             </div>
 
             {/* Stock Status */}
-            <div className="text-green-400 font-medium">In stock</div>
+            <div className={(product as any).stock > 0 || (product as any).in_stock === '1' ? "text-green-400 font-medium" : "text-destructive font-medium"}>
+              {(product as any).stock > 0 || (product as any).in_stock === '1' ? 'In stock' : 'Out of stock'}
+            </div>
 
             {/* Add to Cart */}
             <div className="space-y-4">
-              <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 text-lg">
-                <ShoppingCart className="w-5 h-5 mr-2" />
-                ADD TO CART
+              <Button 
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 text-lg"
+                disabled={!((product as any).stock > 0 || (product as any).in_stock === '1') || addingToCart}
+                onClick={handleAddToCart}
+              >
+                {addingToCart ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ADDING TO CART...
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    ADD TO CART
+                  </>
+                )}
               </Button>
               
               <div className="text-sm text-muted-foreground text-center">
@@ -350,26 +554,14 @@ const ProductDetail = () => {
               <Truck className="w-5 h-5" />
               <span>Free shipping for orders over $50</span>
             </div>
-
-            {/* Product Specs */}
-            <div className="space-y-2 border-t border-border pt-4">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Weight</span>
-                <span className="font-medium">{product.specs.weight}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Dimensions</span>
-                <span className="font-medium">{product.specs.dimensions}</span>
-              </div>
-            </div>
           </div>
         </div>
 
         {/* Additional Information */}
         <ProductAdditionalInfo
-          additionalDescriptions={product.additionalDescriptions}
-          faqs={product.faqs}
-          assemblyManuals={product.assemblyManuals}
+          additionalDescriptions={additionalDescriptions}
+          faqs={faqs}
+          assemblyManuals={assemblyManuals}
         />
 
         {/* Features Section */}

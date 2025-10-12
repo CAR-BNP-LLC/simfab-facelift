@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { CartProvider } from "@/contexts/CartContext";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
@@ -24,6 +25,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import CookieNotice from "./components/CookieNotice";
 
 const queryClient = new QueryClient();
@@ -31,14 +34,16 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <CartProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/admin" element={<Admin />} />
             <Route path="/flight-sim" element={<FlightSim />} />
             <Route path="/sim-racing" element={<SimRacing />} />
             <Route path="/login" element={<Login />} />
@@ -46,6 +51,7 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
+            <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
             <Route path="/monitor-stands" element={<MonitorStands />} />
             <Route path="/services" element={<Services />} />
             <Route path="/assembly-manuals" element={<AssemblyManuals />} />
@@ -59,8 +65,9 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieNotice />
-        </BrowserRouter>
-      </TooltipProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </CartProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

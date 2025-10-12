@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, isAuthenticated, loading: authLoading, user } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -20,6 +20,20 @@ const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Redirect if already logged in
+  useEffect(() => {
+    console.log('🔐 Login page - Auth state:', { 
+      authLoading, 
+      isAuthenticated, 
+      user: user?.email 
+    });
+    
+    if (!authLoading && isAuthenticated) {
+      console.log('✅ Already logged in, redirecting to profile...');
+      navigate('/profile');
+    }
+  }, [isAuthenticated, authLoading, navigate, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

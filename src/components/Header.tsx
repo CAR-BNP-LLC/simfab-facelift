@@ -3,6 +3,9 @@ import { Search, User, ShoppingCart, Menu, X, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import DebugPanel from './DebugPanel';
 import CartSidebar from './CartSidebar';
+import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -10,36 +13,22 @@ const Header = () => {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<'left' | 'center' | 'right'>('center');
-
-  // Mock cart data - in real app this would come from context/state management
-  const [cartItems, setCartItems] = useState([
-    {
-      id: '1',
-      name: 'Sim Racing & Flight Simulation Cockpit Four Point Harness - Blue',
-      price: 79.99,
-      quantity: 1,
-      image: '/src/assets/sim-racing-cockpit.jpg',
-      color: 'Blue'
+  
+  // Use cart from context
+  const { cart, itemCount } = useCart();
+  
+  // Use auth from context
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  
+  // Handle account button click
+  const handleAccountClick = () => {
+    if (isAuthenticated) {
+      navigate('/profile');
+    } else {
+      navigate('/login');
     }
-  ]);
-
-  const updateCartQuantity = (id: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeCartItem(id);
-      return;
-    }
-    setCartItems(items => 
-      items.map(item => 
-        item.id === id ? { ...item, quantity } : item
-      )
-    );
   };
-
-  const removeCartItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id));
-  };
-
-  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // Function to calculate optimal menu position
   const calculateMenuPosition = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -327,7 +316,8 @@ const Header = () => {
               </button>
               <button 
                 className="text-foreground hover:text-primary transition-colors"
-                onClick={() => window.location.href = '/login'}
+                onClick={handleAccountClick}
+                title={isAuthenticated ? 'My Account' : 'Login'}
               >
                 <User className="w-5 h-5" />
               </button>
@@ -336,9 +326,9 @@ const Header = () => {
                 onClick={() => setIsCartOpen(true)}
               >
                 <ShoppingCart className="w-5 h-5" />
-                {cartItemCount > 0 && (
+                {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                    {cartItemCount}
+                    {itemCount}
                   </span>
                 )}
               </button>
@@ -351,6 +341,17 @@ const Header = () => {
               >
                 <Settings className="w-5 h-5" />
               </button>
+              
+              {/* Admin Button */}
+              <Button 
+                variant="outline"
+                size="sm"
+                className="hidden md:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white"
+                onClick={() => window.location.href = '/admin'}
+                title="Admin Dashboard"
+              >
+                ADMIN
+              </Button>
               
               <Button 
                 className="btn-primary hidden md:inline-flex"
@@ -426,9 +427,6 @@ const Header = () => {
       <CartSidebar 
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
-        items={cartItems}
-        onUpdateQuantity={updateCartQuantity}
-        onRemoveItem={removeCartItem}
       />
     </header>
   );
