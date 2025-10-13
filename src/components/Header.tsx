@@ -6,6 +6,7 @@ import CartSidebar from './CartSidebar';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { productsAPI } from '@/services/api';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -13,6 +14,9 @@ const Header = () => {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<'left' | 'center' | 'right'>('center');
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+  const [megaMenuProducts, setMegaMenuProducts] = useState<Record<string, any[]>>({});
+  const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
   
   // Use cart from context
   const { cart, itemCount } = useCart();
@@ -180,6 +184,23 @@ const Header = () => {
 
   const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED STOCK', 'SERVICES'];
 
+  // Fetch category counts on mount
+  useEffect(() => {
+    const fetchCategoryCounts = async () => {
+      try {
+        const response = await productsAPI.getCategories();
+        const counts: Record<string, number> = {};
+        response.data.forEach(cat => {
+          counts[cat.id] = cat.count;
+        });
+        setCategoryCounts(counts);
+      } catch (error) {
+        console.error('Failed to fetch category counts:', error);
+      }
+    };
+    fetchCategoryCounts();
+  }, []);
+
   // Handle window resize to recalculate menu position
   useEffect(() => {
     const handleResize = () => {
@@ -192,6 +213,92 @@ const Header = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [activeMegaMenu]);
+
+  // Get product count for a category
+  const getCategoryCount = (categoryKey: string): number => {
+    const categoryMap: Record<string, string> = {
+      'FLIGHT SIM': 'flight-sim',
+      'SIM RACING': 'sim-racing',
+      'RACING & FLIGHT SEATS': 'cockpits',
+      'MONITOR STANDS': 'monitor-stands',
+      'ACCESSORIES': 'accessories'
+    };
+    return categoryCounts[categoryMap[categoryKey]] || 0;
+  };
+
+  // Fetch featured products for mega menu
+  const fetchMegaMenuProducts = async (categoryKey: string) => {
+    const categoryMap: Record<string, string> = {
+      'FLIGHT SIM': 'flight-sim',
+      'SIM RACING': 'sim-racing',
+      'RACING & FLIGHT SEATS': 'cockpits',
+      'MONITOR STANDS': 'monitor-stands',
+      'ACCESSORIES': 'accessories'
+    };
+
+    const categorySlug = categoryMap[categoryKey];
+    if (!categorySlug || megaMenuProducts[categoryKey] || loadingMegaMenu[categoryKey]) {
+      return; // Already loaded or loading
+    }
+
+    try {
+      setLoadingMegaMenu(prev => ({ ...prev, [categoryKey]: true }));
+      const response = await productsAPI.getFeaturedProductsByCategory(categorySlug, 6);
+      setMegaMenuProducts(prev => ({ ...prev, [categoryKey]: response.data }));
+    } catch (error) {
+      console.error(`Failed to fetch products for ${categoryKey}:`, error);
+      setMegaMenuProducts(prev => ({ ...prev, [categoryKey]: [] }));
+    } finally {
+      setLoadingMegaMenu(prev => ({ ...prev, [categoryKey]: false }));
+    }
+  };
+
+  // Get product image URL
+  const getProductImage = (product: any) => {
+    try {
+      if (Array.isArray(product.images) && product.images.length > 0) {
+        const primaryImage = product.images.find((img: any) => img.isPrimary || img.is_primary) || product.images[0];
+        return primaryImage.url || primaryImage.image_url || '/src/assets/flight-sim-cockpit.jpg';
+      }
+      if (typeof product.images === 'string' && product.images) {
+        return product.images;
+      }
+      return '/src/assets/flight-sim-cockpit.jpg';
+    } catch (error) {
+      return '/src/assets/flight-sim-cockpit.jpg';
+    }
+  };
+
+  // Get product price
+  const getProductPrice = (product: any) => {
+    try {
+      if (product.price && typeof product.price === 'object') {
+        if (product.price.min !== undefined && product.price.max !== undefined && product.price.min !== product.price.max) {
+          return `$${product.price.min.toFixed(2)} - $${product.price.max.toFixed(2)}`;
+        }
+        if (product.price.regular) {
+          return `$${product.price.regular.toFixed(2)}`;
+        }
+        if (product.price.min) {
+          return `$${product.price.min.toFixed(2)}`;
+        }
+      }
+      
+      if (product.price_min !== undefined && product.price_max !== undefined && product.price_min !== product.price_max) {
+        return `$${product.price_min.toFixed(2)} - $${product.price_max.toFixed(2)}`;
+      }
+      if (product.regular_price !== undefined && product.regular_price !== null) {
+        return `$${product.regular_price.toFixed(2)}`;
+      }
+      if (product.sale_price !== undefined && product.sale_price !== null) {
+        return `$${product.sale_price.toFixed(2)}`;
+      }
+      
+      return 'Price TBD';
+    } catch (error) {
+      return 'Price TBD';
+    }
+  };
 
   return (
     <header className="relative">
@@ -220,6 +327,10 @@ const Header = () => {
                   onMouseEnter={(e) => {
                     calculateMenuPosition(e);
                     setActiveMegaMenu(item);
+                    // Fetch products when hovering over category
+                    if (['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES'].includes(item)) {
+                      fetchMegaMenuProducts(item);
+                    }
                   }}
                   onMouseLeave={(e) => {
                     // Only hide menu if mouse is leaving the entire navigation area
@@ -235,18 +346,21 @@ const Header = () => {
                   }}
                 >
                   <button 
-                    className="nav-link"
+                    className="nav-link flex items-center gap-1"
                     onClick={() => {
                       if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
                       if (item === 'SIM RACING') window.location.href = '/sim-racing';
                       if (item === 'MONITOR STANDS') window.location.href = '/monitor-stands';
                     }}
                   >
-                    {item}
+                    <span>{item}</span>
+                    {getCategoryCount(item) > 0 && (
+                      <span className="text-xs text-muted-foreground">({getCategoryCount(item)})</span>
+                    )}
                   </button>
                   
                   {/* Mega Menu */}
-                  {activeMegaMenu === item && megaMenuContent[item as keyof typeof megaMenuContent] && (
+                  {activeMegaMenu === item && (megaMenuContent[item as keyof typeof megaMenuContent] || megaMenuProducts[item]) && (
                     <div 
                       className={`absolute top-full mt-2 bg-background border border-border rounded-lg shadow-2xl p-8 min-w-[900px] max-w-[1200px] z-50 ${
                         menuPosition === 'left' ? 'left-0' : 
@@ -256,39 +370,92 @@ const Header = () => {
                       onMouseEnter={() => setActiveMegaMenu(item)}
                       onMouseLeave={() => setActiveMegaMenu(null)}
                     >
-                      <div className="grid grid-cols-3 gap-8 mb-8">
-                        {megaMenuContent[item as keyof typeof megaMenuContent].products.map((product) => (
-                          <div key={product.name} className="group cursor-pointer">
-                            <div className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105">
-                              <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
-                                <img 
-                                  src={product.image} 
-                                  alt={product.name}
-                                  className="w-full h-full object-contain"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                  }}
-                                />
-                              </div>
-                              <div className="p-4 text-center">
-                                <h3 className="text-sm font-medium text-card-foreground mb-3 leading-tight">
-                                  {product.name}
-                                </h3>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="w-full border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                                >
-                                  {product.action}
-                                </Button>
+                      {/* Loading State */}
+                      {loadingMegaMenu[item] && (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                          <span className="ml-2 text-muted-foreground">Loading products...</span>
+                        </div>
+                      )}
+
+                      {/* Real Products from API */}
+                      {!loadingMegaMenu[item] && megaMenuProducts[item] && megaMenuProducts[item].length > 0 && (
+                        <div className="grid grid-cols-3 gap-8 mb-8">
+                          {megaMenuProducts[item].slice(0, 6).map((product) => (
+                            <div key={product.id} className="group cursor-pointer">
+                              <div 
+                                className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105"
+                                onClick={() => window.location.href = `/product/${product.slug}`}
+                              >
+                                <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
+                                  <img 
+                                    src={getProductImage(product)} 
+                                    alt={product.name}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                                <div className="p-4 text-center">
+                                  <h3 className="text-sm font-medium text-card-foreground mb-2 leading-tight line-clamp-2">
+                                    {product.name}
+                                  </h3>
+                                  <p className="text-xs text-muted-foreground mb-3">
+                                    {getProductPrice(product)}
+                                  </p>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="w-full border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                                  >
+                                    VIEW DETAILS
+                                  </Button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {megaMenuContent[item as keyof typeof megaMenuContent].categories.length > 0 && (
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Fallback to Hardcoded Content if no API data */}
+                      {!loadingMegaMenu[item] && (!megaMenuProducts[item] || megaMenuProducts[item].length === 0) && megaMenuContent[item as keyof typeof megaMenuContent] && (
+                        <div className="grid grid-cols-3 gap-8 mb-8">
+                          {megaMenuContent[item as keyof typeof megaMenuContent].products.map((product) => (
+                            <div key={product.name} className="group cursor-pointer">
+                              <div className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105">
+                                <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
+                                  <img 
+                                    src={product.image} 
+                                    alt={product.name}
+                                    className="w-full h-full object-contain"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                                <div className="p-4 text-center">
+                                  <h3 className="text-sm font-medium text-card-foreground mb-3 leading-tight">
+                                    {product.name}
+                                  </h3>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="w-full border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                                  >
+                                    {product.action}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Category Buttons */}
+                      {megaMenuContent[item as keyof typeof megaMenuContent] && megaMenuContent[item as keyof typeof megaMenuContent].categories.length > 0 && (
                         <div className="border-t border-border pt-6">
                           <div className="flex flex-wrap gap-4 justify-center">
                             {megaMenuContent[item as keyof typeof megaMenuContent].categories.map((category) => (

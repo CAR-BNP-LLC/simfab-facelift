@@ -11,13 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 
 const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; count: number }>>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
   const { toast } = useToast();
 
   // Fetch products
@@ -55,6 +56,7 @@ const Shop = () => {
       
       setProducts(response.data.products || []);
       setTotalPages(response.data.pagination?.totalPages || 1);
+      setTotalProducts(response.data.pagination?.total || 0);
     } catch (err) {
       console.error('Error fetching products:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load products';
@@ -207,7 +209,7 @@ const Shop = () => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              All
+              All {categories.length > 0 && `(${categories.reduce((sum, cat) => sum + cat.count, 0)})`}
               {selectedCategory === '' && (
                 <div className="absolute bottom-0 left-0 w-full h-0.5 bg-destructive"></div>
               )}
@@ -222,7 +224,7 @@ const Shop = () => {
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {category.name}
+                {category.name} ({category.count})
                 {selectedCategory === category.id && (
                   <div className="absolute bottom-0 left-0 w-full h-0.5 bg-destructive"></div>
                 )}

@@ -44,6 +44,16 @@ export const createProductRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   GET /api/products/categories/:category/featured
+   * @desc    Get featured products by category (for mega menu)
+   * @access  Public
+   */
+  router.get(
+    '/categories/:category/featured',
+    controller.getFeaturedProductsByCategory
+  );
+
+  /**
    * @route   GET /api/products/categories
    * @desc    Get product categories
    * @access  Public

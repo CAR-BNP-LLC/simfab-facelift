@@ -455,6 +455,16 @@ export const productsAPI = {
   },
 
   /**
+   * Get featured products by category (for mega menu)
+   */
+  async getFeaturedProductsByCategory(category: string, limit: number = 6) {
+    return apiRequest<{
+      success: boolean;
+      data: Product[];
+    }>(`/api/products/categories/${category}/featured?limit=${limit}`);
+  },
+
+  /**
    * Get product categories
    */
   async getCategories() {
@@ -466,6 +476,7 @@ export const productsAPI = {
         slug: string;
         description: string;
         image: string;
+        count: number;
       }>;
     }>('/api/products/categories');
   },

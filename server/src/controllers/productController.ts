@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { ProductService } from '../services/ProductService';
 import { PriceCalculatorService } from '../services/PriceCalculatorService';
+import { ProductQueryBuilder } from '../services/ProductQueryBuilder';
 import { ProductQueryOptions, ProductConfiguration } from '../types/product';
 import { successResponse, paginatedResponse } from '../utils/response';
 
@@ -258,47 +259,111 @@ export class ProductController {
    */
   getCategories = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // This would come from a dedicated category service
-      // For now, return hardcoded categories based on the project
+      // Get category counts from database
+      const queryBuilder = new ProductQueryBuilder(this.pool);
+      const { sql, params } = queryBuilder.buildCategoriesQuery();
+      const countResult = await this.pool.query(sql, params);
+
+      // Create a map of category counts
+      const countMap = new Map<string, number>();
+      countResult.rows.forEach((row: any) => {
+        countMap.set(row.category, row.count);
+      });
+
+      // Build categories with counts
       const categories = [
         {
           id: 'flight-sim',
           name: 'Flight Simulation',
           slug: 'flight-sim',
           description: 'Professional flight simulator cockpits and accessories',
-          image: '/images/categories/flight-sim.jpg'
+          image: '/images/categories/flight-sim.jpg',
+          count: countMap.get('flight-sim') || 0
         },
         {
           id: 'sim-racing',
           name: 'Sim Racing',
           slug: 'sim-racing',
           description: 'High-performance racing simulator setups',
-          image: '/images/categories/sim-racing.jpg'
+          image: '/images/categories/sim-racing.jpg',
+          count: countMap.get('sim-racing') || 0
         },
         {
           id: 'cockpits',
           name: 'Cockpits',
           slug: 'cockpits',
           description: 'Complete cockpit solutions for simulators',
-          image: '/images/categories/cockpits.jpg'
+          image: '/images/categories/cockpits.jpg',
+          count: countMap.get('cockpits') || 0
         },
         {
           id: 'monitor-stands',
           name: 'Monitor Stands',
           slug: 'monitor-stands',
           description: 'Adjustable monitor mounting solutions',
-          image: '/images/categories/monitor-stands.jpg'
+          image: '/images/categories/monitor-stands.jpg',
+          count: countMap.get('monitor-stands') || 0
         },
         {
           id: 'accessories',
           name: 'Accessories',
           slug: 'accessories',
           description: 'Add-ons and upgrades for your simulator setup',
-          image: '/images/categories/accessories.jpg'
+          image: '/images/categories/accessories.jpg',
+          count: countMap.get('accessories') || 0
         }
       ];
 
       res.json(successResponse(categories, 'Categories retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get featured products by category (for mega menu)
+   * GET /api/products/categories/:category/featured
+   */
+  getFeaturedProductsByCategory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { category } = req.params;
+      const limit = parseInt(req.query.limit as string) || 6;
+
+      // Map category names to database category IDs
+      const categoryMap: Record<string, string> = {
+        'flight-sim': 'flight-sim',
+        'sim-racing': 'sim-racing',
+        'cockpits': 'cockpits',
+        'monitor-stands': 'monitor-stands',
+        'accessories': 'accessories'
+      };
+
+      const dbCategory = categoryMap[category];
+      
+      // Use the existing featured products query and filter by category
+      const options: ProductQueryOptions = {
+        featured: true,
+        category: dbCategory,
+        limit: limit
+      };
+
+      const queryBuilder = new ProductQueryBuilder(this.pool);
+      const { sql, params } = queryBuilder.buildFeaturedQuery(limit);
+      
+      // Modify the query to include category filter if needed
+      let finalSql = sql;
+      let finalParams = params;
+      
+      if (dbCategory) {
+        // Add category filter to the existing query
+        const categoryFilter = `AND p.categories LIKE $${params.length + 1}`;
+        finalSql = sql.replace('ORDER BY', `${categoryFilter}\n      ORDER BY`);
+        finalParams = [...params, `%${dbCategory}%`];
+      }
+
+      const result = await this.pool.query(finalSql, finalParams);
+
+      res.json(successResponse(result.rows, `Featured products for ${category} retrieved`));
     } catch (error) {
       next(error);
     }
