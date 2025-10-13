@@ -1,39 +1,61 @@
+/**
+ * Admin Dashboard
+ * Complete admin panel with Dashboard, Orders, Products, Users, Settings
+ */
+
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Edit, Trash2, Loader2, Package, Settings } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Package, 
+  ShoppingBag, 
+  Users, 
+  Settings,
+  Plus,
+  Edit,
+  Trash2,
+  Loader2,
+  TrendingUp,
+  DollarSign,
+  AlertCircle,
+  Eye,
+  Check,
+  X
+} from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-interface Product {
-  id: number;
-  sku: string;
-  name: string;
-  slug: string;
-  regular_price: number;
-  stock: number; // Database uses 'stock' not 'stock_quantity'
-  status: string;
-  featured: boolean;
-  categories: string[];
+interface DashboardStats {
+  today: { order_count: number; revenue: number };
+  month: { order_count: number; revenue: number };
+  orderStatusCounts: Array<{ status: string; count: number }>;
+  recentOrders: any[];
+  topProducts: any[];
+  productStats: { total: number; in_stock: number; low_stock: number };
 }
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState<'products' | 'create'>('products');
-  const [products, setProducts] = useState<Product[]>([]);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [products, setProducts] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const { toast } = useToast();
 
-  // Form state
-  const [formData, setFormData] = useState({
+  // Product form state
+  const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
     slug: '',
@@ -48,11 +70,34 @@ const Admin = () => {
     tags: ''
   });
 
+  // Load data based on active tab
   useEffect(() => {
-    if (activeTab === 'products') {
+    if (activeTab === 'dashboard') {
+      fetchDashboardStats();
+    } else if (activeTab === 'products') {
       fetchProducts();
+    } else if (activeTab === 'orders') {
+      fetchOrders();
     }
   }, [activeTab]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/admin/dashboard/stats`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setDashboardStats(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load dashboard stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -76,20 +121,41 @@ const Admin = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/api/admin/orders?limit=50`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setOrders(data.data.orders || []);
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load orders',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       setLoading(true);
 
-      // Build product data
       const productData = {
-        ...formData,
-        regular_price: parseFloat(formData.regular_price),
-        stock_quantity: parseInt(formData.stock_quantity),
-        featured: formData.featured,
-        categories: [formData.categories],
-        tags: formData.tags ? formData.tags.split(',').map(t => t.trim()) : []
+        ...productForm,
+        regular_price: parseFloat(productForm.regular_price),
+        stock_quantity: parseInt(productForm.stock_quantity),
+        featured: productForm.featured,
+        categories: [productForm.categories],
+        tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
       };
 
       const url = editingProduct 
@@ -110,11 +176,11 @@ const Admin = () => {
       if (data.success) {
         toast({
           title: 'Success',
-          description: editingProduct ? 'Product updated!' : 'Product created!',
+          description: editingProduct ? 'Product updated' : 'Product created'
         });
         
         // Reset form
-        setFormData({
+        setProductForm({
           sku: '',
           name: '',
           slug: '',
@@ -129,8 +195,8 @@ const Admin = () => {
           tags: ''
         });
         setEditingProduct(null);
-        setActiveTab('products');
         fetchProducts();
+        setActiveTab('products');
       } else {
         throw new Error(data.error?.message || 'Failed to save product');
       }
@@ -145,26 +211,7 @@ const Admin = () => {
     }
   };
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setFormData({
-      sku: product.sku,
-      name: product.name,
-      slug: product.slug,
-      description: '',
-      short_description: '',
-      type: 'simple',
-      status: product.status,
-      featured: product.featured,
-      regular_price: product.regular_price.toString(),
-      stock_quantity: product.stock.toString(), // Database uses 'stock'
-      categories: product.categories?.[0] || 'accessories',
-      tags: ''
-    });
-    setActiveTab('create');
-  };
-
-  const handleDelete = async (id: number) => {
+  const handleDeleteProduct = async (id: number) => {
     if (!confirm('Are you sure you want to delete this product?')) return;
 
     try {
@@ -176,431 +223,631 @@ const Admin = () => {
       const data = await response.json();
 
       if (data.success) {
-        toast({
-          title: 'Success',
-          description: 'Product deleted!',
-        });
+        toast({ title: 'Product deleted' });
         fetchProducts();
-      } else {
-        throw new Error(data.error?.message || 'Failed to delete');
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to delete product',
+        description: 'Failed to delete product',
         variant: 'destructive'
       });
     }
   };
 
-  const generateSlug = (name: string) => {
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '');
+  const handleEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setProductForm({
+      sku: product.sku || '',
+      name: product.name || '',
+      slug: product.slug || '',
+      description: product.description || '',
+      short_description: product.short_description || '',
+      type: product.type || 'simple',
+      status: product.status || 'active',
+      featured: product.featured || false,
+      regular_price: product.regular_price?.toString() || '',
+      stock_quantity: product.stock?.toString() || '0',
+      categories: Array.isArray(product.categories) ? product.categories[0] : 'accessories',
+      tags: Array.isArray(product.tags) ? product.tags.join(', ') : ''
+    });
+    setActiveTab('create');
+  };
+
+  const handleUpdateOrderStatus = async (orderId: number, status: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({ title: 'Order status updated' });
+        fetchOrders();
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update order status',
+        variant: 'destructive'
+      });
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 pt-32 pb-20">
-        {/* Header */}
+      <main className="container mx-auto px-4 py-8 mt-20">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-destructive mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage your products and inventory</p>
-          <div className="w-20 h-1 bg-destructive mt-2"></div>
+          <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Manage your store</p>
         </div>
 
-        {/* Warning Banner */}
-        <div className="bg-yellow-500/10 border border-yellow-500/50 rounded-lg p-4 mb-6">
-          <p className="text-yellow-500 font-medium">⚠️ Testing Mode: Admin authentication is bypassed. Everyone has admin access.</p>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4" />
+              <span className="hidden sm:inline">Orders</span>
+            </TabsTrigger>
+            <TabsTrigger value="products" className="flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="create" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Create</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Settings</span>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Tabs */}
-        <div className="flex gap-4 mb-6">
-          <Button
-            variant={activeTab === 'products' ? 'default' : 'outline'}
-            onClick={() => setActiveTab('products')}
-            className="flex items-center gap-2"
-          >
-            <Package className="h-4 w-4" />
-            Products
-          </Button>
-          <Button
-            variant={activeTab === 'create' ? 'default' : 'outline'}
-            onClick={() => {
-              setActiveTab('create');
-              setEditingProduct(null);
-              setFormData({
-                sku: '',
-                name: '',
-                slug: '',
-                description: '',
-                short_description: '',
-                type: 'simple',
-                status: 'active',
-                featured: false,
-                regular_price: '',
-                stock_quantity: '10',
-                categories: 'accessories',
-                tags: ''
-              });
-            }}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Create Product
-          </Button>
-        </div>
+          {/* Dashboard Tab */}
+          <TabsContent value="dashboard" className="space-y-6">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : dashboardStats ? (
+              <>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Today's Revenue
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">${dashboardStats.today.revenue.toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {dashboardStats.today.order_count} orders
+                      </p>
+                    </CardContent>
+                  </Card>
 
-        {/* Products List Tab */}
-        {activeTab === 'products' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>All Products ({products.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-destructive" />
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        This Month
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">${dashboardStats.month.revenue.toFixed(2)}</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {dashboardStats.month.order_count} orders
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Total Products
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{dashboardStats.productStats.total}</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {dashboardStats.productStats.in_stock} in stock
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-muted-foreground">
+                        Low Stock Alert
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-orange-600">
+                        {dashboardStats.productStats.low_stock}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Products need restock
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-              ) : products.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">No products yet</p>
-                  <Button onClick={() => setActiveTab('create')}>
-                    Create Your First Product
-                  </Button>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b">
-                      <tr className="text-left">
-                        <th className="pb-3 font-medium">ID</th>
-                        <th className="pb-3 font-medium">SKU</th>
-                        <th className="pb-3 font-medium">Name</th>
-                        <th className="pb-3 font-medium">Price</th>
-                        <th className="pb-3 font-medium">Stock</th>
-                        <th className="pb-3 font-medium">Status</th>
-                        <th className="pb-3 font-medium">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {products.map((product) => (
-                        <tr key={product.id} className="border-b">
-                          <td className="py-3">{product.id}</td>
-                          <td className="py-3 font-mono text-sm">{product.sku}</td>
-                          <td className="py-3 max-w-xs truncate">{product.name}</td>
-                          <td className="py-3 font-semibold">${product.regular_price}</td>
-                          <td className="py-3">
-                            <span className={product.stock > 0 ? 'text-green-500' : 'text-red-500'}>
-                              {product.stock}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <span className={`text-xs px-2 py-1 rounded ${
-                              product.status === 'active' ? 'bg-green-500/20 text-green-500' : 'bg-gray-500/20 text-gray-500'
-                            }`}>
-                              {product.status}
-                            </span>
-                          </td>
-                          <td className="py-3">
-                            <div className="flex gap-2">
-                              <Link to={`/product/${product.slug}`} target="_blank">
-                                <Button size="sm" variant="ghost">View</Button>
-                              </Link>
-                              <Button size="sm" variant="ghost" onClick={() => handleEdit(product)}>
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => handleDelete(product.id)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+
+                {/* Recent Orders */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Orders</CardTitle>
+                    <CardDescription>Latest 5 orders</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {dashboardStats.recentOrders.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-8">No orders yet</p>
+                      ) : (
+                        dashboardStats.recentOrders.map((order) => (
+                          <div key={order.id} className="flex items-center justify-between border-b border-border pb-3 last:border-0">
+                            <div>
+                              <p className="font-semibold">{order.order_number}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {order.user_email || order.customer_email}
+                              </p>
                             </div>
-                          </td>
+                            <div className="text-right">
+                              <Badge variant={
+                                order.status === 'delivered' ? 'default' :
+                                order.status === 'shipped' ? 'secondary' :
+                                order.status === 'cancelled' ? 'destructive' :
+                                'outline'
+                              }>
+                                {order.status}
+                              </Badge>
+                              <p className="text-sm font-semibold mt-1">
+                                ${parseFloat(order.total_amount).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Top Products */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Top Products (Last 30 Days)</CardTitle>
+                    <CardDescription>Best sellers</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {dashboardStats.topProducts.length === 0 ? (
+                        <p className="text-center text-muted-foreground py-8">No sales data yet</p>
+                      ) : (
+                        dashboardStats.topProducts.map((product, idx) => (
+                          <div key={idx} className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">{product.product_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {product.total_sold} sold
+                              </p>
+                            </div>
+                            <p className="font-semibold">${parseFloat(product.revenue).toFixed(2)}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">No data available</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* Orders Tab */}
+          <TabsContent value="orders" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Management</CardTitle>
+                <CardDescription>View and manage all orders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ShoppingBag className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No orders yet</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-3 px-2">Order #</th>
+                          <th className="text-left py-3 px-2">Customer</th>
+                          <th className="text-left py-3 px-2">Items</th>
+                          <th className="text-left py-3 px-2">Total</th>
+                          <th className="text-left py-3 px-2">Status</th>
+                          <th className="text-left py-3 px-2">Date</th>
+                          <th className="text-left py-3 px-2">Actions</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Create/Edit Product Tab */}
-        {activeTab === 'create' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{editingProduct ? 'Edit Product' : 'Create New Product'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Basic Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="sku">SKU *</Label>
-                    <Input
-                      id="sku"
-                      value={formData.sku}
-                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                      placeholder="FS-TRAINER-001"
-                      required
-                    />
+                      </thead>
+                      <tbody>
+                        {orders.map((order) => (
+                          <tr key={order.id} className="border-b border-border hover:bg-muted/50">
+                            <td className="py-3 px-2">
+                              <span className="font-mono text-sm">{order.order_number}</span>
+                            </td>
+                            <td className="py-3 px-2">
+                              <div className="text-sm">
+                                {order.user_first_name && order.user_last_name ? (
+                                  <p className="font-medium">{order.user_first_name} {order.user_last_name}</p>
+                                ) : null}
+                                <p className="text-muted-foreground">{order.user_email || order.customer_email}</p>
+                              </div>
+                            </td>
+                            <td className="py-3 px-2">
+                              <Badge variant="outline">{order.item_count || 0}</Badge>
+                            </td>
+                            <td className="py-3 px-2">
+                              <span className="font-semibold">${parseFloat(order.total_amount).toFixed(2)}</span>
+                            </td>
+                            <td className="py-3 px-2">
+                              <Select
+                                value={order.status}
+                                onValueChange={(value) => handleUpdateOrderStatus(order.id, value)}
+                              >
+                                <SelectTrigger className="w-[140px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pending">Pending</SelectItem>
+                                  <SelectItem value="processing">Processing</SelectItem>
+                                  <SelectItem value="shipped">Shipped</SelectItem>
+                                  <SelectItem value="delivered">Delivered</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </td>
+                            <td className="py-3 px-2 text-sm text-muted-foreground">
+                              {new Date(order.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 px-2">
+                              <Button variant="ghost" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Products Tab */}
+          <TabsContent value="products" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="name">Product Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setFormData({ 
-                          ...formData, 
-                          name,
-                          slug: formData.slug || generateSlug(name)
-                        });
-                      }}
-                      placeholder="SimFab Flight Sim Trainer Station"
-                      required
-                    />
+                    <CardTitle>Product Management</CardTitle>
+                    <CardDescription>View and manage products</CardDescription>
                   </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="slug">URL Slug *</Label>
-                  <Input
-                    id="slug"
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    placeholder="flight-sim-trainer-station"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    URL: /product/{formData.slug || 'your-product-slug'}
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="short_description">Short Description</Label>
-                  <Input
-                    id="short_description"
-                    value={formData.short_description}
-                    onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
-                    placeholder="Your Gateway to Precision Aviation Training"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Full Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Detailed product description..."
-                    rows={4}
-                  />
-                </div>
-
-                {/* Pricing & Inventory */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="regular_price">Price ($) *</Label>
-                    <Input
-                      id="regular_price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.regular_price}
-                      onChange={(e) => setFormData({ ...formData, regular_price: e.target.value })}
-                      placeholder="999.00"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="stock_quantity">Stock Quantity *</Label>
-                    <Input
-                      id="stock_quantity"
-                      type="number"
-                      min="0"
-                      value={formData.stock_quantity}
-                      onChange={(e) => setFormData({ ...formData, stock_quantity: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Configuration */}
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="type">Product Type</Label>
-                    <Select 
-                      value={formData.type} 
-                      onValueChange={(value) => setFormData({ ...formData, type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="simple">Simple</SelectItem>
-                        <SelectItem value="variable">Variable</SelectItem>
-                        <SelectItem value="configurable">Configurable</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="status">Status</Label>
-                    <Select 
-                      value={formData.status} 
-                      onValueChange={(value) => setFormData({ ...formData, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="draft">Draft</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="categories">Category</Label>
-                    <Select 
-                      value={formData.categories} 
-                      onValueChange={(value) => setFormData({ ...formData, categories: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="flight-sim">Flight Sim</SelectItem>
-                        <SelectItem value="sim-racing">Sim Racing</SelectItem>
-                        <SelectItem value="cockpits">Cockpits</SelectItem>
-                        <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
-                        <SelectItem value="accessories">Accessories</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Tags */}
-                <div>
-                  <Label htmlFor="tags">Tags (comma-separated)</Label>
-                  <Input
-                    id="tags"
-                    value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                    placeholder="best-seller, modular, professional"
-                  />
-                </div>
-
-                {/* Featured */}
-                <div className="flex items-center gap-2">
-                  <input
-                    id="featured"
-                    type="checkbox"
-                    checked={formData.featured}
-                    onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="featured">Featured Product</Label>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-3">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        {editingProduct ? 'Update' : 'Create'} Product
-                      </>
-                    )}
+                  <Button onClick={() => setActiveTab('create')}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Product
                   </Button>
-                  {editingProduct && (
-                    <Button 
-                      type="button" 
-                      variant="outline"
-                      onClick={() => {
-                        setEditingProduct(null);
-                        setActiveTab('products');
-                      }}
-                    >
-                      Cancel
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : products.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground mb-4">No products yet</p>
+                    <Button onClick={() => setActiveTab('create')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create First Product
                     </Button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-3 px-2">SKU</th>
+                          <th className="text-left py-3 px-2">Name</th>
+                          <th className="text-left py-3 px-2">Price</th>
+                          <th className="text-left py-3 px-2">Stock</th>
+                          <th className="text-left py-3 px-2">Status</th>
+                          <th className="text-left py-3 px-2">Featured</th>
+                          <th className="text-left py-3 px-2">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.map((product) => (
+                          <tr key={product.id} className="border-b border-border hover:bg-muted/50">
+                            <td className="py-3 px-2">
+                              <span className="font-mono text-sm">{product.sku}</span>
+                            </td>
+                            <td className="py-3 px-2 max-w-xs">
+                              <p className="font-medium truncate">{product.name}</p>
+                            </td>
+                            <td className="py-3 px-2">
+                              ${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
+                            </td>
+                            <td className="py-3 px-2">
+                              <Badge variant={product.stock > 0 ? 'default' : 'destructive'}>
+                                {product.stock}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-2">
+                              <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
+                                {product.status}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-2">
+                              {product.featured ? (
+                                <Check className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <X className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </td>
+                            <td className="py-3 px-2">
+                              <div className="flex gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleEditProduct(product)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleDeleteProduct(product.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                {/* Help Text */}
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    <strong>Note:</strong> After creating a product, you can add variations, colors, and add-ons 
-                    by visiting the product detail page and using the configuration tools.
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    For now, create simple products to test the system. Advanced configurations coming soon!
-                  </p>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
+          {/* Create/Edit Product Tab */}
+          <TabsContent value="create" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>{editingProduct ? 'Edit Product' : 'Create New Product'}</CardTitle>
+                <CardDescription>
+                  {editingProduct ? `Editing: ${editingProduct.name}` : 'Add a new product to your catalog'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleProductSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sku">SKU *</Label>
+                      <Input
+                        id="sku"
+                        value={productForm.sku}
+                        onChange={(e) => setProductForm({ ...productForm, sku: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="name">Product Name *</Label>
+                      <Input
+                        id="name"
+                        value={productForm.name}
+                        onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Products</p>
-                  <p className="text-2xl font-bold">{products.length}</p>
-                </div>
-                <Package className="h-8 w-8 text-destructive" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">In Stock</p>
-                  <p className="text-2xl font-bold">
-                    {products.filter(p => p.stock > 0).length}
-                  </p>
-                </div>
-                <Settings className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Featured</p>
-                  <p className="text-2xl font-bold">
-                    {products.filter(p => p.featured).length}
-                  </p>
-                </div>
-                <Settings className="h-8 w-8 text-blue-500" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                  <div>
+                    <Label htmlFor="slug">Slug *</Label>
+                    <Input
+                      id="slug"
+                      value={productForm.slug}
+                      onChange={(e) => setProductForm({ ...productForm, slug: e.target.value })}
+                      placeholder="product-url-slug"
+                      required
+                    />
+                  </div>
 
-        {/* Links */}
-        <div className="mt-8 p-6 bg-muted rounded-lg">
-          <h3 className="font-semibold mb-3">Quick Links</h3>
-          <div className="grid grid-cols-2 gap-2">
-            <Link to="/shop" className="text-sm text-primary hover:underline">→ View Shop Page</Link>
-            <a href={`${API_URL}/api/products`} target="_blank" rel="noopener" className="text-sm text-primary hover:underline">→ API: Products</a>
-            <a href={`${API_URL}/api/products/featured`} target="_blank" rel="noopener" className="text-sm text-primary hover:underline">→ API: Featured</a>
-            <a href={`${API_URL}/health`} target="_blank" rel="noopener" className="text-sm text-primary hover:underline">→ API: Health</a>
-          </div>
-        </div>
+                  <div>
+                    <Label htmlFor="short_description">Short Description</Label>
+                    <Input
+                      id="short_description"
+                      value={productForm.short_description}
+                      onChange={(e) => setProductForm({ ...productForm, short_description: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Full Description</Label>
+                    <Textarea
+                      id="description"
+                      value={productForm.description}
+                      onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                      rows={4}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="regular_price">Price *</Label>
+                      <Input
+                        id="regular_price"
+                        type="number"
+                        step="0.01"
+                        value={productForm.regular_price}
+                        onChange={(e) => setProductForm({ ...productForm, regular_price: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="stock_quantity">Stock *</Label>
+                      <Input
+                        id="stock_quantity"
+                        type="number"
+                        value={productForm.stock_quantity}
+                        onChange={(e) => setProductForm({ ...productForm, stock_quantity: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select value={productForm.status} onValueChange={(value) => setProductForm({ ...productForm, status: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="draft">Draft</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="categories">Category</Label>
+                      <Select value={productForm.categories} onValueChange={(value) => setProductForm({ ...productForm, categories: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="flight-sim">Flight Sim</SelectItem>
+                          <SelectItem value="sim-racing">Sim Racing</SelectItem>
+                          <SelectItem value="accessories">Accessories</SelectItem>
+                          <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="tags">Tags (comma separated)</Label>
+                      <Input
+                        id="tags"
+                        value={productForm.tags}
+                        onChange={(e) => setProductForm({ ...productForm, tags: e.target.value })}
+                        placeholder="best-seller, modular"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="featured"
+                      checked={productForm.featured}
+                      onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })}
+                      className="rounded"
+                    />
+                    <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <Button type="submit" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        editingProduct ? 'Update Product' : 'Create Product'
+                      )}
+                    </Button>
+                    {editingProduct && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingProduct(null);
+                          setProductForm({
+                            sku: '',
+                            name: '',
+                            slug: '',
+                            description: '',
+                            short_description: '',
+                            type: 'simple',
+                            status: 'active',
+                            featured: false,
+                            regular_price: '',
+                            stock_quantity: '10',
+                            categories: 'accessories',
+                            tags: ''
+                          });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Settings Tab */}
+          <TabsContent value="settings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Admin Settings</CardTitle>
+                <CardDescription>System configuration</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Settings panel coming soon. This will include site configuration, email settings, and more.
+                  </AlertDescription>
+                </Alert>
+                
+                <div className="pt-4">
+                  <h3 className="font-semibold mb-2">Quick Info:</h3>
+                  <div className="text-sm space-y-1 text-muted-foreground">
+                    <p>• Admin authentication is currently bypassed for testing</p>
+                    <p>• All users have admin access</p>
+                    <p>• Payment integration coming in Phase 4</p>
+                    <p>• Shipping integration coming in Phase 5</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Footer />
@@ -609,4 +856,3 @@ const Admin = () => {
 };
 
 export default Admin;
-
