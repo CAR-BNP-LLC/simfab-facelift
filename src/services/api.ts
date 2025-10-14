@@ -208,9 +208,12 @@ export const authAPI = {
 
 export interface ProductImage {
   id: number;
-  url: string;
-  alt: string | null;
-  isPrimary: boolean;
+  image_url: string;
+  alt_text: string | null;
+  is_primary: boolean;
+  sort_order: number;
+  product_id: number;
+  created_at: string;
 }
 
 export interface ProductColor {

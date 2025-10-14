@@ -106,42 +106,8 @@ export class ProductController {
   getProductBySlug = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const slug = req.params.slug;
-      
-      // Simplified query
-      const sql = 'SELECT * FROM products WHERE slug = $1';
-      const result = await this.pool.query(sql, [slug]);
-      
-      if (result.rows.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: 'Product not found'
-          }
-        });
-      }
-
-      const product = result.rows[0];
-      
-      // Get related data
-      const [colorsResult, variationsResult, addonsResult] = await Promise.all([
-        this.pool.query('SELECT * FROM product_colors WHERE product_id = $1 ORDER BY sort_order', [product.id]),
-        this.pool.query('SELECT * FROM product_variations WHERE product_id = $1 ORDER BY sort_order', [product.id]),
-        this.pool.query('SELECT * FROM product_addons WHERE product_id = $1 ORDER BY sort_order', [product.id])
-      ]);
-
-      res.json(successResponse({
-        ...product,
-        colors: colorsResult.rows,
-        variations: {
-          model: variationsResult.rows.filter((v: any) => v.variation_type === 'model'),
-          dropdown: variationsResult.rows.filter((v: any) => v.variation_type === 'dropdown')
-        },
-        addons: addonsResult.rows,
-        faqs: [],
-        assemblyManuals: [],
-        additionalInfo: []
-      }, 'Product retrieved successfully'));
+      const product = await this.productService.getProductBySlug(slug);
+      res.json(successResponse(product, 'Product retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -340,26 +306,17 @@ export class ProductController {
 
       const dbCategory = categoryMap[category];
       
-      // Use the existing featured products query and filter by category
-      const options: ProductQueryOptions = {
-        featured: true,
-        category: dbCategory,
-        limit: limit
-      };
+      if (!dbCategory) {
+        return res.json(successResponse([], 'No products found for this category'));
+      }
 
       const queryBuilder = new ProductQueryBuilder(this.pool);
       const { sql, params } = queryBuilder.buildFeaturedQuery(limit);
       
-      // Modify the query to include category filter if needed
-      let finalSql = sql;
-      let finalParams = params;
-      
-      if (dbCategory) {
-        // Add category filter to the existing query
-        const categoryFilter = `AND p.categories LIKE $${params.length + 1}`;
-        finalSql = sql.replace('ORDER BY', `${categoryFilter}\n      ORDER BY`);
-        finalParams = [...params, `%${dbCategory}%`];
-      }
+      // Modify the query to include category filter
+      const categoryFilter = `AND p.categories LIKE $${params.length + 1}`;
+      const finalSql = sql.replace('ORDER BY p.created_at DESC', `${categoryFilter}\n      ORDER BY p.created_at DESC`);
+      const finalParams = [...params, `%${dbCategory}%`];
 
       const result = await this.pool.query(finalSql, finalParams);
 

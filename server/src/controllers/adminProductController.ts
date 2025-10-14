@@ -348,6 +348,20 @@ export class AdminProductController {
   // ============================================================================
 
   /**
+   * Get product images
+   * GET /api/admin/products/:id/images
+   */
+  getImages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const images = await this.imageService.getImagesByProduct(productId);
+      res.json(successResponse(images, 'Images retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Upload product image
    * POST /api/admin/products/:id/images
    */

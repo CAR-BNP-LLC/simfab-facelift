@@ -317,11 +317,20 @@ const ProductDetail = () => {
 
   // Transform product data for components (with safe access)
   const images = Array.isArray(product.images) && product.images.length > 0
-    ? product.images.map((img: any) => ({
-        url: img.url || img.image_url || '/api/placeholder/600/400',
-        alt: img.alt || img.alt_text || product.name
-      }))
-    : [{ url: '/api/placeholder/600/400', alt: product.name }];
+    ? product.images
+        .sort((a: any, b: any) => {
+          // Primary image first
+          if (a.is_primary && !b.is_primary) return -1;
+          if (!a.is_primary && b.is_primary) return 1;
+          // Then by sort_order
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        })
+        .map((img: any) => ({
+          url: img.image_url || img.url,
+          alt: img.alt_text || img.alt || product.name
+        }))
+        .filter(img => img.url) // Remove images without URLs
+    : [];
 
   const colors = Array.isArray(product.colors) && product.colors.length > 0
     ? product.colors.map((c: any) => ({

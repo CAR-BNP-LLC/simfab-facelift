@@ -4,7 +4,7 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: simfab-db
+    container_name: simfab-db-dev
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -20,12 +20,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend Server
+  # Backend Server with Hot Reload
   server:
     build:
       context: ./server
       dockerfile: Dockerfile
-    container_name: simfab-server
+    container_name: simfab-server-dev
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/simfab_dev
@@ -37,6 +37,8 @@ services:
     volumes:
       - ./server/src:/app/src
       - ./server/uploads:/app/uploads
+      - ./server/package.json:/app/package.json
+      - ./server/tsconfig.json:/app/tsconfig.json
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,18 +49,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: simfab-frontend
+    container_name: simfab-frontend-dev
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost:3001
-      CHOKIDAR_USEPOLLING: true # Enable file watching in Docker
+      CHOKIDAR_USEPOLLING: true
+      WATCHPACK_POLLING: true
     ports:
       - "5173:5173"
     volumes:
+      # Source code (hot reload)
       - ./src:/app/src
       - ./public:/app/public
       - ./index.html:/app/index.html
+      
+      # Configuration files (hot reload)
       - ./package.json:/app/package.json
+      - ./package-lock.json:/app/package-lock.json
       - ./tsconfig.json:/app/tsconfig.json
       - ./tsconfig.app.json:/app/tsconfig.app.json
       - ./tsconfig.node.json:/app/tsconfig.node.json
@@ -66,8 +73,10 @@ services:
       - ./tailwind.config.ts:/app/tailwind.config.ts
       - ./postcss.config.js:/app/postcss.config.js
       - ./components.json:/app/components.json
-    command: npm run dev -- --host 0.0.0.0
+      
+      # Node modules (cached)
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 5173
 
 volumes:
   postgres_data:
-

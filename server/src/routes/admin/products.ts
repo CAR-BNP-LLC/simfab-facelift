@@ -234,6 +234,16 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   // ============================================================================
 
   /**
+   * @route   GET /api/admin/products/:id/images
+   * @desc    Get product images
+   * @access  Admin
+   */
+  router.get(
+    '/:id/images',
+    controller.getImages
+  );
+
+  /**
    * @route   POST /api/admin/products/:id/images
    * @desc    Upload product image
    * @access  Admin

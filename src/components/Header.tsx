@@ -201,6 +201,37 @@ const Header = () => {
     fetchCategoryCounts();
   }, []);
 
+  // Listen for product changes to invalidate cache
+  useEffect(() => {
+    const handleProductChange = () => {
+      // Clear cached mega menu products
+      setMegaMenuProducts({});
+      setLoadingMegaMenu({});
+      
+      // Refetch category counts
+      const fetchCategoryCounts = async () => {
+        try {
+          const response = await productsAPI.getCategories();
+          const counts: Record<string, number> = {};
+          response.data.forEach(cat => {
+            counts[cat.id] = cat.count;
+          });
+          setCategoryCounts(counts);
+        } catch (error) {
+          console.error('Failed to fetch category counts:', error);
+        }
+      };
+      fetchCategoryCounts();
+    };
+
+    // Listen for custom product change events
+    window.addEventListener('productChanged', handleProductChange);
+    
+    return () => {
+      window.removeEventListener('productChanged', handleProductChange);
+    };
+  }, []);
+
   // Handle window resize to recalculate menu position
   useEffect(() => {
     const handleResize = () => {
@@ -257,15 +288,21 @@ const Header = () => {
   const getProductImage = (product: any) => {
     try {
       if (Array.isArray(product.images) && product.images.length > 0) {
-        const primaryImage = product.images.find((img: any) => img.isPrimary || img.is_primary) || product.images[0];
-        return primaryImage.url || primaryImage.image_url || '/src/assets/flight-sim-cockpit.jpg';
+        // Sort to get primary image first
+        const sortedImages = [...product.images].sort((a: any, b: any) => {
+          if (a.is_primary && !b.is_primary) return -1;
+          if (!a.is_primary && b.is_primary) return 1;
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        });
+        const primaryImage = sortedImages[0];
+        return primaryImage.image_url || primaryImage.url || null;
       }
       if (typeof product.images === 'string' && product.images) {
         return product.images;
       }
-      return '/src/assets/flight-sim-cockpit.jpg';
+      return null;
     } catch (error) {
-      return '/src/assets/flight-sim-cockpit.jpg';
+      return null;
     }
   };
 
@@ -388,15 +425,15 @@ const Header = () => {
                                 onClick={() => window.location.href = `/product/${product.slug}`}
                               >
                                 <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
-                                  <img 
-                                    src={getProductImage(product)} 
-                                    alt={product.name}
-                                    className="w-full h-full object-contain"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                    }}
-                                  />
+                                  {getProductImage(product) ? (
+                                    <img 
+                                      src={getProductImage(product)} 
+                                      alt={product.name}
+                                      className="w-full h-full object-contain"
+                                    />
+                                  ) : (
+                                    <p className="text-muted-foreground text-xs">No image available</p>
+                                  )}
                                 </div>
                                 <div className="p-4 text-center">
                                   <h3 className="text-sm font-medium text-card-foreground mb-2 leading-tight line-clamp-2">
@@ -419,38 +456,10 @@ const Header = () => {
                         </div>
                       )}
 
-                      {/* Fallback to Hardcoded Content if no API data */}
-                      {!loadingMegaMenu[item] && (!megaMenuProducts[item] || megaMenuProducts[item].length === 0) && megaMenuContent[item as keyof typeof megaMenuContent] && (
-                        <div className="grid grid-cols-3 gap-8 mb-8">
-                          {megaMenuContent[item as keyof typeof megaMenuContent].products.map((product) => (
-                            <div key={product.name} className="group cursor-pointer">
-                              <div className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105">
-                                <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
-                                  <img 
-                                    src={product.image} 
-                                    alt={product.name}
-                                    className="w-full h-full object-contain"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.style.display = 'none';
-                                    }}
-                                  />
-                                </div>
-                                <div className="p-4 text-center">
-                                  <h3 className="text-sm font-medium text-card-foreground mb-3 leading-tight">
-                                    {product.name}
-                                  </h3>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    className="w-full border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                                  >
-                                    {product.action}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                      {/* No products available message */}
+                      {!loadingMegaMenu[item] && (!megaMenuProducts[item] || megaMenuProducts[item].length === 0) && (
+                        <div className="py-8 text-center">
+                          <p className="text-muted-foreground">No products available in this category yet.</p>
                         </div>
                       )}
 

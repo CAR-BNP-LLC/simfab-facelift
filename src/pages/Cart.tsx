@@ -64,7 +64,7 @@ const Cart = () => {
         try {
           const images = JSON.parse(item.product_image);
           if (Array.isArray(images) && images.length > 0) {
-            return images[0].url || images[0].image_url || '/placeholder.svg';
+            return images[0].image_url || images[0].url || null;
           }
         } catch {
           return item.product_image;
@@ -72,7 +72,7 @@ const Cart = () => {
       }
       return item.product_image;
     }
-    return '/placeholder.svg';
+    return null;
   };
 
   return (
@@ -141,14 +141,17 @@ const Cart = () => {
                         <div className="md:col-span-6 flex gap-4">
                           {/* Image */}
                           <div className="flex-shrink-0">
-                            <img
-                              src={getImageUrl(item)}
-                              alt={item.product_name}
-                              className="w-24 h-24 object-cover rounded bg-muted"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = '/placeholder.svg';
-                              }}
-                            />
+                            {getImageUrl(item) ? (
+                              <img
+                                src={getImageUrl(item)}
+                                alt={item.product_name}
+                                className="w-24 h-24 object-cover rounded bg-muted"
+                              />
+                            ) : (
+                              <div className="w-24 h-24 rounded bg-muted flex items-center justify-center">
+                                <p className="text-xs text-muted-foreground text-center px-2">No image</p>
+                              </div>
+                            )}
                           </div>
 
                           {/* Details */}

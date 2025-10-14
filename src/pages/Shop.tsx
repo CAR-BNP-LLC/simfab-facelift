@@ -131,8 +131,14 @@ const Shop = () => {
     try {
       // Handle array of images
       if (Array.isArray(product.images) && product.images.length > 0) {
-        const primaryImage = product.images.find((img: any) => img.isPrimary || img.is_primary) || product.images[0];
-        return primaryImage.url || primaryImage.image_url || '/api/placeholder/300/200';
+        // Sort to get primary image first
+        const sortedImages = [...product.images].sort((a: any, b: any) => {
+          if (a.is_primary && !b.is_primary) return -1;
+          if (!a.is_primary && b.is_primary) return 1;
+          return (a.sort_order || 0) - (b.sort_order || 0);
+        });
+        const primaryImage = sortedImages[0];
+        return primaryImage.image_url || primaryImage.url || null;
       }
       
       // Handle single image string
@@ -140,10 +146,10 @@ const Shop = () => {
         return product.images;
       }
       
-      return '/api/placeholder/300/200';
+      return null;
     } catch (error) {
       console.error('Error getting product image:', error, product);
-      return '/api/placeholder/300/200';
+      return null;
     }
   };
 
@@ -262,11 +268,17 @@ const Shop = () => {
                   <CardContent className="p-0">
                     {/* Product Image */}
                     <div className="aspect-square bg-muted rounded-t-lg overflow-hidden">
-                      <img
-                        src={getProductImage(product)}
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+                      {getProductImage(product) ? (
+                        <img
+                          src={getProductImage(product)}
+                          alt={product.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <p className="text-muted-foreground text-sm">No image available</p>
+                        </div>
+                      )}
                     </div>
                     
                     {/* Product Info */}

@@ -19,7 +19,17 @@ import {
   AlertCircle,
   Eye,
   Check,
-  X
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Search,
+  Filter,
+  Upload,
+  Image as ImageIcon,
+  Star,
+  GripVertical,
+  Trash
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -52,7 +62,27 @@ const Admin = () => {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [productImages, setProductImages] = useState<any[]>([]);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const { toast } = useToast();
+
+  // Utility function to generate slug from name (GitHub-style)
+  const generateSlug = (name: string): string => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+      .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+  };
+
+  // Sorting and filtering state
+  const [sortField, setSortField] = useState<string>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [featuredFilter, setFeaturedFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Product form state
   const [productForm, setProductForm] = useState({
@@ -69,6 +99,19 @@ const Admin = () => {
     categories: 'accessories',
     tags: ''
   });
+
+  // Handle product name change and auto-generate slug
+  const handleProductNameChange = (name: string) => {
+    // Only generate new slug if creating new product or name has changed
+    const shouldGenerateSlug = !editingProduct || name !== editingProduct.name;
+    const slug = shouldGenerateSlug ? generateSlug(name) : productForm.slug;
+    
+    setProductForm(prev => ({
+      ...prev,
+      name,
+      slug
+    }));
+  };
 
   // Load data based on active tab
   useEffect(() => {
@@ -151,6 +194,11 @@ const Admin = () => {
 
       const productData = {
         ...productForm,
+        // Only include slug if creating new product or name has changed
+        ...(editingProduct && productForm.name === editingProduct.name 
+          ? {} 
+          : { slug: generateSlug(productForm.name) }
+        ),
         regular_price: parseFloat(productForm.regular_price),
         stock_quantity: parseInt(productForm.stock_quantity),
         featured: productForm.featured,
@@ -179,11 +227,14 @@ const Admin = () => {
           description: editingProduct ? 'Product updated' : 'Product created'
         });
         
+        // Invalidate navbar cache
+        window.dispatchEvent(new CustomEvent('productChanged'));
+        
         // Reset form
         setProductForm({
           sku: '',
           name: '',
-          slug: '',
+          slug: '', // Will be auto-generated when name is entered
           description: '',
           short_description: '',
           type: 'simple',
@@ -224,6 +275,10 @@ const Admin = () => {
 
       if (data.success) {
         toast({ title: 'Product deleted' });
+        
+        // Invalidate navbar cache
+        window.dispatchEvent(new CustomEvent('productChanged'));
+        
         fetchProducts();
       }
     } catch (error) {
@@ -251,7 +306,118 @@ const Admin = () => {
       categories: Array.isArray(product.categories) ? product.categories[0] : 'accessories',
       tags: Array.isArray(product.tags) ? product.tags.join(', ') : ''
     });
+    
+    // Fetch product images when editing
+    if (product.id) {
+      fetchProductImages(product.id);
+    }
+    
     setActiveTab('create');
+  };
+
+  // Image management functions
+  const fetchProductImages = async (productId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/${productId}/images`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setProductImages(data.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch product images:', error);
+    }
+  };
+
+  const handleImageUpload = async (productId: number, files: FileList) => {
+    setUploadingImages(true);
+    
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch(`${API_URL}/api/admin/products/${productId}/images`, {
+          method: 'POST',
+          credentials: 'include',
+          body: formData
+        });
+        
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.error?.message || 'Upload failed');
+        }
+        
+        return data.data;
+      });
+
+      const uploadedImages = await Promise.all(uploadPromises);
+      setProductImages(prev => [...prev, ...uploadedImages]);
+      
+      toast({
+        title: 'Success',
+        description: `${uploadedImages.length} image(s) uploaded successfully`
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to upload images',
+        variant: 'destructive'
+      });
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleDeleteImage = async (productId: number, imageId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/${productId}/images/${imageId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setProductImages(prev => prev.filter(img => img.id !== imageId));
+        toast({ title: 'Image deleted' });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete image',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleSetPrimaryImage = async (productId: number, imageId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/${productId}/images/${imageId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ is_primary: true })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setProductImages(prev => 
+          prev.map(img => ({
+            ...img,
+            is_primary: img.id === imageId
+          }))
+        );
+        toast({ title: 'Primary image updated' });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update primary image',
+        variant: 'destructive'
+      });
+    }
   };
 
   const handleUpdateOrderStatus = async (orderId: number, status: string) => {
@@ -276,6 +442,67 @@ const Admin = () => {
         variant: 'destructive'
       });
     }
+  };
+
+  // Sorting and filtering functions
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />;
+    return sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+  };
+
+  const filteredAndSortedProducts = () => {
+    let filtered = [...products];
+
+    // Apply search filter
+    if (searchQuery) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.sku.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply category filter
+    if (categoryFilter !== 'all') {
+      filtered = filtered.filter(product => {
+        const categories = typeof product.categories === 'string' 
+          ? JSON.parse(product.categories) 
+          : product.categories || [];
+        return categories.includes(categoryFilter);
+      });
+    }
+
+    // Apply featured filter
+    if (featuredFilter !== 'all') {
+      const isFeatured = featuredFilter === 'featured';
+      filtered = filtered.filter(product => product.featured === isFeatured);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      // Handle different data types
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return filtered;
   };
 
   return (
@@ -558,6 +785,51 @@ const Admin = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                {/* Filters and Search */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search products by name or SKU..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Categories</SelectItem>
+                        <SelectItem value="flight-sim">Flight Sim</SelectItem>
+                        <SelectItem value="sim-racing">Sim Racing</SelectItem>
+                        <SelectItem value="accessories">Accessories</SelectItem>
+                        <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
+                        <SelectItem value="cockpits">Cockpits</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={featuredFilter} onValueChange={setFeaturedFilter}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Featured" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="featured">Featured</SelectItem>
+                        <SelectItem value="not-featured">Not Featured</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {/* Results counter */}
+                <div className="mb-4 text-sm text-muted-foreground">
+                  Showing {filteredAndSortedProducts().length} of {products.length} products
+                </div>
+                
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -576,17 +848,65 @@ const Admin = () => {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left py-3 px-2">SKU</th>
-                          <th className="text-left py-3 px-2">Name</th>
-                          <th className="text-left py-3 px-2">Price</th>
-                          <th className="text-left py-3 px-2">Stock</th>
-                          <th className="text-left py-3 px-2">Status</th>
-                          <th className="text-left py-3 px-2">Featured</th>
+                          <th className="text-left py-3 px-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort('sku')}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              SKU {getSortIcon('sku')}
+                            </Button>
+                          </th>
+                          <th className="text-left py-3 px-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort('name')}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              Name {getSortIcon('name')}
+                            </Button>
+                          </th>
+                          <th className="text-left py-3 px-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort('regular_price')}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              Price {getSortIcon('regular_price')}
+                            </Button>
+                          </th>
+                          <th className="text-left py-3 px-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort('stock')}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              Stock {getSortIcon('stock')}
+                            </Button>
+                          </th>
+                          <th className="text-left py-3 px-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort('status')}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              Status {getSortIcon('status')}
+                            </Button>
+                          </th>
+                          <th className="text-left py-3 px-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => handleSort('featured')}
+                              className="h-auto p-0 font-semibold hover:bg-transparent"
+                            >
+                              Featured {getSortIcon('featured')}
+                            </Button>
+                          </th>
                           <th className="text-left py-3 px-2">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {products.map((product) => (
+                        {filteredAndSortedProducts().map((product) => (
                           <tr key={product.id} className="border-b border-border hover:bg-muted/50">
                             <td className="py-3 px-2">
                               <span className="font-mono text-sm">{product.sku}</span>
@@ -668,21 +988,24 @@ const Admin = () => {
                       <Input
                         id="name"
                         value={productForm.name}
-                        onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                        onChange={(e) => handleProductNameChange(e.target.value)}
                         required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="slug">Slug *</Label>
+                    <Label htmlFor="slug">URL Slug (Auto-generated)</Label>
                     <Input
                       id="slug"
                       value={productForm.slug}
-                      onChange={(e) => setProductForm({ ...productForm, slug: e.target.value })}
-                      placeholder="product-url-slug"
-                      required
+                      readOnly
+                      placeholder="Will be generated from product name..."
+                      className="bg-muted text-muted-foreground"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Generated automatically from product name (lowercase, kebab-case)
+                    </p>
                   </div>
 
                   <div>
@@ -778,6 +1101,114 @@ const Admin = () => {
                     <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
                   </div>
 
+                  {/* Image Upload Section */}
+                  {editingProduct && (
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-base font-semibold">Product Images</Label>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Upload multiple images. The first image will be used in navigation menus.
+                        </p>
+                      </div>
+
+                      {/* Upload Area */}
+                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          id="image-upload"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              handleImageUpload(editingProduct.id, e.target.files);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                          <p className="text-lg font-medium mb-2">Upload Images</p>
+                          <p className="text-sm text-muted-foreground">
+                            Click to select multiple images or drag and drop
+                          </p>
+                        </label>
+                      </div>
+
+                      {/* Image Gallery */}
+                      {productImages.length > 0 ? (
+                        <div className="space-y-4">
+                          <h4 className="font-medium">Current Images ({productImages.length})</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {productImages
+                              .sort((a, b) => a.sort_order - b.sort_order)
+                              .map((image, index) => (
+                                <div key={image.id} className="relative group">
+                                  <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+                                    <img
+                                      src={image.image_url}
+                                      alt={image.alt_text || `Product image ${index + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                  
+                                  {/* Image Actions */}
+                                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="flex gap-1">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() => handleSetPrimaryImage(editingProduct.id, image.id)}
+                                        className="h-8 w-8 p-0"
+                                        title={image.is_primary ? "Primary image" : "Set as primary"}
+                                      >
+                                        <Star className={`h-4 w-4 ${image.is_primary ? 'fill-yellow-400 text-yellow-400' : ''}`} />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="destructive"
+                                        onClick={() => handleDeleteImage(editingProduct.id, image.id)}
+                                        className="h-8 w-8 p-0"
+                                        title="Delete image"
+                                      >
+                                        <Trash className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  {/* Primary Badge */}
+                                  {image.is_primary && (
+                                    <div className="absolute top-2 left-2">
+                                      <Badge variant="default" className="text-xs">
+                                        Primary
+                                      </Badge>
+                                    </div>
+                                  )}
+
+                                  {/* Drag Handle */}
+                                  <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                          <p className="text-muted-foreground">This product has no images</p>
+                        </div>
+                      )}
+
+                      {uploadingImages && (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                          <span>Uploading images...</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-4">
                     <Button type="submit" disabled={loading}>
                       {loading ? (
@@ -798,7 +1229,7 @@ const Admin = () => {
                           setProductForm({
                             sku: '',
                             name: '',
-                            slug: '',
+                            slug: '', // Will be auto-generated when name is entered
                             description: '',
                             short_description: '',
                             type: 'simple',

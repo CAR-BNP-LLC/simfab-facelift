@@ -1,8 +1,47 @@
-# Welcome to your Lovable project
+# SimFab - Professional Simulation Equipment Store
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/bde86edc-1af9-4c35-bdba-21f6d9c287b3
+
+## 🚀 Quick Start with Hot Reload
+
+For the best development experience with hot reload enabled:
+
+### Option 1: Docker Development (Recommended)
+```bash
+# Start development environment with hot reload
+./dev-start.sh          # Linux/Mac
+# OR
+dev-start.bat           # Windows
+
+# Access the application:
+# Frontend: http://localhost:5173 (with hot reload)
+# Backend:  http://localhost:3001 (with hot reload)
+# Database: localhost:5432
+```
+
+### Option 2: Manual Docker Setup
+```bash
+# Start with development configuration
+docker-compose -f docker-compose.dev.yml up --build
+
+# Stop when done
+docker-compose -f docker-compose.dev.yml down
+```
+
+### Option 3: Local Development
+```bash
+# Install dependencies
+npm install
+cd server && npm install && cd ..
+
+# Start backend (terminal 1)
+cd server && npm run dev
+
+# Start frontend (terminal 2)
+npm run dev
+```
 
 ## How can I edit this code?
 

@@ -13,6 +13,19 @@ interface ProductImageGalleryProps {
 const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) => {
   const [selectedImage, setSelectedImage] = useState(0);
 
+  // Handle no images case
+  if (!images || images.length === 0) {
+    return (
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <div className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+            <p className="text-muted-foreground">No images available</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex gap-4">
       {/* Thumbnails */}
@@ -36,11 +49,11 @@ const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) 
 
       {/* Main Image */}
       <div className="flex-1">
-        <div className="aspect-square bg-muted rounded-lg overflow-hidden">
+        <div className="bg-muted rounded-lg overflow-hidden flex items-center justify-center">
           <img 
             src={images[selectedImage]?.url} 
             alt={images[selectedImage]?.alt || productName}
-            className="w-full h-full object-cover"
+            className="w-full h-auto max-h-[600px] object-contain"
           />
         </div>
       </div>

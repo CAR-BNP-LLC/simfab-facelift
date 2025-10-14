@@ -59,7 +59,7 @@ const OrderConfirmation = () => {
         try {
           const images = JSON.parse(item.product_image);
           if (Array.isArray(images) && images.length > 0) {
-            return images[0].url || images[0].image_url || '/placeholder.svg';
+            return images[0].image_url || images[0].url || '/placeholder.svg';
           }
         } catch {
           return item.product_image;
