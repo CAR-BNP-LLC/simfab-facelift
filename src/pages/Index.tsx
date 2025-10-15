@@ -1,10 +1,12 @@
 import Header from '@/components/Header';
 import Hero from '@/components/Hero';
 import ProductCategories from '@/components/ProductCategories';
+import MovingBrandsBar from '@/components/MovingBrandsBar';
 import FlightSimSection from '@/components/FlightSimSection';
 import TrainerStation from '@/components/TrainerStation';
 import SimRacingSection from '@/components/SimRacingSection';
-import BrandLogos from '@/components/BrandLogos';
+import MonitorStandsSection from '@/components/MonitorStandsSection';
+import FinalSection from '@/components/FinalSection';
 import Footer from '@/components/Footer';
 
 const Index = () => {
@@ -14,10 +16,12 @@ const Index = () => {
       <main>
         <Hero />
         <ProductCategories />
+        <MovingBrandsBar />
         <FlightSimSection />
         <TrainerStation />
         <SimRacingSection />
-        <BrandLogos />
+        <MonitorStandsSection />
+        <FinalSection />
       </main>
       <Footer />
     </div>

@@ -182,7 +182,7 @@ const Header = () => {
     }
   };
 
-  const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED STOCK', 'SERVICES'];
+  const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED', 'SERVICES'];
 
   // Fetch category counts on mount
   useEffect(() => {
@@ -338,7 +338,7 @@ const Header = () => {
   };
 
   return (
-    <header className="relative">
+    <header className="sticky top-0 z-50 relative">
       {/* Utility Bar */}
       <div className="bg-secondary text-text-muted text-xs py-2 px-4 text-center">
         <span>Toll free for USA & Canada: 1-888-299-2746 | We ship worldwide</span>
@@ -350,13 +350,17 @@ const Header = () => {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex-shrink-0">
-              <h1 className="text-2xl font-bold text-card-foreground">
-                SimFab
-              </h1>
+              <a href="/" className="flex items-center">
+                <img 
+                  src="/SimFab-logo-red-black-min-crop.svg" 
+                  alt="SimFab" 
+                  className="h-8 lg:h-10 w-auto"
+                />
+              </a>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center space-x-8">
+            <nav className="hidden lg:flex items-center space-x-1 lg:space-x-2 xl:space-x-3 2xl:space-x-4 flex-1 justify-center max-w-3xl">
               {mainNavItems.map((item) => (
                 <div
                   key={item}
@@ -383,7 +387,7 @@ const Header = () => {
                   }}
                 >
                   <button 
-                    className="nav-link flex items-center gap-1"
+                    className="nav-link flex items-center gap-0.5 text-xs lg:text-xs xl:text-sm whitespace-nowrap px-0.5"
                     onClick={() => {
                       if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
                       if (item === 'SIM RACING') window.location.href = '/sim-racing';
@@ -486,22 +490,22 @@ const Header = () => {
             </nav>
 
             {/* Right Side Actions */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 xl:space-x-2 flex-shrink-0">
               <button className="text-foreground hover:text-primary transition-colors">
-                <Search className="w-5 h-5" />
+                <Search className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
               <button 
                 className="text-foreground hover:text-primary transition-colors"
                 onClick={handleAccountClick}
                 title={isAuthenticated ? 'My Account' : 'Login'}
               >
-                <User className="w-5 h-5" />
+                <User className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
               <button 
                 className="text-foreground hover:text-primary transition-colors relative"
                 onClick={() => setIsCartOpen(true)}
               >
-                <ShoppingCart className="w-5 h-5" />
+                <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5" />
                 {itemCount > 0 && (
                   <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
                     {itemCount}
@@ -515,14 +519,14 @@ const Header = () => {
                 onClick={() => setShowDebugPanel(!showDebugPanel)}
                 title="Debug Panel"
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
               
               {/* Admin Button */}
               <Button 
                 variant="outline"
                 size="sm"
-                className="hidden md:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white"
+                className="hidden xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white"
                 onClick={() => window.location.href = '/admin'}
                 title="Admin Dashboard"
               >
@@ -530,7 +534,7 @@ const Header = () => {
               </Button>
               
               <Button 
-                className="btn-primary hidden md:inline-flex"
+                className="btn-primary hidden lg:inline-flex"
                 onClick={() => window.location.href = '/shop'}
               >
                 SHOP
