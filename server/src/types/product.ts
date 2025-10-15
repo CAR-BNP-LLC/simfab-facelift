@@ -81,6 +81,13 @@ export interface Product {
   updated_at: Date;
 }
 
+// Extended Product interface for queries that include images
+export interface ProductWithImages extends Product {
+  images: ProductImage[];
+  review_count?: number;
+  rating_average?: number;
+}
+
 export interface ProductImage {
   id: number;
   product_id: number;
@@ -231,7 +238,7 @@ export interface ProductQueryOptions extends ProductFilters, ProductSortOptions 
 }
 
 export interface PaginatedProducts {
-  products: Product[];
+  products: ProductWithImages[];
   pagination: {
     page: number;
     limit: number;

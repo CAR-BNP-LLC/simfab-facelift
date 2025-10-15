@@ -25,48 +25,54 @@ export class ProductController {
   /**
    * List products with filters
    * GET /api/products
+   * VERSION: 2.0 - FIXED FILTERING AND IMAGES
    */
   listProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Simplified query - just get all products for now
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
-      const offset = (page - 1) * limit;
+      console.log('\n\n' + '█'.repeat(80));
+      console.log('█ 🔥🔥🔥 NEW CODE RUNNING - VERSION 2.0 🔥🔥🔥');
+      console.log('█ ProductController.listProducts v2.0 ACTIVE');
+      console.log('█ Timestamp:', new Date().toISOString());
+      console.log('█'.repeat(80));
+      console.log('📥 Query params received:', JSON.stringify(req.query, null, 2));
 
-      const sql = `SELECT * FROM products ORDER BY created_at DESC LIMIT $1 OFFSET $2`;
-      const countSql = `SELECT COUNT(*)::int as total FROM products`;
+      const options: ProductQueryOptions = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 20,
+        category: req.query.category as string,
+        search: req.query.search as string,
+        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
+        inStock: req.query.inStock === 'true' ? true : undefined,
+        featured: req.query.featured === 'true' ? true : undefined,
+        sortBy: req.query.sortBy as any,
+        sortOrder: req.query.sortOrder as any
+      };
 
-      const [productsResult, countResult] = await Promise.all([
-        this.pool.query(sql, [limit, offset]),
-        this.pool.query(countSql)
-      ]);
+      console.log('🔧 Parsed options:', JSON.stringify(options, null, 2));
+      console.log('🎯 Category filter:', options.category || 'NONE');
 
-      const products = productsResult.rows;
-      const total = countResult.rows[0]?.total || 0;
-      const totalPages = Math.ceil(total / limit);
+      const result = await this.productService.getProducts(options);
+
+      console.log('✅ Products returned:', result.products.length);
+      if (result.products.length > 0) {
+        const firstProduct = result.products[0];
+        console.log('📦 First product sample:');
+        console.log('   - ID:', firstProduct.id);
+        console.log('   - Name:', firstProduct.name);
+        console.log('   - Images field type:', typeof firstProduct.images);
+        console.log('   - Images value:', JSON.stringify(firstProduct.images));
+        console.log('   - Has categories:', firstProduct.categories);
+      }
+      console.log('█'.repeat(80) + '\n\n');
 
       res.json(paginatedResponse(
-        products,
-        {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrevious: page > 1
-        },
-        {
-          categories: [
-            { id: 'flight-sim', name: 'Flight Simulation', count: 0 },
-            { id: 'sim-racing', name: 'Sim Racing', count: 0 },
-            { id: 'cockpits', name: 'Cockpits', count: 0 },
-            { id: 'monitor-stands', name: 'Monitor Stands', count: 0 },
-            { id: 'accessories', name: 'Accessories', count: 0 }
-          ],
-          priceRange: { min: 0, max: 10000 }
-        }
+        result.products,
+        result.pagination,
+        result.filters
       ));
     } catch (error) {
+      console.error('❌❌❌ ERROR in listProducts v2.0:', error);
       next(error);
     }
   };

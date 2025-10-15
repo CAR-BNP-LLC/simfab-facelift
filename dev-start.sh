@@ -31,3 +31,4 @@ echo "   - Edit files in ./server/src/ and see changes instantly"
 echo ""
 echo "🛑 To stop: Ctrl+C or run 'docker-compose -f docker-compose.dev.yml down'"
 
+

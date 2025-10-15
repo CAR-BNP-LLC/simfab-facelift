@@ -83,7 +83,7 @@ app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'SimFab Products API Server',
-    version: '1.0.0',
+    version: '2.0.0 - FILTERING & IMAGES FIXED',
     endpoints: {
       health: '/health',
       products: '/api/products',
@@ -121,6 +121,9 @@ app.use(errorHandler);
 // Always bind to 0.0.0.0 in Docker to be accessible from outside the container
 const HOST = '0.0.0.0';
 app.listen(PORT, HOST, () => {
+  console.log('\n' + '='.repeat(60));
+  console.log('🔧 SERVER VERSION 2.0 - FILTERING & IMAGES FIXED');
+  console.log('='.repeat(60));
   console.log(`🚀 Server is running on ${HOST}:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`\n📦 Public API:`);
@@ -129,6 +132,7 @@ app.listen(PORT, HOST, () => {
   console.log(`\n🔐 Admin API:`);
   console.log(`   Products: http://localhost:${PORT}/api/admin/products`);
   console.log(`\n📁 Static files: http://localhost:${PORT}/uploads`);
+  console.log('='.repeat(60) + '\n');
 });
 
 export default app;

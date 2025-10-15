@@ -208,6 +208,7 @@ const Shop = () => {
         <div className="mb-12">
           <nav className="flex flex-wrap gap-8">
             <button
+              type="button"
               onClick={() => handleCategoryChange('')}
               className={`text-sm font-medium pb-2 transition-colors relative ${
                 selectedCategory === ''
@@ -222,6 +223,7 @@ const Shop = () => {
             </button>
             {categories.map((category) => (
               <button
+                type="button"
                 key={category.id}
                 onClick={() => handleCategoryChange(category.id)}
                 className={`text-sm font-medium pb-2 transition-colors relative ${

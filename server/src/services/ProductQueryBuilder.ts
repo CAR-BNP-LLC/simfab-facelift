@@ -16,6 +16,7 @@ export class ProductQueryBuilder {
 
   /**
    * Build complete product query with filters
+   * VERSION: 2.0 - WITH IMAGES SUBQUERY
    */
   build(options: ProductQueryOptions = {}): {
     sql: string;
@@ -40,9 +41,24 @@ export class ProductQueryBuilder {
     const limit = options.limit || 20;
     const offset = (page - 1) * limit;
 
+    console.log('🔨 ProductQueryBuilder.build v2.0');
+    console.log('   WHERE conditions:', this.whereConditions);
+    console.log('   Params:', this.params);
+
     const sql = `
       SELECT 
-        p.*,
+        p.id, p.type, p.sku, p.gtin_upc_ean_isbn, p.name, p.slug,
+        p.published, p.is_featured, p.visibility_in_catalog,
+        p.short_description, p.description,
+        p.date_sale_price_starts, p.date_sale_price_ends,
+        p.tax_status, p.tax_class, p.in_stock, p.stock,
+        p.low_stock_amount, p.backorders_allowed, p.sold_individually,
+        p.weight_lbs, p.length_in, p.width_in, p.height_in,
+        p.allow_customer_reviews, p.purchase_note,
+        p.sale_price, p.regular_price, p.categories, p.tags,
+        p.shipping_class, p.brands, p.created_at, p.updated_at,
+        p.status, p.featured, p.price_min, p.price_max, p.meta_data,
+        p.seo_title, p.seo_description,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -54,6 +70,8 @@ export class ProductQueryBuilder {
       ORDER BY ${this.orderBy}
       LIMIT $${this.addParam(limit)} OFFSET $${this.addParam(offset)}
     `;
+
+    console.log('   📝 Generated SQL includes images subquery: YES');
 
     return {
       sql,
@@ -117,7 +135,18 @@ export class ProductQueryBuilder {
 
     const sql = `
       SELECT 
-        p.*,
+        p.id, p.type, p.sku, p.gtin_upc_ean_isbn, p.name, p.slug,
+        p.published, p.is_featured, p.visibility_in_catalog,
+        p.short_description, p.description,
+        p.date_sale_price_starts, p.date_sale_price_ends,
+        p.tax_status, p.tax_class, p.in_stock, p.stock,
+        p.low_stock_amount, p.backorders_allowed, p.sold_individually,
+        p.weight_lbs, p.length_in, p.width_in, p.height_in,
+        p.allow_customer_reviews, p.purchase_note,
+        p.sale_price, p.regular_price, p.categories, p.tags,
+        p.shipping_class, p.brands, p.created_at, p.updated_at,
+        p.status, p.featured, p.price_min, p.price_max, p.meta_data,
+        p.seo_title, p.seo_description,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order LIMIT 1) pi),
@@ -158,7 +187,7 @@ export class ProductQueryBuilder {
   private applyAdditionalFilters(options: ProductQueryOptions): void {
     // Category filter (categories stored as TEXT with JSON)
     if (options.category) {
-      this.whereConditions.push(`p.categories LIKE $${this.addParam(`%${options.category}%`)}`);
+      this.whereConditions.push(`p.categories::text LIKE $${this.addParam(`%"${options.category}"%`)}`);
     }
 
     // Price range filter
@@ -253,7 +282,18 @@ export class ProductQueryBuilder {
     
     const sql = `
       SELECT 
-        p.*,
+        p.id, p.type, p.sku, p.gtin_upc_ean_isbn, p.name, p.slug,
+        p.published, p.is_featured, p.visibility_in_catalog,
+        p.short_description, p.description,
+        p.date_sale_price_starts, p.date_sale_price_ends,
+        p.tax_status, p.tax_class, p.in_stock, p.stock,
+        p.low_stock_amount, p.backorders_allowed, p.sold_individually,
+        p.weight_lbs, p.length_in, p.width_in, p.height_in,
+        p.allow_customer_reviews, p.purchase_note,
+        p.sale_price, p.regular_price, p.categories, p.tags,
+        p.shipping_class, p.brands, p.created_at, p.updated_at,
+        p.status, p.featured, p.price_min, p.price_max, p.meta_data,
+        p.seo_title, p.seo_description,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -282,19 +322,19 @@ export class ProductQueryBuilder {
     // This will be improved when we migrate to proper JSONB
     const sql = `
       SELECT 'flight-sim' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories LIKE '%flight-sim%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"flight-sim"%'
       UNION ALL
       SELECT 'sim-racing' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories LIKE '%sim-racing%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"sim-racing"%'
       UNION ALL
       SELECT 'cockpits' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories LIKE '%cockpits%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"cockpits"%'
       UNION ALL
       SELECT 'monitor-stands' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories LIKE '%monitor-stands%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"monitor-stands"%'
       UNION ALL
       SELECT 'accessories' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories LIKE '%accessories%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"accessories"%'
       ORDER BY count DESC
     `;
 
