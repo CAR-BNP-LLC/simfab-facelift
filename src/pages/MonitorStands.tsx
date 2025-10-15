@@ -1,7 +1,85 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+
+const MonitorMountSystemsCarousel = () => {
+  const [currentImage, setCurrentImage] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(true);
+  
+  const images = [
+    'monitor-mount-systems-1.webp',
+    'monitor-mount-systems-2.webp',
+    'monitor-mount-systems-3.webp',
+    'monitor-mount-systems-4.webp',
+    'monitor-mount-systems-5.webp',
+    'monitor-mount-systems-6.webp',
+    'monitor-mount-systems-7.webp',
+    'monitor-mount-systems-8.webp',
+    'monitor-mount-systems-9.webp',
+    'monitor-mount-systems-10.webp'
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImage((prev) => (prev + 1) % images.length);
+    }, 4000); // Change every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [images.length]);
+
+  const nextImage = () => {
+    setCurrentImage((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImage((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  return (
+    <div className="relative group">
+      <div className="overflow-hidden">
+        <img 
+          src={`/monitor-mount-systems/${images[currentImage]}`}
+          alt={`Monitor mount system ${currentImage + 1}`}
+          className={`w-full transition-opacity duration-700 ease-in-out ${isTransitioning ? 'opacity-100' : 'opacity-0'}`}
+        />
+      </div>
+      
+      {/* Navigation Arrows */}
+      <button
+        onClick={prevImage}
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
+        aria-label="Previous image"
+      >
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+      
+      <button
+        onClick={nextImage}
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
+        aria-label="Next image"
+      >
+        <ChevronRight className="w-5 h-5" />
+      </button>
+      
+      {/* Image counter dots */}
+      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+        {images.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => setCurrentImage(index)}
+            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+              index === currentImage ? 'bg-primary' : 'bg-white/50'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const MonitorStands = () => {
   const products = [
@@ -72,19 +150,27 @@ const MonitorStands = () => {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative py-32 bg-gradient-to-br from-background via-card to-background overflow-hidden">
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="heading-xl text-primary mb-8">
-              MONITOR MOUNT SYSTEMS
-            </h1>
-            <p className="text-xl text-foreground/80 mb-12 leading-relaxed max-w-3xl mx-auto">
-              Versatile LD and HD options, customizable single or triple monitor setups 
-              with a modular design. Perfect for racing and flight simulators.
-            </p>
+      <section className="relative bg-black pb-20 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-6 gap-12 items-center">
+            <div className="lg:col-span-3">
+              <h1 className="heading-xl text-accent-underline mb-6">
+                MONITOR MOUNT SYSTEMS
+              </h1>
+              <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                Versatile LD and HD options, customizable single or triple monitor setups with a modular design
+              </p>
+            </div>
+            
+            <div className="lg:col-span-3 relative max-w-full overflow-hidden">
+              <img 
+                src="/trimple-monitor.webp"
+                alt="Monitor mount systems setup"
+                className="w-full"
+              />
+            </div>
           </div>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-accent/5"></div>
       </section>
 
       {/* Products Section */}
@@ -129,29 +215,23 @@ const MonitorStands = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-background">
+      <section className="py-20 bg-black">
         <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="heading-lg text-accent-underline mb-8">
+              <h2 className="heading-lg text-accent-underline mb-6">
                 MONITOR MOUNT SYSTEMS
               </h2>
               <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
                 Modular design for a personalized configuration
               </p>
-              <p className="text-foreground/70 leading-relaxed mb-8">
-                SimFab's monitor stands division provides versatile LD and HD options, 
-                featuring customizable single or triple monitor setups with a modular design, 
-                allowing users to personalize their configuration and mount additional screens 
-                ranging from 24" monitors to 65" TVs horizontally or overhead and sub-mounted.
+              <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                SimFab's monitor stands division provides versatile LD and HD options, featuring customizable single or triple monitor setups with a modular design, allowing users to personalize their configuration and mount additional screens ranging from 24" monitors to 65" TVs horizontally or overhead and sub-mounted.
               </p>
             </div>
             
             <div className="relative">
-              <div className="aspect-video bg-muted rounded-xl flex items-center justify-center">
-                <div className="w-64 h-40 bg-muted-foreground/20 rounded"></div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-tl from-primary/10 to-transparent rounded-xl"></div>
+              <MonitorMountSystemsCarousel />
             </div>
           </div>
         </div>
