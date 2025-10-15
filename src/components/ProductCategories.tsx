@@ -3,22 +3,22 @@ const ProductCategories = () => {
     {
       title: 'Flight Sim Modular Cockpits',
       description: 'Professional aviation simulation setups',
-      icon: '✈️'
+      icon: 'aviation'
     },
     {
       title: 'Sim Racing Cockpits', 
       description: 'High-performance racing simulation rigs',
-      icon: '🏎️'
+      icon: 'racing'
     },
     {
       title: 'Monitor Stands',
       description: 'Single, triple, and overhead mount solutions',
-      icon: '🖥️'
+      icon: 'monitor'
     },
     {
       title: 'Racing & Flight Seats',
       description: 'Ergonomic seats with removable foam',
-      icon: '🪑'
+      icon: 'seats'
     }
   ];
 
@@ -34,8 +34,8 @@ const ProductCategories = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {categories.map((category, index) => (
             <div key={index} className="feature-card text-center group cursor-pointer">
-              <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
-                {category.icon}
+              <div className="w-16 h-16 bg-muted-foreground/20 rounded-lg mb-4 group-hover:scale-110 transition-transform duration-300 flex items-center justify-center mx-auto">
+                <div className="w-8 h-8 bg-muted-foreground/40 rounded"></div>
               </div>
               <h3 className="text-xl font-bold text-card-foreground mb-3">
                 {category.title}

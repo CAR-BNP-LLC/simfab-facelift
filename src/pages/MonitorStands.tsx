@@ -48,34 +48,37 @@ const MonitorMountSystemsCarousel = () => {
         />
       </div>
       
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows - Hidden on mobile */}
       <button
         onClick={prevImage}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
+        className="hidden sm:block absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 sm:p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
         aria-label="Previous image"
       >
-        <ChevronLeft className="w-5 h-5" />
+        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
       </button>
       
       <button
         onClick={nextImage}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
+        className="hidden sm:block absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 sm:p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
         aria-label="Next image"
       >
-        <ChevronRight className="w-5 h-5" />
+        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
       </button>
       
-      {/* Image counter dots */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        {images.map((_, index) => (
+      {/* Image counter dots - Hidden on mobile */}
+      <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1 sm:space-x-2 hidden sm:flex">
+        {images.slice(0, 5).map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrentImage(index)}
-            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+            className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-colors duration-300 ${
               index === currentImage ? 'bg-primary' : 'bg-white/50'
             }`}
           />
         ))}
+        {images.length > 5 && (
+          <span className="text-white/50 text-xs ml-1">+{images.length - 5}</span>
+        )}
       </div>
     </div>
   );
@@ -150,19 +153,19 @@ const MonitorStands = () => {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative bg-black pb-20 overflow-hidden">
+      <section className="relative bg-black pb-12 sm:pb-16 lg:pb-20 overflow-hidden">
         <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-6 gap-12 items-center">
-            <div className="lg:col-span-3">
-              <h1 className="heading-xl text-accent-underline mb-6">
+          <div className="grid lg:grid-cols-6 gap-8 lg:gap-12 items-center">
+            <div className="lg:col-span-3 order-2 lg:order-1">
+              <h1 className="heading-lg sm:heading-xl text-accent-underline mb-4 sm:mb-6">
                 MONITOR MOUNT SYSTEMS
               </h1>
-              <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                 Versatile LD and HD options, customizable single or triple monitor setups with a modular design
               </p>
             </div>
             
-            <div className="lg:col-span-3 relative max-w-full overflow-hidden">
+            <div className="lg:col-span-3 relative max-w-full overflow-hidden order-1 lg:order-2">
               <img 
                 src="/trimple-monitor.webp"
                 alt="Monitor mount systems setup"
@@ -174,13 +177,13 @@ const MonitorStands = () => {
       </section>
 
       {/* Products Section */}
-      <section className="py-20 bg-card">
+      <section className="py-12 sm:py-16 lg:py-20 bg-card">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="heading-lg text-accent-underline mb-6">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
+            <h2 className="heading-lg text-accent-underline mb-4 sm:mb-6">
               MONITORS & TV STANDS
             </h2>
-            <p className="text-lg text-foreground/80 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-foreground/80 max-w-2xl mx-auto">
               Choose from our range of professional monitor mounting solutions 
               designed for optimal viewing and simulator integration.
             </p>
@@ -215,22 +218,22 @@ const MonitorStands = () => {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-black">
+      <section className="py-12 sm:py-16 lg:py-20 bg-black">
         <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="heading-lg text-accent-underline mb-6">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            <div className="order-2 lg:order-1">
+              <h2 className="heading-lg text-accent-underline mb-4 sm:mb-6">
                 MONITOR MOUNT SYSTEMS
               </h2>
-              <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
+              <p className="text-base sm:text-lg text-foreground/80 mb-4 sm:mb-6 leading-relaxed">
                 Modular design for a personalized configuration
               </p>
-              <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+              <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                 SimFab's monitor stands division provides versatile LD and HD options, featuring customizable single or triple monitor setups with a modular design, allowing users to personalize their configuration and mount additional screens ranging from 24" monitors to 65" TVs horizontally or overhead and sub-mounted.
               </p>
             </div>
             
-            <div className="relative">
+            <div className="relative order-1 lg:order-2">
               <MonitorMountSystemsCarousel />
             </div>
           </div>
@@ -238,33 +241,33 @@ const MonitorStands = () => {
       </section>
 
       {/* Add-Ons Section */}
-      <section className="py-20 bg-card">
+      <section className="py-12 sm:py-16 lg:py-20 bg-card">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="heading-lg text-accent-underline mb-6">
+          <div className="text-center mb-8 sm:mb-12 lg:mb-16">
+            <h2 className="heading-lg text-accent-underline mb-4 sm:mb-6">
               Monitor Stand Add-Ons
             </h2>
-            <p className="text-lg text-foreground/80 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-foreground/80 max-w-2xl mx-auto">
               Enhance your monitor setup with our comprehensive range of accessories 
               and mounting solutions.
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {addOns.map((addon) => (
               <Card key={addon.id} className="bg-background border-border hover:shadow-card transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="aspect-square bg-muted rounded-lg mb-4 flex items-center justify-center">
-                    <div className="w-20 h-20 bg-muted-foreground/20 rounded"></div>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="aspect-square bg-muted rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-muted-foreground/20 rounded"></div>
                   </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
                     {addon.name}
                   </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xl font-bold text-primary">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                    <span className="text-lg sm:text-xl font-bold text-primary">
                       {addon.price}
                     </span>
-                    <Button size="sm" className="btn-primary">
+                    <Button size="sm" className="btn-primary w-full sm:w-auto">
                       BUY NOW
                     </Button>
                   </div>

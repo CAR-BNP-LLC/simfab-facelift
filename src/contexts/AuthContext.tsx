@@ -30,11 +30,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('📍 Current URL:', window.location.href);
       console.log('🍪 Document cookies:', document.cookie);
       const response = await authAPI.getProfile();
-      console.log('✅ Auth check successful:', response.data.user);
+      console.log('Auth check successful:', response.data.user);
       setUser(response.data.user);
     } catch (error) {
       // User is not logged in
-      console.log('❌ Auth check failed:', error);
+      console.log('Auth check failed:', error);
       console.log('🍪 Cookies after failure:', document.cookie);
       setUser(null);
     } finally {
@@ -44,16 +44,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string, rememberMe = false) => {
     try {
-      console.log('🔐 Attempting login...');
+      console.log('Attempting login...');
       const response = await authAPI.login({ email, password, rememberMe });
-      console.log('✅ Login successful:', response.data.user);
+      console.log('Login successful:', response.data.user);
       setUser(response.data.user);
       toast({
         title: 'Welcome back!',
         description: `Logged in as ${response.data.user.email}`,
       });
     } catch (error) {
-      console.log('❌ Login failed:', error);
+      console.log('Login failed:', error);
       const message = error instanceof Error ? error.message : 'Login failed';
       toast({
         title: 'Login failed',

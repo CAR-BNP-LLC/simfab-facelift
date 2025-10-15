@@ -54,7 +54,7 @@ export class ProductController {
 
       const result = await this.productService.getProducts(options);
 
-      console.log('✅ Products returned:', result.products.length);
+      console.log('Products returned:', result.products.length);
       if (result.products.length > 0) {
         const firstProduct = result.products[0];
         console.log('📦 First product sample:');
@@ -72,7 +72,7 @@ export class ProductController {
         result.filters
       ));
     } catch (error) {
-      console.error('❌❌❌ ERROR in listProducts v2.0:', error);
+      console.error('ERROR in listProducts v2.0:', error);
       next(error);
     }
   };

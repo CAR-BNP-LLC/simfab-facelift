@@ -24,7 +24,7 @@ const Profile = () => {
 
   // Redirect if not authenticated
   useEffect(() => {
-    console.log('👤 Profile page - Auth state:', { 
+    console.log('Profile page - Auth state:', { 
       loading, 
       isAuthenticated, 
       user: user?.email,
@@ -32,7 +32,7 @@ const Profile = () => {
     });
     
     if (!loading && !isAuthenticated) {
-      console.log('❌ Not authenticated, redirecting to login...');
+      console.log('Not authenticated, redirecting to login...');
       navigate('/login');
     }
   }, [isAuthenticated, loading, navigate, user]);

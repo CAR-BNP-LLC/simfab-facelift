@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 const MovingBrandsBar = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
+  const [itemWidth, setItemWidth] = useState(120);
   
   // All brand images from the recom-brands folder
   const brandImages = [
@@ -51,21 +52,24 @@ const MovingBrandsBar = () => {
 
   const [visibleCount, setVisibleCount] = useState(brandsToShow.desktop);
 
-  // Update visible count based on screen size
+  // Update visible count and item width based on screen size
   useEffect(() => {
-    const updateVisibleCount = () => {
-      if (window.innerWidth < 768) {
+    const updateResponsiveSettings = () => {
+      if (window.innerWidth < 640) {
         setVisibleCount(brandsToShow.mobile);
+        setItemWidth(80);
       } else if (window.innerWidth < 1024) {
         setVisibleCount(brandsToShow.tablet);
+        setItemWidth(100);
       } else {
         setVisibleCount(brandsToShow.desktop);
+        setItemWidth(120);
       }
     };
 
-    updateVisibleCount();
-    window.addEventListener('resize', updateVisibleCount);
-    return () => window.removeEventListener('resize', updateVisibleCount);
+    updateResponsiveSettings();
+    window.addEventListener('resize', updateResponsiveSettings);
+    return () => window.removeEventListener('resize', updateResponsiveSettings);
   }, []);
 
   // Auto-scroll functionality
@@ -119,59 +123,59 @@ const MovingBrandsBar = () => {
   return (
     <section className="py-16 bg-black border-y border-border overflow-hidden">
       <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between mb-12">
-          <div className="text-white">
-            <h3 className="text-xl lg:text-2xl font-bold uppercase tracking-wider mb-2 text-white">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 sm:mb-12 gap-4">
+          <div className="text-white text-center sm:text-left">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold uppercase tracking-wider mb-2 text-white">
               Recommended & Compatible Brands
             </h3>
-            <p className="text-gray-300 text-sm lg:text-base">
+            <p className="text-gray-300 text-xs sm:text-sm lg:text-base">
               Trusted by leading manufacturers worldwide
             </p>
           </div>
           
           <button 
-            className="bg-primary text-primary-foreground px-6 py-3 rounded-lg font-semibold text-sm uppercase tracking-wide hover:bg-primary/90 transition-colors duration-300"
+            className="bg-primary text-primary-foreground px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm uppercase tracking-wide hover:bg-primary/90 transition-colors duration-300 mx-auto sm:mx-0"
           >
             See All
           </button>
         </div>
 
         <div className="relative">
-          {/* Navigation Arrows */}
+          {/* Navigation Arrows - Hidden on mobile */}
           <button
             onClick={prevSlide}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-lg"
+            className="hidden sm:block absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/30 text-white p-2 sm:p-3 rounded-full transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-lg"
             aria-label="Previous brands"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
           
           <button
             onClick={nextSlide}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-lg"
+            className="hidden sm:block absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/20 hover:bg-white/30 text-white p-2 sm:p-3 rounded-full transition-all duration-300 backdrop-blur-sm border border-white/20 shadow-lg"
             aria-label="Next brands"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
           {/* Brands Carousel */}
-          <div className="flex items-center justify-center px-16 overflow-hidden">
+          <div className="flex items-center justify-center px-4 sm:px-16 overflow-hidden">
             <div 
               className={`flex items-center ${isTransitioning ? 'transition-transform duration-700 ease-in-out' : ''}`}
               style={{
-                transform: `translateX(-${currentIndex * 120}px)`
+                transform: `translateX(-${currentIndex * itemWidth}px)`
               }}
             >
               {duplicatedBrandImages.map((brandImage, index) => (
                 <div 
                   key={`${brandImage}-${index}`}
-                  className="flex-shrink-0 p-4 hover:scale-105 transition-all duration-300 group"
-                  style={{ minWidth: '120px' }}
+                  className="flex-shrink-0 p-2 sm:p-4 hover:scale-105 transition-all duration-300 group"
+                  style={{ minWidth: '80px' }}
                 >
                   <img 
                     src={`/recom-brands/${brandImage}`}
                     alt={brandImage.replace('.webp', '').replace('_', ' ').replace('-', ' ')}
-                    className="h-16 lg:h-20 w-auto object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300"
+                    className="h-12 sm:h-16 lg:h-20 w-auto object-contain opacity-70 group-hover:opacity-100 transition-opacity duration-300"
                     loading="lazy"
                   />
                 </div>
