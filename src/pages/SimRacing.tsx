@@ -41,25 +41,88 @@ const SimRacing = () => {
       <Header />
       
       {/* Hero Section */}
-      <section className="relative min-h-screen bg-black text-white overflow-hidden">
-        <div className="absolute inset-0">
-          <img 
-            src={simRacingHero}
-            alt="Sim Racing Cockpit with Interactive Points"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-black/40"></div>
-        </div>
-        
-        <div className="relative container mx-auto px-4 pt-32 pb-20">
-          <div className="max-w-2xl">
-            <h1 className="text-6xl font-bold mb-6 text-primary">
-              SIM RACING
-            </h1>
-            <div className="w-32 h-1 bg-primary mb-8"></div>
-            <p className="text-xl mb-8 leading-relaxed">
-              The real racing experience, beyond the mainstream setup
-            </p>
+      <section className="relative bg-black pb-20 overflow-hidden">
+        <div className="container mx-auto px-4">
+          <div className="grid lg:grid-cols-6 gap-12 items-center">
+            <div className="lg:col-span-2">
+              <h1 className="heading-xl text-accent-underline mb-6">
+                SIM RACING
+              </h1>
+              <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                The real racing experience, beyond the mainstream setup
+              </p>
+            </div>
+            
+            <div className="lg:col-span-4 relative max-w-full overflow-hidden">
+              <img 
+                src="/simfab-racing.webp"
+                alt="Sim racing cockpit with labeled components"
+                className="w-full"
+              />
+              
+              {/* Clickable Points */}
+              <div className="absolute inset-0">
+                {/* Point 1 - Top Left */}
+                <button 
+                  className="absolute top-[20%] left-[15%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                  title="Steering Wheel"
+                >
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                    Steering Wheel
+                  </div>
+                </button>
+                
+                {/* Point 2 - Top Center */}
+                <button 
+                  className="absolute top-[25%] left-[50%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                  title="Dashboard Display"
+                >
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                    Dashboard Display
+                  </div>
+                </button>
+                
+                {/* Point 3 - Middle Left */}
+                <button 
+                  className="absolute top-[45%] left-[20%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                  title="Shifter & Handbrake"
+                >
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                    Shifter & Handbrake
+                  </div>
+                </button>
+                
+                {/* Point 4 - Middle Right */}
+                <button 
+                  className="absolute top-[50%] right-[25%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                  title="Pedal Set"
+                >
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                    Pedal Set
+                  </div>
+                </button>
+                
+                {/* Point 5 - Bottom Center */}
+                <button 
+                  className="absolute bottom-[30%] left-[45%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                  title="Racing Seat"
+                >
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                    Racing Seat
+                  </div>
+                </button>
+                
+                {/* Point 6 - Bottom Right */}
+                <button 
+                  className="absolute bottom-[25%] right-[20%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                  title="Chassis Frame"
+                >
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
+                    Chassis Frame
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -71,7 +134,7 @@ const SimRacing = () => {
             SIM RACING BASE MODELS
           </h2>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {baseModels.map((model, index) => (
               <Card key={index} className="bg-card border-border overflow-hidden group hover:shadow-lg transition-shadow">
                 <div className="aspect-video bg-muted">
@@ -107,22 +170,21 @@ const SimRacing = () => {
       </section>
 
       {/* Concept Section */}
-      <section className="py-20 bg-muted/50">
+      <section className="py-20 bg-background">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="relative">
               <img 
-                src={racingImage}
+                src="/simracing-1.webp"
                 alt="Sim Racing Concept Cockpit"
-                className="w-full rounded-xl shadow-card"
+                className="w-full"
               />
             </div>
             
             <div>
-              <h2 className="text-4xl font-bold mb-6 text-primary">
+              <h2 className="heading-lg text-accent-underline mb-6">
                 SIM RACING CONCEPT
               </h2>
-              <div className="w-24 h-1 bg-primary mb-8"></div>
               <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
                 Modular and versatile ecosystem complimented by various add-on accessories
               </p>
@@ -130,7 +192,7 @@ const SimRacing = () => {
                 We offer an ecosystem of products serving the Sim Racing simulation segment from entry-level gamers to modular systems for trainees or advanced professionals, all at an affordable price. Each base model sim cockpit is upgradable and interchangeable via add-on modules.
               </p>
               <Button className="btn-primary">
-                CONVERSION KITS
+                conversion kits
               </Button>
             </div>
           </div>
@@ -140,76 +202,104 @@ const SimRacing = () => {
       {/* Versatility Section */}
       <section className="py-20 bg-background">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-center mb-16 text-foreground">
+          <h2 className="heading-lg text-center text-accent-underline mb-16">
             The most versatile SIM RACING cockpit on the market
           </h2>
           
-          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
-            {useCases.map((useCase, index) => (
-              <div key={index} className="text-center">
-                <div className="aspect-video bg-muted rounded-xl mb-4 overflow-hidden">
-                  <img 
-                    src={racingImage}
-                    alt={useCase}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <p className="text-foreground font-medium">
-                  {useCase}
-                </p>
-                {index === 1 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    *available optional flight sim add-ons
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Video/Hero Image Section */}
-      <section className="py-20 bg-black">
-        <div className="container mx-auto px-4">
-          <div className="aspect-video rounded-xl overflow-hidden max-w-4xl mx-auto">
-            <img 
-              src={racingImage}
-              alt="Professional sim racing experience"
-              className="w-full h-full object-cover"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Compatibility Section */}
-      <section className="py-20 bg-background">
-        <div className="container mx-auto px-4">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="text-center">
               <img 
-                src={racingImage}
-                alt="Complete Sim Racing Setup"
-                className="w-full rounded-xl shadow-card"
+                src="/sim-racing-cockpit/sim-racing-cockpit-1.webp"
+                alt="Sim racing setup"
+                className="w-full h-auto mb-4"
               />
+              <p className="text-foreground/80 font-medium">
+                Sim racing setup, compatible with all major brands controls
+              </p>
             </div>
-            
-            <div>
-              <h2 className="text-3xl font-bold mb-8 text-foreground">
-                COMPATIBLE WITH:
-              </h2>
-              <div className="w-24 h-1 bg-primary mb-8"></div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {compatibleBrands.map((brand, index) => (
-                  <div key={index} className="flex items-center">
-                    <div className="w-2 h-2 bg-primary rounded-full mr-3"></div>
-                    <span className="text-foreground font-medium">{brand}</span>
-                  </div>
-                ))}
-              </div>
+
+            <div className="text-center">
+              <img 
+                src="/sim-racing-cockpit/sim-racing-cockpit-2.webp"
+                alt="Convert to flight sim setup"
+                className="w-full h-auto mb-4"
+              />
+              <p className="text-foreground/80 font-medium">
+                Convert to flight sim setup
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                *available optional flight sim add-ons
+              </p>
+            </div>
+
+            <div className="text-center">
+              <img 
+                src="/sim-racing-cockpit/sim-racing-cockpit-3.webp"
+                alt="Use as general lounge chair"
+                className="w-full h-auto mb-4"
+              />
+              <p className="text-foreground/80 font-medium">
+                Use as general lounge chair
+              </p>
+            </div>
+
+            <div className="text-center">
+              <img 
+                src="/sim-racing-cockpit/sim-racing-cockpit-4.webp"
+                alt="Need a break? Take a quick nap"
+                className="w-full h-auto mb-4"
+              />
+              <p className="text-foreground/80 font-medium">
+                Need a break? Take a quick nap
+              </p>
+            </div>
+
+            <div className="text-center">
+              <img 
+                src="/sim-racing-cockpit/sim-racing-cockpit-5.webp"
+                alt="Break it down to pieces and fold it in seconds"
+                className="w-full h-auto mb-4"
+              />
+              <p className="text-foreground/80 font-medium">
+                Break it down to pieces and fold it in seconds
+              </p>
+            </div>
+
+            <div className="text-center">
+              <img 
+                src="/sim-racing-cockpit/sim-racing-cockpit-6.webp"
+                alt="Easy to move around"
+                className="w-full h-auto mb-4"
+              />
+              <p className="text-foreground/80 font-medium">
+                Easy to move around
+              </p>
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Video Section */}
+      <section className="bg-black">
+        <video 
+          src="/OpenWheeler-Simulation-Video.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-auto"
+        >
+          Your browser does not support the video tag.
+        </video>
+      </section>
+
+      {/* Compatibility Image Section */}
+      <section>
+        <img 
+          src="/compatibility-image.webp"
+          alt="Compatibility with various brands"
+          className="w-full h-auto"
+        />
       </section>
 
       <Footer />
