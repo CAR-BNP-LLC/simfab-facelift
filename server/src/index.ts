@@ -125,7 +125,7 @@ app.listen(PORT, HOST, () => {
   console.log('🔧 SERVER VERSION 2.0 - FILTERING & IMAGES FIXED');
   console.log('='.repeat(60));
   console.log(`🚀 Server is running on ${HOST}:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`\n📦 Public API:`);
   console.log(`   Products: http://localhost:${PORT}/api/products`);
   console.log(`   Auth: http://localhost:${PORT}/api/auth`);

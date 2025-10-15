@@ -25,7 +25,7 @@ class MigrationRunner {
         executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    console.log('✅ Migrations table initialized');
+    console.log('Migrations table initialized');
   }
 
   async getExecutedMigrations(): Promise<Migration[]> {
@@ -59,10 +59,10 @@ class MigrationRunner {
       await this.pool.query(sql);
       await this.markMigrationExecuted(fileName);
       await this.pool.query('COMMIT');
-      console.log(`✅ Migration completed: ${fileName}`);
+      console.log(`Migration completed: ${fileName}`);
     } catch (error) {
       await this.pool.query('ROLLBACK');
-      console.error(`❌ Migration failed: ${fileName}`);
+      console.error(`Migration failed: ${fileName}`);
       throw error;
     }
   }
@@ -81,7 +81,7 @@ class MigrationRunner {
       const isExecuted = await this.isMigrationExecuted(file);
       
       if (isExecuted) {
-        console.log(`⏭️  Skipping already executed: ${file}`);
+        console.log(`Skipping already executed: ${file}`);
         continue;
       }
 
@@ -89,7 +89,7 @@ class MigrationRunner {
       await this.executeMigration(filePath, file);
     }
 
-    console.log('\n✅ All migrations completed successfully!\n');
+    console.log('\nAll migrations completed successfully!\n');
   }
 
   async rollback(steps: number = 1): Promise<void> {
@@ -117,14 +117,14 @@ class MigrationRunner {
           await this.pool.query(sql);
           await this.pool.query('DELETE FROM migrations WHERE name = $1', [migration.name]);
           await this.pool.query('COMMIT');
-          console.log(`✅ Rollback completed: ${migration.name}`);
+          console.log(`Rollback completed: ${migration.name}`);
         } catch (error) {
           await this.pool.query('ROLLBACK');
-          console.error(`❌ Rollback failed: ${migration.name}`);
+          console.error(`Rollback failed: ${migration.name}`);
           throw error;
         }
       } else {
-        console.log(`⚠️  No rollback file found for: ${migration.name}`);
+        console.log(`No rollback file found for: ${migration.name}`);
       }
     }
   }
@@ -138,14 +138,14 @@ class MigrationRunner {
       .filter(file => file.endsWith('.sql') && !file.includes('.rollback.'))
       .sort();
 
-    console.log('\n📊 Migration Status:\n');
+    console.log('\nMigration Status:\n');
     console.log('ID  | Status    | Name');
     console.log('----+-----------+------------------------');
 
     let id = 1;
     for (const file of files) {
       const isExecuted = executed.some(m => m.name === file);
-      const status = isExecuted ? '✅ Executed' : '⏸️  Pending';
+      const status = isExecuted ? 'Executed' : 'Pending';
       console.log(`${id.toString().padStart(3)} | ${status} | ${file}`);
       id++;
     }

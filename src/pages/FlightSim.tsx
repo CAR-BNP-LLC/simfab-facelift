@@ -53,34 +53,37 @@ const ModularCockpitsCarousel = () => {
         />
       </div>
       
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows - Hidden on mobile */}
       <button
         onClick={prevImage}
-        className="absolute left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
+        className="hidden sm:block absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 sm:p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
         aria-label="Previous image"
       >
-        <ChevronLeft className="w-5 h-5" />
+        <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
       </button>
       
       <button
         onClick={nextImage}
-        className="absolute right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
+        className="hidden sm:block absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 sm:p-2 rounded-full transition-all duration-300 opacity-0 group-hover:opacity-100 backdrop-blur-sm border border-white/20"
         aria-label="Next image"
       >
-        <ChevronRight className="w-5 h-5" />
+        <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
       </button>
       
-      {/* Image counter dots */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-        {images.map((_, index) => (
+      {/* Image counter dots - Hidden on mobile */}
+      <div className="absolute bottom-2 sm:bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-1 sm:space-x-2 hidden sm:flex">
+        {images.slice(0, 5).map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrentImage(index)}
-            className={`w-2 h-2 rounded-full transition-colors duration-300 ${
+            className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full transition-colors duration-300 ${
               index === currentImage ? 'bg-primary' : 'bg-white/50'
             }`}
           />
         ))}
+        {images.length > 5 && (
+          <span className="text-white/50 text-xs ml-1">+{images.length - 5}</span>
+        )}
       </div>
     </div>
   );
@@ -124,30 +127,30 @@ const FlightSim = () => {
       
       <main>
         {/* Hero Section */}
-        <section className="relative bg-card pb-20 overflow-hidden">
+        <section className="relative bg-card pb-12 sm:pb-16 lg:pb-20 overflow-hidden">
           <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-6 gap-12 items-center">
-              <div className="lg:col-span-2">
-                <h1 className="heading-xl text-accent-underline mb-6">
+            <div className="grid lg:grid-cols-6 gap-8 lg:gap-12 items-center">
+              <div className="lg:col-span-2 order-2 lg:order-1">
+                <h1 className="heading-lg sm:heading-xl text-accent-underline mb-4 sm:mb-6">
                   FLIGHT SIM
                 </h1>
-                <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                   Modular flight simulation cockpits with high levels of fidelity, realism and immersion
                 </p>
               </div>
               
-              <div className="lg:col-span-4 relative max-w-full overflow-hidden">
+              <div className="lg:col-span-4 relative max-w-full overflow-hidden order-1 lg:order-2">
                 <img 
                   src="/flight-sim-1.webp"
                   alt="Flight simulator cockpit with labeled components"
                   className="w-full"
                 />
                 
-                {/* Clickable Points */}
-                <div className="absolute inset-0">
+                {/* Clickable Points - Hidden on mobile for better UX */}
+                <div className="absolute inset-0 hidden sm:block">
                   {/* Point 1 - Top Left */}
                   <button 
-                    className="absolute top-[20%] left-[15%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute top-[20%] left-[15%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Flight Controls"
                   >
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -157,7 +160,7 @@ const FlightSim = () => {
                   
                   {/* Point 2 - Top Center */}
                   <button 
-                    className="absolute top-[25%] left-[50%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute top-[25%] left-[50%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Instrument Panel"
                   >
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -167,7 +170,7 @@ const FlightSim = () => {
                   
                   {/* Point 3 - Middle Left */}
                   <button 
-                    className="absolute top-[45%] left-[20%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute top-[45%] left-[20%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Throttle Controls"
                   >
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -177,7 +180,7 @@ const FlightSim = () => {
                   
                   {/* Point 4 - Middle Right */}
                   <button 
-                    className="absolute top-[50%] right-[25%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute top-[50%] right-[25%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Multi-Function Display"
                   >
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -187,7 +190,7 @@ const FlightSim = () => {
                   
                   {/* Point 5 - Bottom Center */}
                   <button 
-                    className="absolute bottom-[30%] left-[45%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute bottom-[30%] left-[45%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Seat Base"
                   >
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -197,7 +200,7 @@ const FlightSim = () => {
                   
                   {/* Point 6 - Bottom Right */}
                   <button 
-                    className="absolute bottom-[25%] right-[20%] w-4 h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute bottom-[25%] right-[20%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Rudder Pedals"
                   >
                     <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
@@ -211,13 +214,13 @@ const FlightSim = () => {
         </section>
 
         {/* Flight Sim Base Models */}
-        <section className="py-20 bg-background">
+        <section className="py-12 sm:py-16 lg:py-20 bg-background">
           <div className="container mx-auto px-4">
-            <h2 className="heading-lg text-center text-accent-underline mb-12">
+            <h2 className="heading-lg text-center text-accent-underline mb-8 sm:mb-12">
               FLIGHT SIM BASE MODELS
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
               {baseModels.map((model, index) => (
                 <div key={index} className="product-card text-center">
                   <div className="aspect-square bg-card rounded-lg mb-4 overflow-hidden">
@@ -248,42 +251,42 @@ const FlightSim = () => {
         </section>
 
         {/* Trainer Station Section */}
-        <section className="py-20 bg-black">
+        <section className="py-12 sm:py-16 lg:py-20 bg-black">
           <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div>
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              <div className="order-1 lg:order-1">
                 <img 
                   src="/trainer-station-main-page.webp"
                   alt="Trainer station modular cockpit"
                   className="w-full shadow-card"
                 />
-                <p className="text-sm text-muted-foreground mt-4 text-center">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-4 text-center">
                   Providing precise replication of popular aircrafts with true to life controls placement
                 </p>
               </div>
 
-              <div>
+              <div className="order-2 lg:order-2">
                 <h3 className="heading-md mb-4">
                   SimFab Trainer Station Modular Cockpit
                 </h3>
                 
-                <p className="text-xl text-white font-semibold mb-6">
+                <p className="text-lg sm:text-xl text-white font-semibold mb-4 sm:mb-6">
                   Designed to Foster Skill Development
                 </p>
 
-                <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-4 sm:mb-6 leading-relaxed">
                   Whether you're a budding pilot honing your muscle memory or a seasoned aviator refining your emergency procedures, the SimFab Trainer Station is your trusted companion.
                 </p>
 
-                <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                   Its modular design allows for easy customization, catering to the needs of candidates preparing for FAA certification and current pilots seeking to sharpen their skills.
                 </p>
 
-                <div className="mb-8">
-                  <span className="text-3xl font-bold text-card-foreground">from $999</span>
+                <div className="mb-6 sm:mb-8">
+                  <span className="text-2xl sm:text-3xl font-bold text-card-foreground">from $999</span>
                 </div>
 
-                <Button className="btn-primary text-lg px-8 py-4">
+                <Button className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-auto">
                   buy now
                 </Button>
               </div>
@@ -292,28 +295,28 @@ const FlightSim = () => {
         </section>
 
         {/* Modular Cockpits Section */}
-        <section className="py-20 bg-black">
+        <section className="py-12 sm:py-16 lg:py-20 bg-black">
           <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div>
-                <h2 className="heading-lg text-accent-underline mb-6">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              <div className="order-2 lg:order-1">
+                <h2 className="heading-lg text-accent-underline mb-4 sm:mb-6">
                   Modular Cockpits
                 </h2>
-                <h3 className="text-xl text-foreground/90 mb-6 font-medium">
+                <h3 className="text-lg sm:text-xl text-foreground/90 mb-4 sm:mb-6 font-medium">
                   For Diverse Flight Sim Experiences
                 </h3>
-                <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-4 sm:mb-6 leading-relaxed">
                   SimFab modular flight cockpit concept starts with several basic models covering the essentials at most affordable budget, without compromising quality and craftsmanship.
                 </p>
-                <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-4 sm:mb-6 leading-relaxed">
                   Base models are suitable for flight sim pilots entering the airfield of flight simulation who want to try it without breaking the bank. Each of our models has a modular design and is scalable and interchangeable with each other. Achieve your preferred setup, whether that's combat, general aviation, space sim or a hybrid.
                 </p>
-                <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                   Our base models are crafted for the type of flight simulation and type of flight controls, sharing similar attachment designs. Each of our three base models is scalable by purchasing individual modules. Each modular flight cockpit is interchangeable with one another, offered as an add-on kit.
                 </p>
               </div>
               
-              <div className="relative">
+              <div className="relative order-1 lg:order-2">
                 <ModularCockpitsCarousel />
               </div>
             </div>
@@ -321,10 +324,10 @@ const FlightSim = () => {
         </section>
 
         {/* Add-on Modules Section */}
-        <section className="py-20 bg-black">
+        <section className="py-12 sm:py-16 lg:py-20 bg-black">
           <div className="container mx-auto px-4">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              <div className="relative">
+            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+              <div className="relative order-1 lg:order-1">
                 <img 
                   src="/flight-sim-add-onn-composition.webp"
                   alt="Flight sim cockpit with labeled add-on modules"
@@ -332,17 +335,17 @@ const FlightSim = () => {
                 />
               </div>
               
-              <div>
-                <h2 className="heading-lg text-accent-underline mb-6">
+              <div className="order-2 lg:order-2">
+                <h2 className="heading-lg text-accent-underline mb-4 sm:mb-6">
                   FLIGHT SIM ADD-ON MODULES
                 </h2>
-                <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-4 sm:mb-6 leading-relaxed">
                   Our flight sim options cover every aspect of flight simulation with ergonomic design, rigid mounting brackets, adjustment and full compatibility.
                 </p>
-                <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+                <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                   Flight sim configurations are suitable for combat and space sim as well as commercial and recreational flight simulation.
                 </p>
-                <Button className="btn-primary">
+                <Button className="btn-primary w-full sm:w-auto">
                   see add-ons
                 </Button>
               </div>
