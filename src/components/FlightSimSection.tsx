@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import flightSimImage from '@/assets/flight-sim-cockpit.jpg';
 
 const FlightSimSection = () => {
   const baseModels = [
@@ -34,27 +33,26 @@ const FlightSimSection = () => {
             <h2 className="heading-lg text-accent-underline mb-6">
               FLIGHT SIM
             </h2>
+            <h3 className="text-xl font-semibold text-foreground mb-6">
+              A Realistic and Immersive Flying Experience
+            </h3>
             <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
-              Experience unparalleled realism with our modular add-on capability and patented seat base 
-              featuring removable center foam insert. Customize your cockpit with precision-engineered 
-              add-on modules for any aircraft type.
+              Our flight simulation division offers base packages of dedicated flight cockpits. Each one is upgradeable with add-on modules, allowing users to scale up their specific setup.
             </p>
             <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
-              From commercial aviation to military fighters, our modular system adapts to your simulation needs 
-              with professional-grade components and authentic control layouts.
+              All flight sim cockpits come with our patented seat base design complete with a removable center foam insert. The seat base's slanted cutout allows for the adjustment of the mounted stick or helicopter cyclic to within a proper arm's reach, as well as full motion of the stick without protruding into seat foam.
             </p>
             <Button className="btn-primary">
-              SEE MORE
+              see more
             </Button>
           </div>
           
-          <div className="relative">
+          <div>
             <img 
-              src={flightSimImage}
-              alt="Blue and black modular flight simulator cockpit"
-              className="w-full rounded-xl shadow-card"
+              src="/flight-sim-2.webp"
+              alt="Flight simulator cockpit setup"
+              className="w-full"
             />
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-transparent rounded-xl"></div>
           </div>
         </div>
 

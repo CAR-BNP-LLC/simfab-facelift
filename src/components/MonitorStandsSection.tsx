@@ -1,36 +1,38 @@
 import { Button } from '@/components/ui/button';
 
-const SimRacingSection = () => {
-  const racingModels = [
+const MonitorStandsSection = () => {
+  const monitorModels = [
     {
-      name: 'Gen3 Racing Modular Cockpit',
-      price: 'from $499',
+      name: 'Single Monitor Stand',
+      price: 'from $299',
       cta: 'BUY NOW'
     },
     {
-      name: 'Gen3 Racing Pro Cockpit', 
-      price: 'from $699',
+      name: 'Triple Monitor Stand', 
+      price: 'from $399',
+      cta: 'BUY NOW'
+    },
+    {
+      name: 'Overhead Monitor Bracket Kit',
+      price: 'from $199',
       cta: 'BUY NOW'
     }
   ];
 
   return (
-    <section className="py-20 bg-card">
+    <section className="py-20 bg-black">
       <div className="container mx-auto px-4">
         {/* Main Feature Block */}
         <div className="grid lg:grid-cols-2 gap-12 items-center mb-20">
           <div>
             <h2 className="heading-lg text-accent-underline mb-6">
-              SIM RACING
+              MONITOR & TV STANDS
             </h2>
             <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
-              Our sim racing division includes our affordable compact member, Gen3 chassis, and its big brother, the DD cockpit.
-            </p>
-            <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
-              Gen3 chassis is a great choice for limited spaces and/or a multi-user setup where re-adjustment on the fly is key. It's extremely easy to move around and offers the option to break it down into pieces or store it away.
+              Our monitor stands division offers a variety of LD (for monitors) and HD (for TV sets). Monitor stands are available in single or triple mode. Personalize your setup with an overhead or sub-mount monitor mounting option or choose the more common triple monitor setup.
             </p>
             <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
-              DD chassis is offered as an upgrade to Gen3 without wasting any part or as its own complete rig. We chose telescopic steel tubing as our material so modular capabilities remain open and endless. Our race seats offer unmatched comfort with reclining and sliding mechanisms.
+              Our modular design allows for any number of additional monitors to be mounted horizontally with the option to add screens overhead or sub-mount to each main panel. The capacity of our monitors ranges from 24" monitors to 65" TVs.
             </p>
             <Button className="btn-primary">
               see more
@@ -39,24 +41,24 @@ const SimRacingSection = () => {
           
           <div>
             <img 
-              src="/simracing-1.webp"
-              alt="Sim racing cockpit setup"
+              src="/monitor-4-1.webp"
+              alt="Monitor stands setup"
               className="w-full"
             />
           </div>
         </div>
 
-        {/* Racing Models Grid */}
+        {/* Monitor Models Grid */}
         <div>
           <h3 className="heading-md text-center mb-12">
-            Sim Racing Base Models
+            Monitor Stand Models
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-            {racingModels.map((model, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+            {monitorModels.map((model, index) => (
               <div key={index} className="product-card text-center">
                 <div className="h-48 bg-secondary/50 rounded-lg mb-4 flex items-center justify-center">
-                  <span className="text-4xl">🏁</span>
+                  <span className="text-4xl">🖥️</span>
                 </div>
                 <h4 className="font-semibold text-card-foreground mb-3 leading-tight">
                   {model.name}
@@ -76,4 +78,4 @@ const SimRacingSection = () => {
   );
 };
 
-export default SimRacingSection;
+export default MonitorStandsSection;

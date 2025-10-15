@@ -1,16 +1,15 @@
 import { Button } from '@/components/ui/button';
-import heroImage from '@/assets/hero-cockpit.jpg';
 
 const Hero = () => {
   return (
     <section className="relative min-h-screen bg-background overflow-hidden">
       {/* Background Image */}
-      <div className="absolute inset-0">
-        <img 
-          src={heroImage} 
-          alt="Professional flight simulator cockpit setup"
-          className="w-full h-full object-cover object-center opacity-90"
-        />
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-90"
+        style={{
+          backgroundImage: "url('./main-page-first-bg-image.webp')"
+        }}
+      >
         <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-background/40 to-transparent"></div>
       </div>
 
@@ -33,15 +32,6 @@ const Hero = () => {
             </Button>
           </div>
 
-          {/* Scroll Indicators */}
-          <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-            <div className="flex space-x-2">
-              <div className="w-2 h-2 bg-primary rounded-full"></div>
-              <div className="w-2 h-2 bg-foreground/30 rounded-full"></div>
-              <div className="w-2 h-2 bg-foreground/30 rounded-full"></div>
-              <div className="w-2 h-2 bg-foreground/30 rounded-full"></div>
-            </div>
-          </div>
         </div>
       </div>
 

@@ -1,26 +1,19 @@
 import { Button } from '@/components/ui/button';
-import { CheckCircle } from 'lucide-react';
-import trainerImage from '@/assets/trainer-station.jpg';
 
 const TrainerStation = () => {
-  const features = [
-    'FAA certification preparation',
-    'Customizable training scenarios', 
-    'Emergency procedures practice',
-    'Multi-aircraft compatibility'
-  ];
-
   return (
-    <section className="py-20 bg-background">
+    <section className="py-20 bg-black">
       <div className="container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div className="relative">
+          <div>
             <img 
-              src={trainerImage}
-              alt="Triple monitor flight simulator trainer station"
+              src="/trainer-station-main-page.webp"
+              alt="Trainer station modular cockpit"
               className="w-full rounded-xl shadow-card"
             />
-            <div className="absolute inset-0 bg-gradient-to-br from-transparent to-primary/10 rounded-xl"></div>
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+              Providing precise replication of popular aircrafts with true to life controls placement
+            </p>
           </div>
 
           <div>
@@ -28,25 +21,24 @@ const TrainerStation = () => {
               SimFab Trainer Station Modular Cockpit
             </h3>
             
-            <p className="text-xl text-primary font-semibold mb-6">
+            <p className="text-xl text-white font-semibold mb-6">
               Designed to Foster Skill Development
             </p>
 
-            <div className="space-y-4 mb-8">
-              {features.map((feature, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
-                  <span className="text-foreground/80">{feature}</span>
-                </div>
-              ))}
-            </div>
+            <p className="text-lg text-foreground/80 mb-6 leading-relaxed">
+              Whether you're a budding pilot honing your muscle memory or a seasoned aviator refining your emergency procedures, the SimFab Trainer Station is your trusted companion.
+            </p>
+
+            <p className="text-lg text-foreground/80 mb-8 leading-relaxed">
+              Its modular design allows for easy customization, catering to the needs of candidates preparing for FAA certification and current pilots seeking to sharpen their skills.
+            </p>
 
             <div className="mb-8">
               <span className="text-3xl font-bold text-card-foreground">from $999</span>
             </div>
 
             <Button className="btn-primary text-lg px-8 py-4">
-              BUY NOW
+              buy now
             </Button>
           </div>
         </div>

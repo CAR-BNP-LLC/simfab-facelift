@@ -17,7 +17,7 @@
     --popover-foreground: 0 0% 100%;
 
     /* SimFab Red Brand Color */
-    --primary: 4 77% 58%; /* #e53935 */
+    --primary: 354 62% 48%; /* #c5303b */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 16.9%; /* #2b2b2b */
@@ -26,20 +26,20 @@
     --muted: 0 0% 16.9%;
     --muted-foreground: 0 0% 60%;
 
-    --accent: 4 77% 58%;
+    --accent: 354 62% 48%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 4 77% 58%;
+    --destructive: 354 62% 48%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 0 0% 16.9%;
     --input: 0 0% 16.9%;
-    --ring: 4 77% 58%;
+    --ring: 354 62% 48%;
 
     --radius: 0.5rem;
 
     /* Custom SimFab Tokens */
-    --simfab-red: 4 77% 58%;
+    --simfab-red: 354 62% 48%;
     --simfab-dark: 0 0% 4.3%;
     --simfab-gray: 0 0% 10.2%;
     --simfab-border: 0 0% 16.9%;
