@@ -1,48 +1,145 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Link } from 'react-router-dom';
 
 const FAQ = () => {
   const faqs = [
     {
-      question: "What products does SimFab offer?",
-      answer: "SimFab specializes in modular simulation cockpits for flight simulation and sim racing, along with monitor mounting solutions and compatible accessories."
+      question: "Do you ship outside of US & Canada?",
+      answer: (
+        <>
+          We are working on adding shipping options outside of US and Canada.
+          <br /><br />
+          Meanwhile please provide us with list of products at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>, so we can provide you with shipping quote. We will also need shipping address to get accurate quote.
+        </>
+      )
     },
     {
-      question: "How long does shipping take?",
-      answer: "Domestic shipping typically takes 3-7 business days. International shipping varies by location, usually 7-21 business days depending on customs processing."
+      question: "What to do if there are missing pieces from my order?",
+      answer: (
+        <>
+          Please reach out to us at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>{' '}
+          or our toll-free line:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>{' '}
+          and provide your original order number.
+          <br /><br />
+          Also, please refer to our manuals, review appropriate manual and advise on missing parts based on the parts numbers and images in the manual.
+          <br /><br />
+          All manuals can be found here:{' '}
+          <Link to="/assembly-manuals" className="text-primary hover:underline">
+            Assembly Manuals
+          </Link>
+        </>
+      )
     },
     {
-      question: "Do you offer international shipping?",
-      answer: "Yes, we ship worldwide. International customers are responsible for any customs duties or taxes imposed by their country."
+      question: "Do you have affiliate program?",
+      answer: (
+        <>
+          Currently we do not have dedicated affiliate program for content creators and influencers.
+          <br /><br />
+          However as a temporary solution we can provide you with special 5% off code that you can share with your followers. At the end of each month we run report and double up the 5% discount in form of commission to you.
+          <br /><br />
+          Please reach out to us at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>{' '}
+          or our toll-free line:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>.
+        </>
+      )
     },
     {
-      question: "What is your return policy?",
-      answer: "We accept returns within 30 days of delivery for unused items in original packaging. Custom or modified products cannot be returned unless defective."
+      question: "What is the warranty policy?",
+      answer: "SimFab Modular Flight Sim Cockpit has lifetime warranty on all metal parts, 5 years warranty on all non metal parts."
     },
     {
-      question: "Are SimFab products compatible with my hardware?",
-      answer: "Our products are designed to be compatible with most major simulation hardware brands. Check our Compatible Brands page or contact us for specific compatibility questions."
+      question: "What to do if I duplicated the order by mistake?",
+      answer: (
+        <>
+          Please reach out to us at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>{' '}
+          or our toll-free line:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>{' '}
+          and we will send you a prepaid return shipping label for the duplicate order. Please use original box to ship extra item back to us. Full refund will be issued the day item checks in back to our facility.
+        </>
+      )
     },
     {
-      question: "Do you provide assembly instructions?",
-      answer: "Yes, all products come with detailed assembly manuals. You can also download them from our Assembly Manuals page."
+      question: "How to get invoice for shipping outside of US and Canada?",
+      answer: (
+        <>
+          You will receive payable invoice from our US PayPal as EU merchant is not set up yet. VAT will be excluded since billing comes from US. Package will ship from our warehouse in EU, Bulgaria.
+          <br /><br />
+          Please ensure you select or enter current and complete shipping address during PayPal payment process.
+        </>
+      )
     },
     {
-      question: "What warranty do you offer?",
-      answer: "We provide a limited warranty against manufacturing defects. Warranty period varies by product - typically 1-2 years for structural components."
+      question: "Is SimFab interested in collaborations with controller brands?",
+      answer: (
+        <>
+          We are definitely interested to learn more about your company and products. Please provide us information about your company like if you have any exclusive distribution agreements with US or EU based distributors and if you plan on engaging in such. Also, what is your warranty policy, terms, service and process in case of defects?
+          <br /><br />
+          Please reach out to us at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>{' '}
+          or our toll-free line:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>.
+        </>
+      )
     },
     {
-      question: "Can I customize my order?",
-      answer: "Yes, we offer customization services including custom drilling patterns and modifications. Contact us to discuss your specific requirements."
+      question: "Do you offer a military discount?",
+      answer: (
+        <>
+          First of all thank you for your service. Please reach out to us at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>{' '}
+          or our toll-free line:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>{' '}
+          and we will provide you with a 5% discount code for our entire catalog.
+        </>
+      )
     },
     {
-      question: "What payment methods do you accept?",
-      answer: "We accept major credit cards (Visa, Mastercard, American Express) and PayPal for secure online payments."
-    },
-    {
-      question: "How do I track my order?",
-      answer: "Once your order ships, you'll receive a tracking number via email. You can use this to track your package on the carrier's website."
+      question: "Do you sell the frame only without the seat?",
+      answer: (
+        <>
+          We don't offer such retail option because modifications need to be made to fit other seat to our frame. However we have available retail product for sim racing cockpit chassis Gen3 + DD conversion kit.
+          <br /><br />
+          We are always open to make custom solutions for our customers. Please reach out to us at{' '}
+          <a href="mailto:info@simfab.com" className="text-primary hover:underline">
+            info@simfab.com
+          </a>{' '}
+          or our toll-free line:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>{' '}
+          with your exact inquiry.
+        </>
+      )
     }
   ];
 
@@ -50,13 +147,13 @@ const FAQ = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-16 max-w-4xl">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
-            Frequently Asked Questions
+      <main className="container mx-auto px-4 py-12 sm:py-16 lg:py-20 max-w-4xl">
+        <div className="text-left mb-12 sm:mb-16">
+          <h1 className="heading-xl mb-6 sm:mb-8 text-primary">
+            FAQs
           </h1>
-          <div className="w-24 h-1 bg-primary mx-auto mb-8"></div>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <div className="w-full h-1 bg-primary mb-8"></div>
+          <p className="text-base sm:text-lg text-foreground/80 leading-relaxed">
             Find answers to common questions about SimFab products and services
           </p>
         </div>
@@ -74,20 +171,26 @@ const FAQ = () => {
           ))}
         </Accordion>
 
-        <div className="bg-card rounded-lg p-8 text-center mt-16">
-          <h2 className="text-3xl font-bold text-card-foreground mb-4">
+        <div className="bg-card rounded-lg p-6 sm:p-8 text-center mt-12 sm:mt-16">
+          <h2 className="text-2xl sm:text-3xl font-bold text-card-foreground mb-4">
             Still Have Questions?
           </h2>
-          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto text-base sm:text-lg">
             Can't find what you're looking for? Our customer support team is here to help.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors">
+            <a 
+              href="mailto:info@simfab.com" 
+              className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors text-center"
+            >
               Contact Support
-            </button>
-            <button className="border border-border text-foreground px-6 py-3 rounded-lg hover:bg-muted transition-colors">
-              Live Chat
-            </button>
+            </a>
+            <a 
+              href="tel:1-888-299-2746" 
+              className="border border-border text-foreground px-6 py-3 rounded-lg hover:bg-muted transition-colors text-center"
+            >
+              Call Us: 1-888-299-2746
+            </a>
           </div>
         </div>
       </main>
