@@ -33,9 +33,9 @@ const Footer = () => {
       logo: (
         <svg viewBox="0 0 100 30" className="w-full h-5">
           <rect width="100" height="30" fill="#1a1a1a"/>
-          <circle cx="30" cy="15" r="12" fill="#EB001B"/>
-          <circle cx="70" cy="15" r="12" fill="#F79E1B"/>
-          <path d="M40 15 A12 12 0 0 1 60 15 A12 12 0 0 1 40 15" fill="#FF5F00"/>
+          <circle cx="35" cy="15" r="11" fill="#EB001B"/>
+          <circle cx="65" cy="15" r="11" fill="#F79E1B"/>
+          <path d="M42 15 A11 11 0 0 1 58 15 A11 11 0 0 1 42 15" fill="#FF5F00"/>
         </svg>
       )
     },
@@ -134,6 +134,7 @@ const Footer = () => {
                 const href = link === 'Terms & Conditions' ? '/terms-conditions' : 
                            link === 'Backorders Terms & Conditions' ? '/backorders' :
                            link === 'International Shipping Information' ? '/international-shipping' :
+                           link === 'SimFab Intellectual Properties' ? '/intellectual-properties' :
                            link === 'Privacy Policy' ? '/privacy-policy' :
                            link === 'FAQs' ? '/faq' : '#';
                 return (
@@ -167,25 +168,30 @@ const Footer = () => {
               Get Social
             </h4>
             <div className="flex space-x-3 sm:space-x-4 mb-4 sm:mb-6">
-              <a href="#" className="text-foreground/60 hover:text-primary transition-colors">
+              <a href="https://www.facebook.com/SimFabOfficial/" target="_blank" rel="noopener noreferrer" className="text-foreground/60 hover:text-primary transition-colors">
                 <Facebook className="w-4 h-4 sm:w-5 sm:h-5" />
               </a>
-              <a href="#" className="text-foreground/60 hover:text-primary transition-colors">
+              <a href="https://www.instagram.com/simfab_official/" target="_blank" rel="noopener noreferrer" className="text-foreground/60 hover:text-primary transition-colors">
                 <Instagram className="w-4 h-4 sm:w-5 sm:h-5" />
               </a>
-              <a href="#" className="text-foreground/60 hover:text-primary transition-colors">
+              <a href="https://www.youtube.com/@SimFabOfficial" target="_blank" rel="noopener noreferrer" className="text-foreground/60 hover:text-primary transition-colors">
                 <Youtube className="w-4 h-4 sm:w-5 sm:h-5" />
+              </a>
+              <a href="https://www.tiktok.com/@simfab_official" target="_blank" rel="noopener noreferrer" className="text-foreground/60 hover:text-primary transition-colors">
+                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/>
+                </svg>
               </a>
             </div>
             
             {/* Trustpilot Review Button */}
-            <div className="bg-white border-2 border-green-500 rounded-lg p-2 sm:p-3 mb-4 sm:mb-6 text-center">
+            <a href="https://www.trustpilot.com/review/simfab.com?utm_medium=trustbox&utm_source=TrustBoxReviewCollector" target="_blank" rel="noopener noreferrer" className="block bg-white border-2 border-green-500 rounded-lg p-2 sm:p-3 mb-4 sm:mb-6 text-center hover:bg-gray-50 transition-colors">
               <p className="text-black text-xs sm:text-sm mb-1">Review us on</p>
               <div className="flex items-center justify-center">
                 <Star className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 mr-1" />
                 <span className="text-green-500 font-semibold text-xs sm:text-sm">Trustpilot</span>
               </div>
-            </div>
+            </a>
             
             {/* Newsletter Signup */}
             <div>

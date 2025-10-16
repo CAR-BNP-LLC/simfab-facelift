@@ -23,6 +23,7 @@ import Blog from "./pages/Blog";
 import TermsConditions from "./pages/TermsConditions";
 import Backorders from "./pages/Backorders";
 import InternationalShipping from "./pages/InternationalShipping";
+import IntellectualProperties from "./pages/IntellectualProperties";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
@@ -63,6 +64,7 @@ const App = () => (
             <Route path="/terms-conditions" element={<TermsConditions />} />
             <Route path="/backorders" element={<Backorders />} />
             <Route path="/international-shipping" element={<InternationalShipping />} />
+            <Route path="/intellectual-properties" element={<IntellectualProperties />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/faq" element={<FAQ />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
