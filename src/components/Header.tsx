@@ -13,7 +13,6 @@ const Header = () => {
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<'left' | 'center' | 'right'>('center');
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [megaMenuProducts, setMegaMenuProducts] = useState<Record<string, any[]>>({});
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
@@ -34,11 +33,6 @@ const Header = () => {
     }
   };
 
-  // Function to calculate optimal menu position
-  const calculateMenuPosition = (event: React.MouseEvent<HTMLDivElement>) => {
-    // Always center the menu in the navbar
-    setMenuPosition('center');
-  };
 
   const megaMenuContent = {
     'FLIGHT SIM': {
@@ -218,18 +212,6 @@ const Header = () => {
     };
   }, []);
 
-  // Handle window resize to recalculate menu position
-  useEffect(() => {
-    const handleResize = () => {
-      if (activeMegaMenu) {
-        // Reset to center position on resize, will be recalculated on next hover
-        setMenuPosition('center');
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [activeMegaMenu]);
 
   // Get product count for a category
   const getCategoryCount = (categoryKey: string): number => {
@@ -346,13 +328,11 @@ const Header = () => {
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center space-x-1 lg:space-x-2 xl:space-x-3 2xl:space-x-4 flex-1 justify-center max-w-3xl">
+            <nav className="hidden lg:flex items-center space-x-1 lg:space-x-2 xl:space-x-3 2xl:space-x-4 flex-1 justify-center max-w-3xl relative">
               {mainNavItems.map((item) => (
                 <div
                   key={item}
-                  className="relative"
-                  onMouseEnter={(e) => {
-                    calculateMenuPosition(e);
+                  onMouseEnter={() => {
                     setActiveMegaMenu(item);
                     // Fetch products when hovering over category
                     if (['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES'].includes(item)) {
@@ -385,20 +365,18 @@ const Header = () => {
                       <span className="text-xs text-muted-foreground">({getCategoryCount(item)})</span>
                     )}
                   </button>
-                  
-                  {/* Mega Menu - Hidden on mobile */}
-                  {activeMegaMenu === item && (megaMenuContent[item as keyof typeof megaMenuContent] || megaMenuProducts[item]) && (
-                    <div 
-                      className={`hidden lg:block absolute top-full mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[900px] max-w-[1200px] z-50 ${
-                        menuPosition === 'left' ? 'left-0' : 
-                        menuPosition === 'right' ? 'right-0' : 
-                        'left-1/2 transform -translate-x-1/2'
-                      }`}
-                      onMouseEnter={() => setActiveMegaMenu(item)}
-                      onMouseLeave={() => setActiveMegaMenu(null)}
-                    >
+                </div>
+              ))}
+              
+              {/* Mega Menu - Positioned relative to the entire nav container */}
+              {activeMegaMenu && (megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent] || megaMenuProducts[activeMegaMenu]) && (
+                <div 
+                  className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[900px] max-w-[1200px] z-50"
+                  onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
+                  onMouseLeave={() => setActiveMegaMenu(null)}
+                >
                       {/* Loading State */}
-                      {loadingMegaMenu[item] && (
+                      {loadingMegaMenu[activeMegaMenu] && (
                         <div className="flex items-center justify-center py-8">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                           <span className="ml-2 text-muted-foreground">Loading products...</span>
@@ -406,9 +384,9 @@ const Header = () => {
                       )}
 
                       {/* Real Products from API */}
-                      {!loadingMegaMenu[item] && megaMenuProducts[item] && megaMenuProducts[item].length > 0 && (
+                      {!loadingMegaMenu[activeMegaMenu] && megaMenuProducts[activeMegaMenu] && megaMenuProducts[activeMegaMenu].length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
-                          {megaMenuProducts[item].slice(0, 6).map((product) => (
+                          {megaMenuProducts[activeMegaMenu].slice(0, 6).map((product) => (
                             <div key={product.id} className="group cursor-pointer">
                               <div 
                                 className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105"
@@ -447,17 +425,17 @@ const Header = () => {
                       )}
 
                       {/* No products available message */}
-                      {!loadingMegaMenu[item] && (!megaMenuProducts[item] || megaMenuProducts[item].length === 0) && (
+                      {!loadingMegaMenu[activeMegaMenu] && (!megaMenuProducts[activeMegaMenu] || megaMenuProducts[activeMegaMenu].length === 0) && (
                         <div className="py-8 text-center">
                           <p className="text-muted-foreground">No products available in this category yet.</p>
                         </div>
                       )}
 
                       {/* Category Buttons */}
-                      {megaMenuContent[item as keyof typeof megaMenuContent] && megaMenuContent[item as keyof typeof megaMenuContent].categories.length > 0 && (
+                      {megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent] && megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent].categories.length > 0 && (
                         <div className="border-t border-border pt-6">
                           <div className="flex flex-wrap gap-4 justify-center">
-                            {megaMenuContent[item as keyof typeof megaMenuContent].categories.map((category) => (
+                            {megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent].categories.map((category) => (
                               <Button
                                 key={category}
                                 variant="outline"
@@ -469,10 +447,8 @@ const Header = () => {
                           </div>
                         </div>
                       )}
-                    </div>
-                  )}
                 </div>
-              ))}
+              )}
             </nav>
 
             {/* Right Side Actions */}
