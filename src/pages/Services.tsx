@@ -24,11 +24,12 @@ const Services = () => {
         {/* Hero Section with Video */}
         <section className="py-12 sm:py-16 lg:py-20 bg-black">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12 sm:mb-16">
+            <div className="text-left mb-12 sm:mb-16">
               <h1 className="heading-xl mb-6 sm:mb-8 text-primary">
                 SimFab Concierge Services
               </h1>
-              <p className="text-base sm:text-lg text-foreground/80 leading-relaxed max-w-4xl mx-auto">
+              <div className="w-full h-1 bg-primary mb-8"></div>
+              <p className="text-base sm:text-lg text-foreground/80 leading-relaxed max-w-4xl">
                 Professional drilling and customization services for your SimFab products
               </p>
             </div>
@@ -44,8 +45,10 @@ const Services = () => {
                 <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden shadow-lg max-w-sm mx-auto lg:mx-0">
                   <video 
                     className="w-full h-full object-cover"
-                    controls
-                    poster="/services-video-poster.jpg"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
                   >
                     <source src="/services-video.mp4" type="video/mp4" />
                     Your browser does not support the video tag.
