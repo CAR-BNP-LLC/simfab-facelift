@@ -36,22 +36,8 @@ const Header = () => {
 
   // Function to calculate optimal menu position
   const calculateMenuPosition = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const menuWidth = 1200; // max-w-[1200px] from the menu
-    const menuHalfWidth = menuWidth / 2;
-    
-    // Calculate if menu would extend beyond right edge
-    const rightEdge = rect.left + rect.width / 2 + menuHalfWidth;
-    const leftEdge = rect.left + rect.width / 2 - menuHalfWidth;
-    
-    if (rightEdge > viewportWidth - 20) { // 20px margin from edge
-      setMenuPosition('right');
-    } else if (leftEdge < 20) { // 20px margin from edge
-      setMenuPosition('left');
-    } else {
-      setMenuPosition('center');
-    }
+    // Always center the menu in the navbar
+    setMenuPosition('center');
   };
 
   const megaMenuContent = {
@@ -387,7 +373,7 @@ const Header = () => {
                   }}
                 >
                   <button 
-                    className="nav-link flex items-center gap-0.5 text-xs lg:text-xs xl:text-sm whitespace-nowrap px-0.5"
+                    className="nav-link flex items-center gap-0.5 text-sm lg:text-sm xl:text-base whitespace-nowrap px-0.5"
                     onClick={() => {
                       if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
                       if (item === 'SIM RACING') window.location.href = '/sim-racing';

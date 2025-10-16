@@ -96,13 +96,20 @@ const Footer = () => {
               Quick links
             </h4>
             <ul className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-6">
-              {quickLinks.map((link, index) => (
-                <li key={index}>
-                  <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-xs sm:text-sm">
-                    {link}
-                  </a>
-                </li>
-              ))}
+              {quickLinks.map((link, index) => {
+                const href = link === 'COMPATIBLE BRANDS' ? '/compatible-brands' : 
+                           link === 'SERVICES' ? '/services' :
+                           link === 'ASSEMBLY MANUALS' ? '/assembly-manuals' :
+                           link === 'GALLERY' ? '/gallery' :
+                           link === 'BLOG' ? '/blog' : '#';
+                return (
+                  <li key={index}>
+                    <a href={href} className="text-foreground/70 hover:text-primary transition-colors text-xs sm:text-sm">
+                      {link}
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
             
             <ul className="space-y-1">

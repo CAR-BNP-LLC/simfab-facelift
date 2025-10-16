@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const MovingBrandsBar = () => {
+  const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(true);
   const [itemWidth, setItemWidth] = useState(120);
@@ -134,6 +136,7 @@ const MovingBrandsBar = () => {
           </div>
           
           <button 
+            onClick={() => navigate('/compatible-brands')}
             className="bg-primary text-primary-foreground px-4 sm:px-6 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm uppercase tracking-wide hover:bg-primary/90 transition-colors duration-300 mx-auto sm:mx-0"
           >
             See All

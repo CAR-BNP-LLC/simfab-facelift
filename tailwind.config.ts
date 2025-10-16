@@ -18,6 +18,11 @@ export default {
 			}
 		},
 		extend: {
+			fontFamily: {
+				'heading': ['Roboto Condensed', 'sans-serif'],
+				'body': ['Roboto', 'sans-serif'],
+				'sans': ['Roboto', 'sans-serif'],
+			},
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',

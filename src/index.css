@@ -123,7 +123,11 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-body antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
   }
 }
 
@@ -131,26 +135,26 @@
   /* Button Variants */
   .btn-primary {
     @apply bg-primary text-primary-foreground hover:bg-primary/90 
-           px-6 py-3 rounded-lg font-semibold uppercase tracking-wide
+           px-6 py-3 rounded-lg font-heading font-semibold uppercase tracking-wide
            transition-all duration-200 hover:scale-105 hover:shadow-lg;
   }
 
   .btn-secondary {
     @apply border border-secondary text-secondary-foreground hover:bg-secondary/20
-           px-6 py-3 rounded-lg font-semibold uppercase tracking-wide
+           px-6 py-3 rounded-lg font-heading font-semibold uppercase tracking-wide
            transition-all duration-200 hover:scale-105;
   }
 
   .btn-outline {
     @apply border border-border text-foreground hover:bg-card
-           px-6 py-3 rounded-lg font-semibold uppercase tracking-wide
+           px-6 py-3 rounded-lg font-heading font-semibold uppercase tracking-wide
            transition-all duration-200 hover:scale-105;
   }
 
   /* Navigation Styles */
   .nav-link {
     @apply text-foreground/80 hover:text-foreground uppercase tracking-wider
-           text-sm font-medium transition-colors relative;
+           text-sm font-heading font-medium transition-colors relative;
   }
 
   .nav-link::after {
@@ -177,15 +181,15 @@
 
   /* Typography */
   .heading-xl {
-    @apply text-4xl md:text-5xl lg:text-6xl font-bold text-card-foreground;
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold font-heading text-card-foreground;
   }
 
   .heading-lg {
-    @apply text-3xl md:text-4xl font-bold text-card-foreground;
+    @apply text-3xl md:text-4xl font-bold font-heading text-card-foreground;
   }
 
   .heading-md {
-    @apply text-2xl md:text-3xl font-bold text-card-foreground;
+    @apply text-2xl md:text-3xl font-bold font-heading text-card-foreground;
   }
 
   .text-accent-underline {
