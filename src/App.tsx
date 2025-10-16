@@ -21,6 +21,8 @@ import CompatibleBrands from "./pages/CompatibleBrands";
 import Gallery from "./pages/Gallery";
 import Blog from "./pages/Blog";
 import TermsConditions from "./pages/TermsConditions";
+import Backorders from "./pages/Backorders";
+import InternationalShipping from "./pages/InternationalShipping";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
@@ -59,6 +61,8 @@ const App = () => (
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/terms-conditions" element={<TermsConditions />} />
+            <Route path="/backorders" element={<Backorders />} />
+            <Route path="/international-shipping" element={<InternationalShipping />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/faq" element={<FAQ />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Facebook, Instagram, Youtube, Star } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
   const quickLinks = [
@@ -104,9 +105,9 @@ const Footer = () => {
                            link === 'BLOG' ? '/blog' : '#';
                 return (
                   <li key={index}>
-                    <a href={href} className="text-foreground/70 hover:text-primary transition-colors text-xs sm:text-sm">
+                    <Link to={href} className="text-foreground/70 hover:text-primary transition-colors text-xs sm:text-sm">
                       {link}
-                    </a>
+                    </Link>
                   </li>
                 );
               })}
@@ -129,13 +130,20 @@ const Footer = () => {
               Useful Links
             </h4>
             <ul className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-6">
-              {usefulLinks.map((link, index) => (
-                <li key={index}>
-                  <a href="#" className="text-foreground/70 hover:text-primary transition-colors text-xs sm:text-sm">
-                    {link}
-                  </a>
-                </li>
-              ))}
+              {usefulLinks.map((link, index) => {
+                const href = link === 'Terms & Conditions' ? '/terms-conditions' : 
+                           link === 'Backorders Terms & Conditions' ? '/backorders' :
+                           link === 'International Shipping Information' ? '/international-shipping' :
+                           link === 'Privacy Policy' ? '/privacy-policy' :
+                           link === 'FAQs' ? '/faq' : '#';
+                return (
+                  <li key={index}>
+                    <Link to={href} className="text-foreground/70 hover:text-primary transition-colors text-xs sm:text-sm">
+                      {link}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
             
             <div className="mb-3 sm:mb-4">
