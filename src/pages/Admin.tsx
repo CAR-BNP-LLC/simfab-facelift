@@ -43,6 +43,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { useErrorHandler } from '@/hooks/use-error-handler';
+import VariationsList from '@/components/admin/VariationsList';
+import VariationManagementDialog from '@/components/admin/VariationManagementDialog';
+import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -64,7 +68,15 @@ const Admin = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [productImages, setProductImages] = useState<any[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  
+  // Variation management state
+  const [productVariations, setProductVariations] = useState<VariationWithOptions[]>([]);
+  const [variationsLoading, setVariationsLoading] = useState(false);
+  const [variationDialogOpen, setVariationDialogOpen] = useState(false);
+  const [editingVariation, setEditingVariation] = useState<VariationWithOptions | null>(null);
+  
   const { toast } = useToast();
+  const { handleError, handleSuccess } = useErrorHandler();
 
   // Utility function to generate slug from name (GitHub-style)
   const generateSlug = (name: string): string => {
@@ -310,6 +322,7 @@ const Admin = () => {
     // Fetch product images when editing
     if (product.id) {
       fetchProductImages(product.id);
+      fetchProductVariations(product.id);
     }
     
     setActiveTab('create');
@@ -418,6 +431,85 @@ const Admin = () => {
         variant: 'destructive'
       });
     }
+  };
+
+  // Variation management functions
+  const fetchProductVariations = async (productId: number) => {
+    try {
+      setVariationsLoading(true);
+      const response = await adminVariationsAPI.getVariations(productId);
+      setProductVariations(response.data);
+    } catch (error) {
+      console.error('Failed to fetch product variations:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load product variations',
+        variant: 'destructive'
+      });
+    } finally {
+      setVariationsLoading(false);
+    }
+  };
+
+  const handleCreateVariation = async (data: CreateVariationDto) => {
+    if (!editingProduct?.id) {
+      console.error('No editing product ID');
+      return;
+    }
+    
+    console.log('Creating variation:', data, 'for product:', editingProduct.id);
+    
+    try {
+      const response = await adminVariationsAPI.createVariation(editingProduct.id, data);
+      console.log('Variation created successfully:', response);
+      setProductVariations(prev => [...prev, response.data]);
+      handleSuccess('Variation created successfully');
+    } catch (error) {
+      handleError(error, 'Failed to create variation');
+      throw error;
+    }
+  };
+
+  const handleUpdateVariation = async (data: UpdateVariationDto) => {
+    if (!editingProduct?.id || !editingVariation?.id) return;
+    
+    try {
+      const response = await adminVariationsAPI.updateVariation(editingProduct.id, editingVariation.id, data);
+      setProductVariations(prev => 
+        prev.map(v => v.id === editingVariation.id ? response.data : v)
+      );
+      handleSuccess('Variation updated successfully');
+    } catch (error) {
+      handleError(error, 'Failed to update variation');
+      throw error;
+    }
+  };
+
+  const handleDeleteVariation = async (variationId: number) => {
+    if (!editingProduct?.id) return;
+    
+    try {
+      await adminVariationsAPI.deleteVariation(editingProduct.id, variationId);
+      setProductVariations(prev => prev.filter(v => v.id !== variationId));
+      handleSuccess('Variation deleted successfully');
+    } catch (error) {
+      handleError(error, 'Failed to delete variation');
+    }
+  };
+
+  const handleEditVariation = (variation: VariationWithOptions) => {
+    setEditingVariation(variation);
+    setVariationDialogOpen(true);
+  };
+
+  const handleAddVariation = () => {
+    setEditingVariation(null);
+    setVariationDialogOpen(true);
+  };
+
+  const handleVariationDialogClose = () => {
+    setVariationDialogOpen(false);
+    setEditingVariation(null);
   };
 
   const handleUpdateOrderStatus = async (orderId: number, status: string) => {
@@ -778,10 +870,16 @@ const Admin = () => {
                     <CardTitle>Product Management</CardTitle>
                     <CardDescription>View and manage products</CardDescription>
                   </div>
-                  <Button onClick={() => setActiveTab('create')}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Product
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => {/* CSV upload functionality */}}>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload CSV
+                    </Button>
+                    <Button onClick={() => setActiveTab('create')}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Product
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -1209,6 +1307,19 @@ const Admin = () => {
                     </div>
                   )}
 
+                  {/* Product Variations Section */}
+                  {editingProduct && (
+                    <div className="space-y-4">
+                      <VariationsList
+                        variations={productVariations}
+                        loading={variationsLoading}
+                        onEdit={handleEditVariation}
+                        onDelete={handleDeleteVariation}
+                        onAdd={handleAddVariation}
+                      />
+                    </div>
+                  )}
+
                   <div className="flex gap-4">
                     <Button type="submit" disabled={loading}>
                       {loading ? (
@@ -1280,6 +1391,15 @@ const Admin = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Variation Management Dialog */}
+      <VariationManagementDialog
+        open={variationDialogOpen}
+        onClose={handleVariationDialogClose}
+        onSave={editingVariation ? handleUpdateVariation : handleCreateVariation}
+        variation={editingVariation}
+        productId={editingProduct?.id || 0}
+      />
 
       <Footer />
     </div>

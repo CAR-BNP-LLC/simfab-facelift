@@ -23,11 +23,15 @@ const ProductDetail = () => {
   const [addingToCart, setAddingToCart] = useState(false);
   
   // Configuration state
-  const [selectedColor, setSelectedColor] = useState<number | undefined>(undefined);
   const [selectedModelVariation, setSelectedModelVariation] = useState<number | undefined>(undefined);
   const [selectedDropdownVariations, setSelectedDropdownVariations] = useState<Record<number, number>>({});
   const [selectedAddons, setSelectedAddons] = useState<Set<number>>(new Set());
   const [selectedAddonOptions, setSelectedAddonOptions] = useState<Record<number, number>>({});
+  
+  // New variation state
+  const [selectedTextValues, setSelectedTextValues] = useState<Record<string, string>>({});
+  const [selectedImageValues, setSelectedImageValues] = useState<Record<string, string>>({});
+  const [selectedBooleanValues, setSelectedBooleanValues] = useState<Record<string, boolean>>({});
   
   const { toast } = useToast();
   const { addToCart } = useCart();
@@ -48,24 +52,19 @@ const ProductDetail = () => {
 
   // Calculate price when configuration changes (but NOT when product first loads)
   useEffect(() => {
-    if (product && selectedColor !== undefined) {
+    if (product) {
       console.log('Configuration changed, calculating price...');
       calculatePrice();
     }
-  }, [selectedColor, selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions]);
+  }, [selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions, selectedTextValues, selectedImageValues, selectedBooleanValues]);
 
   // Set default selections when product loads
   useEffect(() => {
-    if (product && !selectedColor) {
+    if (product) {
       try {
-        // Set default color
-        if (Array.isArray(product.colors) && product.colors.length > 0) {
-          setSelectedColor((product.colors[0] as any).id);
-        }
-        
         // Set default model variation
-        if (product.variations?.model && Array.isArray(product.variations.model) && product.variations.model.length > 0) {
-          const defaultModel = product.variations.model.find((v: any) => 
+        if (product.variations?.image && Array.isArray(product.variations.image) && product.variations.image.length > 0) {
+          const defaultModel = product.variations.image.find((v: any) => 
             Array.isArray(v.options) && v.options.find((o: any) => o.is_default || o.isDefault)
           );
           if (defaultModel) {
@@ -73,8 +72,8 @@ const ProductDetail = () => {
             if (defaultOption) {
               setSelectedModelVariation(defaultOption.id);
             }
-          } else if ((product.variations.model[0] as any).options?.[0]) {
-            setSelectedModelVariation((product.variations.model[0] as any).options[0].id);
+          } else if ((product.variations.image[0] as any).options?.[0]) {
+            setSelectedModelVariation((product.variations.image[0] as any).options[0].id);
           }
         }
 
@@ -133,9 +132,37 @@ const ProductDetail = () => {
       setCalculating(true);
 
       const configuration: ProductConfiguration = {
-        colorId: selectedColor,
-        modelVariationId: selectedModelVariation,
-        dropdownSelections: selectedDropdownVariations,
+        variations: {
+          // Legacy dropdown variations (using old system)
+          ...(selectedModelVariation && { [selectedModelVariation]: selectedModelVariation }),
+          ...selectedDropdownVariations,
+          // New variation system
+          ...Object.fromEntries(
+            Object.entries(selectedTextValues).map(([variationId, value]) => [
+              parseInt(variationId), 
+              value // For text variations, we might need to map to option IDs
+            ])
+          ),
+          ...Object.fromEntries(
+            Object.entries(selectedImageValues).map(([variationId, optionId]) => [
+              parseInt(variationId), 
+              parseInt(optionId)
+            ])
+          ),
+          ...Object.fromEntries(
+            Object.entries(selectedBooleanValues).map(([variationId, value]) => {
+              // Find the boolean variation to get the correct option IDs
+              const booleanVariation = product.variations?.boolean?.find((v: any) => v.id.toString() === variationId);
+              if (booleanVariation?.options) {
+                const yesOption = booleanVariation.options.find((opt: any) => opt.option_name === 'Yes');
+                const noOption = booleanVariation.options.find((opt: any) => opt.option_name === 'No');
+                const optionId = value ? (yesOption?.id || 1) : (noOption?.id || 0);
+                return [parseInt(variationId), optionId];
+              }
+              return [parseInt(variationId), value ? 1 : 0]; // Fallback
+            })
+          )
+        },
         addons: Array.from(selectedAddons).map(addonId => ({
           addonId,
           optionId: selectedAddonOptions[addonId]
@@ -143,6 +170,7 @@ const ProductDetail = () => {
       };
 
       console.log('Calculating price for configuration:', configuration);
+      console.log('Selected boolean values:', selectedBooleanValues);
       
       const response = await productsAPI.calculatePrice(product.id, configuration, 1);
       console.log('Price calculation response:', response);
@@ -172,15 +200,54 @@ const ProductDetail = () => {
       setAddingToCart(true);
 
       // Build configuration
+      console.log('handleAddToCart - Current state values:');
+      console.log('- selectedModelVariation:', selectedModelVariation);
+      console.log('- selectedDropdownVariations:', selectedDropdownVariations);
+      console.log('- selectedTextValues:', selectedTextValues);
+      console.log('- selectedImageValues:', selectedImageValues);
+      console.log('- selectedBooleanValues:', selectedBooleanValues);
+      console.log('- selectedAddons:', selectedAddons);
+      console.log('- selectedAddonOptions:', selectedAddonOptions);
+      
       const configuration: ProductConfiguration = {
-        colorId: selectedColor,
-        modelVariationId: selectedModelVariation,
-        dropdownSelections: selectedDropdownVariations,
+        variations: {
+          // Legacy dropdown variations (using old system)
+          ...(selectedModelVariation && { [selectedModelVariation]: selectedModelVariation }),
+          ...selectedDropdownVariations,
+          // New variation system
+          ...Object.fromEntries(
+            Object.entries(selectedTextValues).map(([variationId, value]) => [
+              parseInt(variationId), 
+              value // For text variations, we might need to map to option IDs
+            ])
+          ),
+          ...Object.fromEntries(
+            Object.entries(selectedImageValues).map(([variationId, optionId]) => [
+              parseInt(variationId), 
+              parseInt(optionId)
+            ])
+          ),
+          ...Object.fromEntries(
+            Object.entries(selectedBooleanValues).map(([variationId, value]) => {
+              // Find the boolean variation to get the correct option IDs
+              const booleanVariation = product.variations?.boolean?.find((v: any) => v.id.toString() === variationId);
+              if (booleanVariation?.options) {
+                const yesOption = booleanVariation.options.find((opt: any) => opt.option_name === 'Yes');
+                const noOption = booleanVariation.options.find((opt: any) => opt.option_name === 'No');
+                const optionId = value ? (yesOption?.id || 1) : (noOption?.id || 0);
+                return [parseInt(variationId), optionId];
+              }
+              return [parseInt(variationId), value ? 1 : 0]; // Fallback
+            })
+          )
+        },
         addons: Array.from(selectedAddons).map(addonId => ({
           addonId,
           optionId: selectedAddonOptions[addonId]
         }))
       };
+
+      console.log('handleAddToCart - Final configuration:', configuration);
 
       console.log('Adding to cart:', {
         productId: product.id,
@@ -332,20 +399,13 @@ const ProductDetail = () => {
         .filter(img => img.url) // Remove images without URLs
     : [];
 
-  const colors = Array.isArray(product.colors) && product.colors.length > 0
-    ? product.colors.map((c: any) => ({
-        id: c.id.toString(),
-        name: c.color_name || c.name,
-        image: c.color_image_url || c.imageUrl || '/api/placeholder/80/80'
-      }))
-    : [];
-
-  const modelVariations = product.variations?.model && Array.isArray(product.variations.model)
-    ? product.variations.model.map((v: any) => ({
+  // Transform variations for the new ProductVariations component
+  const textVariations = product.variations?.text && Array.isArray(product.variations.text)
+    ? product.variations.text.map((v: any) => ({
         id: v.id.toString(),
         name: v.name,
-        image: v.options?.[0]?.imageUrl || v.options?.[0]?.image_url || '/api/placeholder/300/200',
-        description: v.description || ''
+        description: v.description || '',
+        isRequired: v.is_required || false
       }))
     : [];
 
@@ -353,13 +413,54 @@ const ProductDetail = () => {
     ? product.variations.dropdown.map((v: any) => ({
         id: v.id.toString(),
         name: v.name,
+        description: v.description || '',
+        isRequired: v.is_required || false,
         options: Array.isArray(v.options) ? v.options.map((o: any) => ({
           id: o.id.toString(),
           name: o.option_name || o.name,
-          price: o.price_adjustment || o.priceAdjustment || 0
+          price: o.price_adjustment || 0
         })) : []
       }))
     : [];
+
+  const imageVariations = product.variations?.image && Array.isArray(product.variations.image)
+    ? product.variations.image.map((v: any) => ({
+        id: v.id.toString(),
+        name: v.name,
+        description: v.description || '',
+        isRequired: v.is_required || false,
+        options: Array.isArray(v.options) ? v.options.map((o: any) => ({
+          id: o.id.toString(),
+          name: o.option_name || o.name,
+          price: o.price_adjustment || 0,
+          image: o.image_url || '/api/placeholder/80/80'
+        })) : []
+      }))
+    : [];
+
+  const booleanVariations = product.variations?.boolean && Array.isArray(product.variations.boolean)
+    ? product.variations.boolean.map((v: any) => {
+        // Extract yes price from options
+        const yesOption = v.options?.find((opt: any) => opt.option_name === 'Yes');
+        const yesPrice = yesOption?.price_adjustment || 0;
+        
+        return {
+          id: v.id.toString(),
+          name: v.name,
+          description: v.description || '',
+          isRequired: v.is_required || false,
+          yesPrice: yesPrice
+        };
+      })
+    : [];
+
+  // Debug logging
+  console.log('Product variations:', product.variations);
+  console.log('Text variations:', textVariations);
+  console.log('Dropdown variations:', dropdownVariations);
+  console.log('Image variations:', imageVariations);
+  console.log('Boolean variations:', booleanVariations);
+  console.log('Selected boolean values:', selectedBooleanValues);
 
   const addons = Array.isArray(product.addons)
     ? product.addons.map((a: any) => ({
@@ -423,21 +524,8 @@ const ProductDetail = () => {
           </div>
 
           {/* Product Info */}
-          <div 
-            className="lg:col-span-4 space-y-6 max-h-screen overflow-y-auto pr-4 sticky top-0"
-            onWheel={(e) => {
-              const element = e.currentTarget;
-              const { scrollTop, scrollHeight, clientHeight } = element;
-              const atTop = scrollTop === 0;
-              const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
-              
-              if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
-                return;
-              } else {
-                e.stopPropagation();
-              }
-            }}
-          >
+          <div className="lg:col-span-4 lg:sticky lg:top-8 lg:pr-4">
+            <div className="space-y-6">
             <div>
               <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
               <p className="text-muted-foreground leading-relaxed mb-4">
@@ -458,69 +546,55 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {/* Color Selection */}
-            {colors.length > 0 && (
-              <div className="space-y-3">
-                <label className="text-lg font-medium">
-                  Choose Seat Color (Removable Foam) <span className="text-primary">*</span>
-                </label>
-                <div className="grid grid-cols-4 gap-3">
-                  {colors.map((color) => (
-                    <button
-                      key={color.id}
-                      onClick={() => setSelectedColor(parseInt(color.id))}
-                      className={`relative p-2 rounded-lg border-2 transition-colors ${
-                        selectedColor === parseInt(color.id)
-                          ? 'border-primary' 
-                          : 'border-border hover:border-muted-foreground'
-                      }`}
-                    >
-                      <div className="aspect-square rounded-lg overflow-hidden mb-2">
-                        <img 
-                          src={color.image} 
-                          alt={color.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="text-sm font-medium">{color.name}</span>
-                      {selectedColor === parseInt(color.id) && (
-                        <div className="absolute top-1 right-1 w-3 h-3 bg-primary rounded-full"></div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+            {/* Product Variations */}
+            {(textVariations.length > 0 || dropdownVariations.length > 0 || imageVariations.length > 0 || booleanVariations.length > 0) && (
+              <div className="space-y-4">
+                <ProductVariations
+                  textVariations={textVariations}
+                  dropdownVariations={dropdownVariations}
+                  imageVariations={imageVariations}
+                  booleanVariations={booleanVariations}
+                  selectedTextValues={selectedTextValues}
+                  selectedDropdownValues={Object.fromEntries(
+                    Object.entries(selectedDropdownVariations).map(([k, v]) => [k, v.toString()])
+                  )}
+                  selectedImageValues={selectedImageValues}
+                  selectedBooleanValues={selectedBooleanValues}
+                  onTextChange={(variationId, value) => {
+                    setSelectedTextValues(prev => ({ ...prev, [variationId]: value }));
+                  }}
+                  onDropdownChange={(varId, optId) => 
+                    handleDropdownVariationChange(parseInt(varId), parseInt(optId))
+                  }
+                  onImageChange={(variationId, optionId) => {
+                    setSelectedImageValues(prev => ({ ...prev, [variationId]: optionId }));
+                  }}
+                  onBooleanChange={(variationId, value) => {
+                    console.log('Boolean variation changed:', variationId, 'to', value);
+                    setSelectedBooleanValues(prev => {
+                      const newValues = { ...prev, [variationId]: value };
+                      console.log('Updated boolean values:', newValues);
+                      return newValues;
+                    });
+                  }}
+                />
               </div>
             )}
 
-            {/* Product Configuration */}
-            <div className="space-y-6">
-              <ProductVariations
-                modelVariations={modelVariations}
-                dropdownVariations={dropdownVariations}
-                selectedModelVariation={selectedModelVariation?.toString()}
-                selectedDropdownVariations={Object.fromEntries(
-                  Object.entries(selectedDropdownVariations).map(([k, v]) => [k, v.toString()])
+            {/* Product Addons */}
+            {addons.length > 0 && (
+              <ProductAddons
+                addons={addons}
+                selectedAddons={new Set(Array.from(selectedAddons).map(id => id.toString()))}
+                selectedAddonOptions={Object.fromEntries(
+                  Object.entries(selectedAddonOptions).map(([k, v]) => [k, v.toString()])
                 )}
-                onModelVariationChange={(id) => setSelectedModelVariation(parseInt(id))}
-                onDropdownVariationChange={(varId, optId) => 
-                  handleDropdownVariationChange(parseInt(varId), parseInt(optId))
+                onAddonToggle={(id) => handleAddonToggle(parseInt(id))}
+                onAddonOptionChange={(addonId, optId) => 
+                  handleAddonOptionChange(parseInt(addonId), parseInt(optId))
                 }
               />
-              
-              {addons.length > 0 && (
-                <ProductAddons
-                  addons={addons}
-                  selectedAddons={new Set(Array.from(selectedAddons).map(id => id.toString()))}
-                  selectedAddonOptions={Object.fromEntries(
-                    Object.entries(selectedAddonOptions).map(([k, v]) => [k, v.toString()])
-                  )}
-                  onAddonToggle={(id) => handleAddonToggle(parseInt(id))}
-                  onAddonOptionChange={(addonId, optId) => 
-                    handleAddonOptionChange(parseInt(addonId), parseInt(optId))
-                  }
-                />
-              )}
-            </div>
+            )}
 
             {/* Stock Status */}
             <div className={(product as any).stock > 0 || (product as any).in_stock === '1' ? "text-green-400 font-medium" : "text-destructive font-medium"}>
@@ -562,6 +636,7 @@ const ProductDetail = () => {
             <div className="flex items-center space-x-2 text-sm text-muted-foreground">
               <Truck className="w-5 h-5" />
               <span>Free shipping for orders over $50</span>
+            </div>
             </div>
           </div>
         </div>

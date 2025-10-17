@@ -16,8 +16,6 @@ import {
   updateVariationSchema,
   createAddonSchema,
   updateAddonSchema,
-  createColorSchema,
-  updateColorSchema,
   updateImageSchema,
   reorderImagesSchema,
   productQuerySchema
@@ -184,54 +182,19 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   );
 
   // ============================================================================
-  // COLORS
+  // IMAGES
   // ============================================================================
 
   /**
-   * @route   GET /api/admin/products/:id/colors
-   * @desc    Get product colors
-   * @access  Admin
-   */
-  router.get(
-    '/:id/colors',
-    controller.getColors
-  );
-
-  /**
-   * @route   POST /api/admin/products/:id/colors
-   * @desc    Create color
+   * @route   POST /api/admin/upload/image
+   * @desc    Upload image for variations (no product ID required)
    * @access  Admin
    */
   router.post(
-    '/:id/colors',
-    validateRequest(createColorSchema),
-    controller.createColor
+    '/upload/image',
+    fileUploadService.getImageUploadMiddleware().single('image'),
+    controller.uploadVariationImage
   );
-
-  /**
-   * @route   PUT /api/admin/products/:id/colors/:colorId
-   * @desc    Update color
-   * @access  Admin
-   */
-  router.put(
-    '/:id/colors/:colorId',
-    validateRequest(updateColorSchema),
-    controller.updateColor
-  );
-
-  /**
-   * @route   DELETE /api/admin/products/:id/colors/:colorId
-   * @desc    Delete color
-   * @access  Admin
-   */
-  router.delete(
-    '/:id/colors/:colorId',
-    controller.deleteColor
-  );
-
-  // ============================================================================
-  // IMAGES
-  // ============================================================================
 
   /**
    * @route   GET /api/admin/products/:id/images

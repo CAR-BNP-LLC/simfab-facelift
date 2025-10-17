@@ -25,7 +25,10 @@ export class PriceCalculatorService {
         throw new NotFoundError('Product', { productId });
       }
 
-      let totalPrice = product.regular_price;
+      let totalPrice = Number(product.regular_price) || 0;
+      console.log('Base product price:', product.regular_price, 'converted to:', totalPrice);
+      console.log('Configuration received:', configuration);
+      
       const variationAdjustments: Array<{ name: string; amount: number }> = [];
       let addonsTotal = 0;
       let colorAdjustment = 0;
@@ -34,8 +37,8 @@ export class PriceCalculatorService {
       if (configuration.colorId) {
         const colorPrice = await this.getColorAdjustment(configuration.colorId);
         if (colorPrice !== null) {
-          colorAdjustment = colorPrice;
-          totalPrice += colorPrice;
+          colorAdjustment = Number(colorPrice) || 0;
+          totalPrice += colorAdjustment;
         }
       }
 
@@ -43,10 +46,11 @@ export class PriceCalculatorService {
       if (configuration.modelVariationId) {
         const modelAdjustment = await this.getVariationOptionPrice(configuration.modelVariationId);
         if (modelAdjustment) {
-          totalPrice += modelAdjustment.price_adjustment;
+          const adjustment = Number(modelAdjustment.price_adjustment) || 0;
+          totalPrice += adjustment;
           variationAdjustments.push({
             name: modelAdjustment.option_name,
-            amount: modelAdjustment.price_adjustment
+            amount: adjustment
           });
         }
       }
@@ -57,16 +61,48 @@ export class PriceCalculatorService {
         const dropdownAdjustments = await this.getVariationOptionsPrices(dropdownIds);
 
         for (const adjustment of dropdownAdjustments) {
-          totalPrice += adjustment.price_adjustment;
+          const adjAmount = Number(adjustment.price_adjustment) || 0;
+          totalPrice += adjAmount;
           variationAdjustments.push({
             name: adjustment.option_name,
-            amount: adjustment.price_adjustment
+            amount: adjAmount
           });
         }
       }
 
+      // 3.5. Calculate new variations system adjustments
+      if (configuration.variations && Object.keys(configuration.variations).length > 0) {
+        console.log('Processing variations:', configuration.variations);
+        const variationIds = Object.keys(configuration.variations).map(id => parseInt(id));
+        const selectedOptionIds = Object.values(configuration.variations);
+        console.log('Selected option IDs:', selectedOptionIds);
+        
+        // Get all variation options for the selected variations
+        const variationsSql = `
+          SELECT vo.id, vo.option_name, vo.price_adjustment, v.name as variation_name
+          FROM variation_options vo
+          JOIN product_variations v ON v.id = vo.variation_id
+          WHERE vo.id = ANY($1)
+        `;
+        
+        const variationsResult = await this.pool.query(variationsSql, [selectedOptionIds]);
+        console.log('Variation options found:', variationsResult.rows);
+        
+        for (const option of variationsResult.rows) {
+          console.log(`Adding variation adjustment: ${option.variation_name}: ${option.option_name} = +${option.price_adjustment}`);
+          const adjustment = Number(option.price_adjustment) || 0;
+          totalPrice += adjustment;
+          variationAdjustments.push({
+            name: `${option.variation_name}: ${option.option_name}`,
+            amount: adjustment
+          });
+        }
+        console.log('Total price after variations:', totalPrice);
+      }
+
       // 4. Calculate add-ons total
       if (configuration.addons && configuration.addons.length > 0) {
+        console.log('Processing addons:', configuration.addons);
         for (const addon of configuration.addons) {
           let addonPrice = 0;
 
@@ -74,18 +110,21 @@ export class PriceCalculatorService {
             // Addon with specific option selected
             const addonOption = await this.getAddonOptionPrice(addon.optionId);
             if (addonOption) {
-              addonPrice = addonOption.price;
+              addonPrice = Number(addonOption.price) || 0;
+              console.log(`Addon option ${addon.optionId} price: ${addonPrice}`);
             }
           } else {
             // Addon without options (uses base price)
             const addonBase = await this.getAddonBasePrice(addon.addonId);
             if (addonBase) {
-              addonPrice = addonBase.base_price || 0;
+              addonPrice = Number(addonBase.base_price) || 0;
+              console.log(`Addon base ${addon.addonId} price: ${addonPrice}`);
             }
           }
 
           addonsTotal += addonPrice;
           totalPrice += addonPrice;
+          console.log(`Total price after addon: ${totalPrice}`);
         }
       }
 
@@ -95,6 +134,14 @@ export class PriceCalculatorService {
       // 6. Calculate final totals
       const subtotal = totalPrice;
       const total = subtotal * quantity;
+      
+      console.log('Final calculation:');
+      console.log('- Base price:', product.regular_price);
+      console.log('- Subtotal:', subtotal);
+      console.log('- Quantity:', quantity);
+      console.log('- Total:', total);
+      console.log('- Variation adjustments:', variationAdjustments);
+      console.log('- Addons total:', addonsTotal);
 
       const breakdown: PriceBreakdown = {
         basePrice: product.regular_price,

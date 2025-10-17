@@ -132,8 +132,9 @@ export class ProductVariationService {
    */
   async updateVariation(
     id: number,
-    data: Partial<Omit<CreateVariationDto, 'product_id' | 'options'>>
-  ): Promise<ProductVariation> {
+    data: Partial<CreateVariationDto>
+  ): Promise<ProductVariation & { options: VariationOption[] }> {
+    console.log('ProductVariationService.updateVariation called with:', { id, data });
     const client = await this.pool.connect();
 
     try {
@@ -188,9 +189,48 @@ export class ProductVariationService {
 
       values.push(id);
       await client.query(sql, values);
+
+      // Handle options update if provided
+      if (data.options !== undefined) {
+        console.log('Updating options for variation', id, 'with options:', data.options);
+        // Delete existing options
+        await client.query(
+          'DELETE FROM variation_options WHERE variation_id = $1',
+          [id]
+        );
+
+        // Insert new options
+        if (data.options.length > 0) {
+          const optionsSql = `
+            INSERT INTO variation_options (
+              variation_id, option_name, option_value, price_adjustment,
+              image_url, is_default, sort_order
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `;
+
+          for (let i = 0; i < data.options.length; i++) {
+            const option = data.options[i];
+            await client.query(optionsSql, [
+              id,
+              option.option_name,
+              option.option_value,
+              option.price_adjustment || 0,
+              option.image_url || null,
+              option.is_default || (i === 0), // First option is default if not specified
+              i
+            ]);
+          }
+        }
+      }
+
       await client.query('COMMIT');
 
-      return this.getVariationById(id) as Promise<ProductVariation>;
+      const result = await this.getVariationById(id);
+      console.log('Updated variation result:', result);
+      if (!result) {
+        throw new NotFoundError('Variation', { variationId: id });
+      }
+      return result;
     } catch (error) {
       await client.query('ROLLBACK');
       if (error instanceof NotFoundError || error instanceof ValidationError) throw error;

@@ -113,15 +113,26 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
+      console.log('CartContext: Configuration object details:', {
+        configuration,
+        hasVariations: !!configuration.variations,
+        variationsKeys: configuration.variations ? Object.keys(configuration.variations) : [],
+        variationsValues: configuration.variations || {}
+      });
+      
+      const requestData = {
+        productId,
+        configuration,
+        quantity
+      };
+      
+      console.log('CartContext: Sending add to cart request:', requestData);
+
       const response = await fetch(`${API_URL}/api/cart/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          productId,
-          configuration,
-          quantity
-        })
+        body: JSON.stringify(requestData)
       });
 
       const data = await response.json();
