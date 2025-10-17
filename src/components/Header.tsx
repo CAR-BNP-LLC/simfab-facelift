@@ -309,7 +309,16 @@ const Header = () => {
     <header className="sticky top-0 z-50 relative">
       {/* Utility Bar */}
       <div className="bg-secondary text-text-muted text-xs py-2 px-4 text-center">
-        <span>Toll free for USA & Canada: 1-888-299-2746 | We ship worldwide</span>
+        <span>
+          Toll free for USA & Canada:{' '}
+          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+            1-888-299-2746
+          </a>
+          {' | '}
+          <a href="/international-shipping" className="text-primary hover:underline">
+            We ship worldwide
+          </a>
+        </span>
       </div>
 
       {/* Main Header */}
