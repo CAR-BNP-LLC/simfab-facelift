@@ -152,7 +152,7 @@ export class CartService {
       const cart = await this.getOrCreateCart(sessionId, userId);
 
       // Validate product exists and is in stock
-      const productSql = 'SELECT id, name, sku, slug, stock, status FROM products WHERE id = $1';
+      const productSql = 'SELECT id, name, sku, slug, stock, status, images FROM products WHERE id = $1';
       const productResult = await client.query(productSql, [data.productId]);
 
       if (productResult.rows.length === 0) {
@@ -173,6 +173,7 @@ export class CartService {
       }
 
       // Calculate price with configuration
+      console.log('CartService: Calculating price for product', data.productId, 'with configuration:', data.configuration);
       const priceCalc = await this.priceCalculator.calculatePrice(
         data.productId,
         data.configuration,
@@ -181,7 +182,10 @@ export class CartService {
 
       const unitPrice = priceCalc.pricing.subtotal;
       const totalPrice = priceCalc.pricing.total;
+      console.log('CartService: Calculated unit price:', unitPrice, 'total price:', totalPrice);
 
+      console.log('CartService: Checking for existing item with configuration:', JSON.stringify(data.configuration));
+      
       // Check if same product with same configuration already in cart
       const existingItemSql = `
         SELECT * FROM cart_items
@@ -193,6 +197,8 @@ export class CartService {
         data.productId,
         JSON.stringify(data.configuration)
       ]);
+      
+      console.log('CartService: Found existing items:', existingResult.rows.length);
 
       let cartItem;
 
@@ -251,7 +257,7 @@ export class CartService {
         product_name: product.name,
         product_sku: product.sku,
         product_slug: product.slug,
-        product_image: null,
+        product_image: product.images,
         product_stock: product.stock,
         product_status: product.status
       };

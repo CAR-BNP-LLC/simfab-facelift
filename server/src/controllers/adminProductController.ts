@@ -8,7 +8,6 @@ import { Pool } from 'pg';
 import { ProductService } from '../services/ProductService';
 import { ProductVariationService } from '../services/ProductVariationService';
 import { ProductAddonService } from '../services/ProductAddonService';
-import { ProductColorService } from '../services/ProductColorService';
 import { ProductImageService } from '../services/ProductImageService';
 import { FileUploadService } from '../services/FileUploadService';
 import {
@@ -16,7 +15,6 @@ import {
   UpdateProductDto,
   CreateVariationDto,
   CreateAddonDto,
-  CreateColorDto,
   ProductStatus
 } from '../types/product';
 import { successResponse, paginatedResponse } from '../utils/response';
@@ -25,7 +23,6 @@ export class AdminProductController {
   private productService: ProductService;
   private variationService: ProductVariationService;
   private addonService: ProductAddonService;
-  private colorService: ProductColorService;
   private imageService: ProductImageService;
   private fileUploadService: FileUploadService;
 
@@ -33,7 +30,6 @@ export class AdminProductController {
     this.productService = new ProductService(pool);
     this.variationService = new ProductVariationService(pool);
     this.addonService = new ProductAddonService(pool);
-    this.colorService = new ProductColorService(pool);
     this.imageService = new ProductImageService(pool);
     this.fileUploadService = new FileUploadService();
   }
@@ -273,77 +269,6 @@ export class AdminProductController {
   };
 
   // ============================================================================
-  // COLORS
-  // ============================================================================
-
-  /**
-   * Get product colors
-   * GET /api/admin/products/:id/colors
-   */
-  getColors = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const productId = parseInt(req.params.id);
-      const colors = await this.colorService.getColorsByProduct(productId);
-
-      res.json(successResponse(colors, 'Colors retrieved'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Create color
-   * POST /api/admin/products/:id/colors
-   */
-  createColor = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const productId = parseInt(req.params.id);
-      const colorData: CreateColorDto = {
-        ...req.body,
-        product_id: productId
-      };
-
-      const color = await this.colorService.createColor(colorData);
-
-      res.status(201).json(successResponse(color, 'Color created successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Update color
-   * PUT /api/admin/products/:id/colors/:colorId
-   */
-  updateColor = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const colorId = parseInt(req.params.colorId);
-      const updateData = req.body;
-
-      const color = await this.colorService.updateColor(colorId, updateData);
-
-      res.json(successResponse(color, 'Color updated successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Delete color
-   * DELETE /api/admin/products/:id/colors/:colorId
-   */
-  deleteColor = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const colorId = parseInt(req.params.colorId);
-      await this.colorService.deleteColor(colorId);
-
-      res.json(successResponse(null, 'Color deleted successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  // ============================================================================
   // IMAGES
   // ============================================================================
 
@@ -356,6 +281,42 @@ export class AdminProductController {
       const productId = parseInt(req.params.id);
       const images = await this.imageService.getImagesByProduct(productId);
       res.json(successResponse(images, 'Images retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Upload image for variations (no product ID required)
+   * POST /api/admin/upload/image
+   */
+  uploadVariationImage = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'NO_FILE',
+            message: 'No file uploaded'
+          }
+        });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const imageUrl = this.fileUploadService.getFileUrl(file.filename, baseUrl);
+
+      res.status(201).json({
+        success: true,
+        data: {
+          url: imageUrl,
+          filename: file.filename,
+          originalName: file.originalname,
+          size: file.size
+        },
+        message: 'Image uploaded successfully'
+      });
     } catch (error) {
       next(error);
     }

@@ -32,7 +32,47 @@ async function apiRequest<T>(
     const data = await response.json();
 
     if (!response.ok) {
-      // Handle API errors
+      // Handle specific error types
+      if (data.error?.code === 'RATE_LIMIT_EXCEEDED') {
+        const retryAfter = data.error?.retryAfter || 60;
+        const error = new Error(`Rate limit exceeded. Please try again in ${retryAfter} seconds.`);
+        (error as any).code = 'RATE_LIMIT_EXCEEDED';
+        (error as any).retryAfter = retryAfter;
+        throw error;
+      }
+      
+      if (data.error?.code === 'VALIDATION_ERROR') {
+        const error = new Error(data.error?.message || 'Validation failed');
+        (error as any).code = 'VALIDATION_ERROR';
+        (error as any).details = data.error?.details;
+        throw error;
+      }
+      
+      if (response.status === 401) {
+        const error = new Error('Authentication required. Please log in.');
+        (error as any).code = 'UNAUTHORIZED';
+        throw error;
+      }
+      
+      if (response.status === 403) {
+        const error = new Error('Access denied. You do not have permission to perform this action.');
+        (error as any).code = 'FORBIDDEN';
+        throw error;
+      }
+      
+      if (response.status === 404) {
+        const error = new Error('Resource not found.');
+        (error as any).code = 'NOT_FOUND';
+        throw error;
+      }
+      
+      if (response.status >= 500) {
+        const error = new Error('Server error. Please try again later.');
+        (error as any).code = 'SERVER_ERROR';
+        throw error;
+      }
+      
+      // Generic error handling
       throw new Error(data.error?.message || data.error || 'Request failed');
     }
 
@@ -40,7 +80,9 @@ async function apiRequest<T>(
   } catch (error) {
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error('Request timeout - please check if backend is running');
+        const timeoutError = new Error('Request timeout - please check if backend is running');
+        (timeoutError as any).code = 'TIMEOUT';
+        throw timeoutError;
       }
       throw error;
     }
@@ -216,14 +258,6 @@ export interface ProductImage {
   created_at: string;
 }
 
-export interface ProductColor {
-  id: number;
-  name: string;
-  code: string | null;
-  imageUrl: string | null;
-  isAvailable: boolean;
-}
-
 export interface VariationOption {
   id: number;
   name: string;
@@ -235,7 +269,7 @@ export interface VariationOption {
 
 export interface ProductVariation {
   id: number;
-  type: 'model' | 'dropdown';
+  type: 'text' | 'dropdown' | 'image' | 'boolean';
   name: string;
   description?: string;
   isRequired: boolean;
@@ -282,7 +316,6 @@ export interface Product {
     currency: string;
   };
   images: ProductImage[];
-  colors?: ProductColor[];
   stock: {
     quantity: number;
     inStock: boolean;
@@ -300,8 +333,10 @@ export interface Product {
 
 export interface ProductWithDetails extends Product {
   variations: {
-    model: ProductVariation[];
+    text: ProductVariation[];
     dropdown: ProductVariation[];
+    image: ProductVariation[];
+    boolean: ProductVariation[];
   };
   addons: ProductAddon[];
   faqs?: Array<{
@@ -318,12 +353,75 @@ export interface ProductWithDetails extends Product {
 }
 
 export interface ProductConfiguration {
-  colorId?: number;
-  modelVariationId?: number;
-  dropdownSelections?: Record<number, number>;
+  variations?: Record<number, number>;
   addons?: Array<{
     addonId: number;
     optionId?: number;
+  }>;
+}
+
+// ==========================================
+// ADMIN VARIATION TYPES
+// ==========================================
+
+export interface CreateVariationDto {
+  variation_type: 'text' | 'dropdown' | 'image' | 'boolean';
+  name: string;
+  description?: string;
+  is_required?: boolean;
+  sort_order?: number;
+  options?: Array<{
+    option_name: string;
+    option_value: string;
+    price_adjustment?: number;
+    image_url?: string;
+    is_default?: boolean;
+  }>;
+}
+
+export interface UpdateVariationDto {
+  variation_type?: 'text' | 'dropdown' | 'image' | 'boolean';
+  name?: string;
+  description?: string;
+  is_required?: boolean;
+  sort_order?: number;
+}
+
+export interface CreateOptionDto {
+  option_name: string;
+  option_value: string;
+  price_adjustment?: number;
+  image_url?: string;
+  is_default?: boolean;
+}
+
+export interface UpdateOptionDto {
+  option_name?: string;
+  option_value?: string;
+  price_adjustment?: number;
+  image_url?: string;
+  is_default?: boolean;
+}
+
+export interface VariationWithOptions {
+  id: number;
+  product_id: number;
+  variation_type: 'text' | 'dropdown' | 'image' | 'boolean';
+  name: string;
+  description?: string;
+  is_required: boolean;
+  sort_order: number;
+  created_at: string;
+  options: Array<{
+    id: number;
+    variation_id: number;
+    option_name: string;
+    option_value: string;
+    price_adjustment?: number;
+    image_url?: string;
+    is_default?: boolean;
+    sort_order: number;
+    created_at: string;
   }>;
 }
 
@@ -756,6 +854,75 @@ export const orderAPI = {
 };
 
 // ==========================================
+// ADMIN VARIATION API
+// ==========================================
+
+export const adminVariationsAPI = {
+  /**
+   * Get all variations for a product
+   */
+  getVariations: (productId: number) => {
+    return apiRequest<{
+      success: boolean;
+      data: VariationWithOptions[];
+    }>(`/api/admin/products/${productId}/variations`);
+  },
+
+  /**
+   * Create a new variation
+   */
+  createVariation: (productId: number, data: CreateVariationDto) => {
+    console.log('API: Creating variation for product', productId, 'with data:', data);
+    return apiRequest<{
+      success: boolean;
+      data: VariationWithOptions;
+    }>(`/api/admin/products/${productId}/variations`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Update a variation
+   */
+  updateVariation: (productId: number, variationId: number, data: UpdateVariationDto) => {
+    console.log('API: Updating variation', variationId, 'for product', productId, 'with data:', data);
+    return apiRequest<{
+      success: boolean;
+      data: VariationWithOptions;
+    }>(`/api/admin/products/${productId}/variations/${variationId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete a variation
+   */
+  deleteVariation: (productId: number, variationId: number) => {
+    return apiRequest<{
+      success: boolean;
+      data: null;
+    }>(`/api/admin/products/${productId}/variations/${variationId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Reorder variations
+   */
+  reorderVariations: (productId: number, variationIds: number[]) => {
+    return apiRequest<{
+      success: boolean;
+      data: null;
+    }>(`/api/admin/products/${productId}/variations/reorder`, {
+      method: 'PUT',
+      body: JSON.stringify({ variationIds }),
+    });
+  },
+};
+
+// ==========================================
 // HELPER FUNCTIONS
 // ==========================================
 
@@ -785,11 +952,58 @@ export function formatErrorMessage(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
+/**
+ * Get error details for enhanced error handling
+ */
+export function getErrorDetails(error: unknown): {
+  message: string;
+  code?: string;
+  retryAfter?: number;
+  details?: any;
+} {
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      code: (error as any).code,
+      retryAfter: (error as any).retryAfter,
+      details: (error as any).details
+    };
+  }
+  return {
+    message: typeof error === 'string' ? error : 'An unexpected error occurred'
+  };
+}
+
+/**
+ * Check if error is retryable
+ */
+export function isRetryableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const code = (error as any).code;
+    return code === 'TIMEOUT' || code === 'SERVER_ERROR' || code === 'RATE_LIMIT_EXCEEDED';
+  }
+  return false;
+}
+
+/**
+ * Get retry delay in milliseconds
+ */
+export function getRetryDelay(error: unknown): number {
+  if (error instanceof Error) {
+    const retryAfter = (error as any).retryAfter;
+    if (retryAfter) {
+      return retryAfter * 1000; // Convert seconds to milliseconds
+    }
+  }
+  return 5000; // Default 5 second delay
+}
+
 export default {
   auth: authAPI,
   products: productsAPI,
   cart: cartAPI,
   order: orderAPI,
   health: healthAPI,
+  adminVariations: adminVariationsAPI,
 };
 

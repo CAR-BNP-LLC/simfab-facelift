@@ -117,12 +117,6 @@ export class ProductService {
              WHERE pi.product_id = p.id),
             '[]'::json
           ) as images,
-          COALESCE(
-            (SELECT json_agg(pc ORDER BY pc.sort_order)
-             FROM product_colors pc
-             WHERE pc.product_id = p.id),
-            '[]'::json
-          ) as colors,
           (SELECT COUNT(*)::int FROM product_reviews pr WHERE pr.product_id = p.id) as review_count,
           (SELECT COALESCE(AVG(pr.rating), 0) FROM product_reviews pr WHERE pr.product_id = p.id) as rating_average
         FROM products p
@@ -459,8 +453,10 @@ export class ProductService {
 
     // Group by type
     return {
-      model: variations.filter(v => v.variation_type === 'model'),
-      dropdown: variations.filter(v => v.variation_type === 'dropdown')
+      text: variations.filter(v => v.variation_type === 'text'),
+      dropdown: variations.filter(v => v.variation_type === 'dropdown'),
+      image: variations.filter(v => v.variation_type === 'image'),
+      boolean: variations.filter(v => v.variation_type === 'boolean')
     };
   }
 

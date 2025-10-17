@@ -20,9 +20,10 @@ export enum ProductStatus {
 }
 
 export enum VariationType {
-  MODEL = 'model',
+  TEXT = 'text',
   DROPDOWN = 'dropdown',
-  COLOR = 'color'
+  IMAGE = 'image',
+  BOOLEAN = 'boolean'
 }
 
 export enum ContentType {
@@ -95,17 +96,6 @@ export interface ProductImage {
   alt_text: string | null;
   sort_order: number;
   is_primary: boolean;
-  created_at: Date;
-}
-
-export interface ProductColor {
-  id: number;
-  product_id: number;
-  color_name: string;
-  color_code: string | null;
-  color_image_url: string | null;
-  is_available: boolean;
-  sort_order: number;
   created_at: Date;
 }
 
@@ -197,10 +187,11 @@ export interface ProductAdditionalInfo {
 
 export interface ProductWithDetails extends Product {
   images: ProductImage[];
-  colors: ProductColor[];
   variations: {
-    model: (ProductVariation & { options: VariationOption[] })[];
+    text: (ProductVariation & { options: VariationOption[] })[];
     dropdown: (ProductVariation & { options: VariationOption[] })[];
+    image: (ProductVariation & { options: VariationOption[] })[];
+    boolean: (ProductVariation & { options: VariationOption[] })[];
   };
   addons: (ProductAddon & { options: AddonOption[] })[];
   faqs: ProductFAQ[];
@@ -261,6 +252,7 @@ export interface ProductConfiguration {
   colorId?: number;
   modelVariationId?: number;
   dropdownSelections?: Record<number, number>; // variationId -> optionId
+  variations?: Record<number, number>; // variationId -> optionId (new variations system)
   addons?: Array<{
     addonId: number;
     optionId?: number;
@@ -374,15 +366,6 @@ export interface CreateAddonDto {
     image_url?: string;
     is_available?: boolean;
   }>;
-}
-
-export interface CreateColorDto {
-  product_id: number;
-  color_name: string;
-  color_code?: string;
-  color_image_url?: string;
-  is_available?: boolean;
-  sort_order?: number;
 }
 
 // ============================================================================

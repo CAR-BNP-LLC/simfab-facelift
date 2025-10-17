@@ -56,7 +56,15 @@ export class CartController {
       const userId = req.session?.userId;
       const data: AddToCartData = req.body;
 
-      console.log('Adding to cart:', data, 'session:', sessionId, 'user:', userId);
+      console.log('CartController.addItem called with:', {
+        sessionId,
+        userId,
+        data
+      });
+      
+      console.log('CartController: Raw request body:', JSON.stringify(req.body, null, 2));
+      console.log('CartController: Configuration field:', req.body.configuration);
+      console.log('CartController: Configuration variations:', req.body.configuration?.variations);
 
       const cartItem = await this.cartService.addItem(sessionId, userId, data);
 

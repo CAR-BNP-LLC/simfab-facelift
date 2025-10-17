@@ -114,7 +114,11 @@ export const createVariationSchema = Joi.object({
       image_url: Joi.string().uri().optional(),
       is_default: Joi.boolean().optional()
     })
-  ).min(1).required()
+  ).min(1).when('variation_type', {
+    is: Joi.string().valid('dropdown', 'image'),
+    then: Joi.required(),
+    otherwise: Joi.optional()
+  })
 });
 
 export const updateVariationSchema = Joi.object({
@@ -122,7 +126,20 @@ export const updateVariationSchema = Joi.object({
   name: Joi.string().min(2).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
   is_required: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional()
+  sort_order: Joi.number().integer().min(0).optional(),
+  options: Joi.array().items(
+    Joi.object({
+      option_name: Joi.string().required(),
+      option_value: Joi.string().required(),
+      price_adjustment: Joi.number().optional(),
+      image_url: Joi.string().uri().optional(),
+      is_default: Joi.boolean().optional()
+    })
+  ).min(1).when('variation_type', {
+    is: Joi.string().valid('dropdown', 'image', 'boolean'),
+    then: Joi.optional(),
+    otherwise: Joi.forbidden()
+  })
 }).min(1);
 
 // ============================================================================
@@ -161,33 +178,11 @@ export const updateAddonSchema = Joi.object({
 }).min(1);
 
 // ============================================================================
-// COLOR SCHEMAS
-// ============================================================================
-
-export const createColorSchema = Joi.object({
-  color_name: Joi.string().min(2).max(100).required(),
-  color_code: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).optional(),
-  color_image_url: Joi.string().uri().optional(),
-  is_available: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional()
-});
-
-export const updateColorSchema = Joi.object({
-  color_name: Joi.string().min(2).max(100).optional(),
-  color_code: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).allow(null).optional(),
-  color_image_url: Joi.string().uri().allow(null).optional(),
-  is_available: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional()
-}).min(1);
-
-// ============================================================================
 // PRICE CALCULATION SCHEMA
 // ============================================================================
 
 export const calculatePriceSchema = Joi.object({
-  colorId: Joi.number().integer().positive().optional(),
-  modelVariationId: Joi.number().integer().positive().optional(),
-  dropdownSelections: Joi.object().pattern(
+  variations: Joi.object().pattern(
     Joi.number().integer().positive(),
     Joi.number().integer().positive()
   ).optional(),
