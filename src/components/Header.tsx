@@ -13,7 +13,6 @@ const Header = () => {
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [megaMenuProducts, setMegaMenuProducts] = useState<Record<string, any[]>>({});
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
   
@@ -164,22 +163,6 @@ const Header = () => {
 
   const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED', 'SERVICES'];
 
-  // Fetch category counts on mount
-  useEffect(() => {
-    const fetchCategoryCounts = async () => {
-      try {
-        const response = await productsAPI.getCategories();
-        const counts: Record<string, number> = {};
-        response.data.forEach(cat => {
-          counts[cat.id] = cat.count;
-        });
-        setCategoryCounts(counts);
-      } catch (error) {
-        console.error('Failed to fetch category counts:', error);
-      }
-    };
-    fetchCategoryCounts();
-  }, []);
 
   // Listen for product changes to invalidate cache
   useEffect(() => {
@@ -187,21 +170,6 @@ const Header = () => {
       // Clear cached mega menu products
       setMegaMenuProducts({});
       setLoadingMegaMenu({});
-      
-      // Refetch category counts
-      const fetchCategoryCounts = async () => {
-        try {
-          const response = await productsAPI.getCategories();
-          const counts: Record<string, number> = {};
-          response.data.forEach(cat => {
-            counts[cat.id] = cat.count;
-          });
-          setCategoryCounts(counts);
-        } catch (error) {
-          console.error('Failed to fetch category counts:', error);
-        }
-      };
-      fetchCategoryCounts();
     };
 
     // Listen for custom product change events
@@ -213,17 +181,6 @@ const Header = () => {
   }, []);
 
 
-  // Get product count for a category
-  const getCategoryCount = (categoryKey: string): number => {
-    const categoryMap: Record<string, string> = {
-      'FLIGHT SIM': 'flight-sim',
-      'SIM RACING': 'sim-racing',
-      'RACING & FLIGHT SEATS': 'cockpits',
-      'MONITOR STANDS': 'monitor-stands',
-      'ACCESSORIES': 'accessories'
-    };
-    return categoryCounts[categoryMap[categoryKey]] || 0;
-  };
 
   // Fetch featured products for mega menu
   const fetchMegaMenuProducts = async (categoryKey: string) => {
@@ -371,9 +328,6 @@ const Header = () => {
                     }}
                   >
                     <span>{item}</span>
-                    {getCategoryCount(item) > 0 && (
-                      <span className="text-xs text-muted-foreground">({getCategoryCount(item)})</span>
-                    )}
                   </button>
                 </div>
               ))}
