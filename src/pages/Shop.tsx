@@ -180,7 +180,7 @@ const Shop = () => {
         <div className="flex justify-between items-center mb-12">
           <div>
             <h1 className="text-3xl font-bold text-destructive mb-2">SimFab Shop</h1>
-            <div className="w-20 h-1 bg-destructive"></div>
+            <div className="w-39 h-1 bg-destructive"></div>
           </div>
           
           {/* Search Bar */}
