@@ -523,31 +523,224 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu Overlay */}
         {isMenuOpen && (
-          <div className="lg:hidden bg-card border-t border-border">
-            <div className="container mx-auto px-4 py-4">
-              <div className="space-y-4">
-                {mainNavItems.map((item) => (
-                  <div key={item} className="border-b border-border pb-2">
+          <div className="lg:hidden fixed inset-0 bg-black z-50 overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <img 
+                src="/SimFab-logo-red-black-min-crop.svg" 
+                alt="SimFab" 
+                className="h-8 w-auto"
+              />
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className="text-white hover:text-gray-300 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Search Bar */}
+            <div className="p-4 border-b border-gray-800">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="w-full bg-gray-800 text-white placeholder-gray-400 px-4 py-3 rounded-lg pr-12"
+                />
+                <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+                  <Search className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Menu Categories */}
+            <div className="px-6 py-6 space-y-6">
+              {/* FLIGHT SIM */}
+              <div className="border-b border-gray-800 pb-6">
+                <div className="flex items-center space-x-4 ml-2">
+                  <img 
+                    src="/flight-sim-1.webp" 
+                    alt="Flight Sim" 
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                  <div>
                     <button 
-                      className="text-card-foreground font-medium uppercase tracking-wider text-sm w-full text-left"
+                      className="text-white font-bold text-lg uppercase tracking-wider"
                       onClick={() => {
-                        if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
-                        if (item === 'SIM RACING') window.location.href = '/sim-racing';
-                        if (item === 'MONITOR STANDS') window.location.href = '/monitor-stands';
+                        window.location.href = '/flight-sim';
+                        setIsMenuOpen(false);
                       }}
                     >
-                      {item}
+                      FLIGHT SIM
+                    </button>
+                    <div className="mt-2 space-y-1">
+                      <button className="block text-gray-300 hover:text-white transition-colors">
+                        ADD-ONS
+                      </button>
+                      <button className="block text-gray-300 hover:text-white transition-colors">
+                        ACCESSORIES
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SIM RACING */}
+              <div className="border-b border-gray-800 pb-6">
+                <div className="flex items-center space-x-4 ml-2">
+                  <img 
+                    src="/simfab-racing.webp" 
+                    alt="Sim Racing" 
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                  <div>
+                    <button 
+                      className="text-white font-bold text-lg uppercase tracking-wider"
+                      onClick={() => {
+                        window.location.href = '/sim-racing';
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      SIM RACING
+                    </button>
+                    <div className="mt-2 space-y-1">
+                      <button className="block text-gray-300 hover:text-white transition-colors">
+                        CONVERSION KITS
+                      </button>
+                      <button className="block text-gray-300 hover:text-white transition-colors">
+                        INDIVIDUAL PARTS
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RACING & FLIGHT SEATS */}
+              <div className="border-b border-gray-800 pb-6">
+                <div className="flex items-center space-x-4 ml-2">
+                  <img 
+                    src="/trainer-station-main-page.webp" 
+                    alt="Racing & Flight Seats" 
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                  <div>
+                    <button className="text-white font-bold text-lg uppercase tracking-wider">
+                      RACING & FLIGHT SEATS
                     </button>
                   </div>
-                ))}
-                <Button 
-                  className="btn-primary w-full mt-4"
-                  onClick={() => window.location.href = '/shop'}
-                >
-                  SHOP
-                </Button>
+                </div>
+              </div>
+
+              {/* MONITOR STANDS */}
+              <div className="border-b border-gray-800 pb-6">
+                <div className="flex items-center space-x-4 ml-2">
+                  <img 
+                    src="/trimple-monitor.webp" 
+                    alt="Monitor Stands" 
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                  <div>
+                    <button 
+                      className="text-white font-bold text-lg uppercase tracking-wider"
+                      onClick={() => {
+                        window.location.href = '/monitor-stands';
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      MONITOR STANDS
+                    </button>
+                    <div className="mt-2 space-y-1">
+                      <button className="block text-gray-300 hover:text-white transition-colors">
+                        SINGLE MONITOR STAND
+                      </button>
+                      <button className="block text-gray-300 hover:text-white transition-colors">
+                        TRIPLE MONITOR STAND
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACCESSORIES */}
+              <div className="border-b border-gray-800 pb-6">
+                <div className="flex items-center space-x-4 ml-2">
+                  <img 
+                    src="/simracing-1.webp" 
+                    alt="Accessories" 
+                    className="w-20 h-20 object-cover rounded-lg"
+                  />
+                  <div>
+                    <button className="text-white font-bold text-lg uppercase tracking-wider">
+                      ACCESSORIES
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* REFURBISHED */}
+              <div className="border-b border-gray-800 pb-6">
+                <button className="text-white font-bold text-lg uppercase tracking-wider">
+                  REFURBISHED STOCK
+                </button>
+              </div>
+
+              {/* SERVICES */}
+              <div className="pb-6">
+                <div className="mb-4">
+                  <button 
+                    className="text-white font-bold text-lg uppercase tracking-wider"
+                    onClick={() => {
+                      window.location.href = '/services';
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    SERVICES
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                      </svg>
+                    </div>
+                    <a 
+                      href="tel:1-888-299-2746" 
+                      className="text-gray-300 hover:text-white transition-colors"
+                    >
+                      Toll free for USA & Canada: 1-888-299-2746
+                    </a>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd"/>
+                      </svg>
+                    </div>
+                    <a 
+                      href="/international-shipping" 
+                      className="text-gray-300 hover:text-white transition-colors"
+                    >
+                      We ship worldwide
+                    </a>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-5 h-5 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                      </svg>
+                    </div>
+                    <a 
+                      href="mailto:info@simfab.com" 
+                      className="text-gray-300 hover:text-white transition-colors"
+                    >
+                      info@simfab.com
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

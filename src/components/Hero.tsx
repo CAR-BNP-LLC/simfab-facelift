@@ -1,6 +1,9 @@
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const Hero = () => {
+  const navigate = useNavigate();
+  
   return (
     <section className="relative min-h-screen bg-background overflow-hidden">
       {/* Background Image */}
@@ -23,12 +26,12 @@ const Hero = () => {
             Professional modular cockpits designed for ultimate realism and precision
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button className="btn-primary text-lg px-8 py-4">
+          <div className="flex justify-start">
+            <Button 
+              className="btn-primary text-lg px-8 py-4"
+              onClick={() => navigate('/shop')}
+            >
               SHOP NOW
-            </Button>
-            <Button className="btn-outline text-lg px-8 py-4">
-              SEE MODELS
             </Button>
           </div>
 
