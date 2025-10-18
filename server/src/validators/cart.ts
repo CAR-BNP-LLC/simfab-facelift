@@ -19,6 +19,10 @@ export const addToCartSchema = Joi.object({
       Joi.number().integer().positive(),
       Joi.number().integer().positive()
     ).optional(),
+    variations: Joi.object().pattern(
+      Joi.number().integer().positive(),
+      Joi.number().integer().positive()
+    ).optional(),
     addons: Joi.array().items(
       Joi.object({
         addonId: Joi.number().integer().positive().required(),

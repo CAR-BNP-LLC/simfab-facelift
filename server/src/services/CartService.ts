@@ -108,7 +108,12 @@ export class CartService {
           p.name as product_name,
           p.sku as product_sku,
           p.slug as product_slug,
-          p.images as product_image,
+          COALESCE(
+            (SELECT json_agg(row_to_json(pi))
+             FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
+            '[]'::json
+          ) as product_images,
+          (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = true LIMIT 1) as product_image,
           p.stock as product_stock,
           p.status as product_status
         FROM cart_items ci
@@ -152,7 +157,18 @@ export class CartService {
       const cart = await this.getOrCreateCart(sessionId, userId);
 
       // Validate product exists and is in stock
-      const productSql = 'SELECT id, name, sku, slug, stock, status, images FROM products WHERE id = $1';
+      const productSql = `
+        SELECT 
+          p.id, p.name, p.sku, p.slug, p.stock, p.status,
+          COALESCE(
+            (SELECT json_agg(row_to_json(pi))
+             FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
+            '[]'::json
+          ) as images,
+          (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = true LIMIT 1) as primary_image
+        FROM products p 
+        WHERE p.id = $1
+      `;
       const productResult = await client.query(productSql, [data.productId]);
 
       if (productResult.rows.length === 0) {
@@ -257,7 +273,8 @@ export class CartService {
         product_name: product.name,
         product_sku: product.sku,
         product_slug: product.slug,
-        product_image: product.images,
+        product_image: product.primary_image,
+        product_images: product.images,
         product_stock: product.stock,
         product_status: product.status
       };
