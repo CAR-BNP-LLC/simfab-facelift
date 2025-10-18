@@ -315,8 +315,34 @@ const Admin = () => {
       featured: product.featured || false,
       regular_price: product.regular_price?.toString() || '',
       stock_quantity: product.stock?.toString() || '0',
-      categories: Array.isArray(product.categories) ? product.categories[0] : 'accessories',
-      tags: Array.isArray(product.tags) ? product.tags.join(', ') : ''
+      categories: (() => {
+        try {
+          if (Array.isArray(product.categories)) {
+            return product.categories[0] || 'accessories';
+          }
+          if (typeof product.categories === 'string') {
+            const parsed = JSON.parse(product.categories);
+            return Array.isArray(parsed) ? (parsed[0] || 'accessories') : 'accessories';
+          }
+          return 'accessories';
+        } catch {
+          return 'accessories';
+        }
+      })(),
+      tags: (() => {
+        try {
+          if (Array.isArray(product.tags)) {
+            return product.tags.join(', ');
+          }
+          if (typeof product.tags === 'string') {
+            const parsed = JSON.parse(product.tags);
+            return Array.isArray(parsed) ? parsed.join(', ') : '';
+          }
+          return '';
+        } catch {
+          return '';
+        }
+      })()
     });
     
     // Fetch product images when editing
