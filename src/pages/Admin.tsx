@@ -46,6 +46,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import VariationsList from '@/components/admin/VariationsList';
 import VariationManagementDialog from '@/components/admin/VariationManagementDialog';
+import ProductEditDialog from '@/components/admin/ProductEditDialog';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -68,6 +69,7 @@ const Admin = () => {
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [productImages, setProductImages] = useState<any[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   
   // Variation management state
   const [productVariations, setProductVariations] = useState<VariationWithOptions[]>([]);
@@ -304,54 +306,54 @@ const Admin = () => {
 
   const handleEditProduct = (product: any) => {
     setEditingProduct(product);
-    setProductForm({
-      sku: product.sku || '',
-      name: product.name || '',
-      slug: product.slug || '',
-      description: product.description || '',
-      short_description: product.short_description || '',
-      type: product.type || 'simple',
-      status: product.status || 'active',
-      featured: product.featured || false,
-      regular_price: product.regular_price?.toString() || '',
-      stock_quantity: product.stock?.toString() || '0',
-      categories: (() => {
-        try {
-          if (Array.isArray(product.categories)) {
-            return product.categories[0] || 'accessories';
-          }
-          if (typeof product.categories === 'string') {
-            const parsed = JSON.parse(product.categories);
-            return Array.isArray(parsed) ? (parsed[0] || 'accessories') : 'accessories';
-          }
-          return 'accessories';
-        } catch {
-          return 'accessories';
-        }
-      })(),
-      tags: (() => {
-        try {
-          if (Array.isArray(product.tags)) {
-            return product.tags.join(', ');
-          }
-          if (typeof product.tags === 'string') {
-            const parsed = JSON.parse(product.tags);
-            return Array.isArray(parsed) ? parsed.join(', ') : '';
-          }
-          return '';
-        } catch {
-          return '';
-        }
-      })()
-    });
+    setEditDialogOpen(true);
     
     // Fetch product images when editing
     if (product.id) {
       fetchProductImages(product.id);
       fetchProductVariations(product.id);
     }
-    
-    setActiveTab('create');
+  };
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    setEditingProduct(null);
+    setProductImages([]);
+    setProductVariations([]);
+  };
+
+  const handleSaveFromDialog = async (formData: any) => {
+    if (!editingProduct?.id) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: 'Product updated successfully',
+        });
+        fetchProducts(); // Refresh the products list
+        handleCloseEditDialog();
+      } else {
+        throw new Error(data.error?.message || 'Failed to update product');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update product',
+        variant: 'destructive'
+      });
+    }
   };
 
   // Image management functions
@@ -649,7 +651,7 @@ const Admin = () => {
             </TabsTrigger>
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Create</span>
+              <span className="hidden sm:inline">Create Product</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
@@ -1086,13 +1088,13 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
-          {/* Create/Edit Product Tab */}
+          {/* Create Product Tab */}
           <TabsContent value="create" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>{editingProduct ? 'Edit Product' : 'Create New Product'}</CardTitle>
+                <CardTitle>Create New Product</CardTitle>
                 <CardDescription>
-                  {editingProduct ? `Editing: ${editingProduct.name}` : 'Add a new product to your catalog'}
+                  Add a new product to your catalog
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1225,8 +1227,8 @@ const Admin = () => {
                     <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
                   </div>
 
-                  {/* Image Upload Section */}
-                  {editingProduct && (
+                  {/* Image upload and variations will be available after product creation */}
+                  {false && (
                     <div className="space-y-4">
                       <div>
                         <Label className="text-base font-semibold">Product Images</Label>
@@ -1346,43 +1348,16 @@ const Admin = () => {
                     </div>
                   )}
 
-                  <div className="flex gap-4">
-                    <Button type="submit" disabled={loading}>
-                      {loading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        editingProduct ? 'Update Product' : 'Create Product'
-                      )}
-                    </Button>
-                    {editingProduct && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingProduct(null);
-                          setProductForm({
-                            sku: '',
-                            name: '',
-                            slug: '', // Will be auto-generated when name is entered
-                            description: '',
-                            short_description: '',
-                            type: 'simple',
-                            status: 'active',
-                            featured: false,
-                            regular_price: '',
-                            stock_quantity: '10',
-                            categories: 'accessories',
-                            tags: ''
-                          });
-                        }}
-                      >
-                        Cancel
-                      </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Create Product'
                     )}
-                  </div>
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -1425,6 +1400,62 @@ const Admin = () => {
         onSave={editingVariation ? handleUpdateVariation : handleCreateVariation}
         variation={editingVariation}
         productId={editingProduct?.id || 0}
+      />
+
+      {/* Product Edit Dialog */}
+      <ProductEditDialog
+        open={editDialogOpen}
+        onClose={handleCloseEditDialog}
+        onSave={handleSaveFromDialog}
+        product={editingProduct}
+        productImages={productImages}
+        productVariations={productVariations}
+        onImageUpload={async (file, productId) => {
+          setUploadingImages(true);
+          try {
+            const formData = new FormData();
+            formData.append('image', file);
+            const response = await fetch(`${API_URL}/api/admin/products/${productId}/images`, {
+              method: 'POST',
+              credentials: 'include',
+              body: formData
+            });
+            if (response.ok) {
+              fetchProductImages(productId);
+            }
+          } finally {
+            setUploadingImages(false);
+          }
+        }}
+        onImageDelete={async (imageId) => {
+          try {
+            await fetch(`${API_URL}/api/admin/products/images/${imageId}`, {
+              method: 'DELETE',
+              credentials: 'include'
+            });
+            if (editingProduct?.id) {
+              fetchProductImages(editingProduct.id);
+            }
+          } catch (error) {
+            console.error('Failed to delete image:', error);
+          }
+        }}
+        onImageReorder={async (imageId, newOrder) => {
+          try {
+            await fetch(`${API_URL}/api/admin/products/images/${imageId}/reorder`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ sort_order: newOrder })
+            });
+            if (editingProduct?.id) {
+              fetchProductImages(editingProduct.id);
+            }
+          } catch (error) {
+            console.error('Failed to reorder image:', error);
+          }
+        }}
+        uploadingImages={uploadingImages}
       />
 
       <Footer />
