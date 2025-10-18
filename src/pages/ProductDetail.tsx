@@ -8,6 +8,7 @@ import ProductImageGallery from "@/components/ProductImageGallery";
 import ProductVariations from "@/components/ProductVariations";
 import ProductAddons from "@/components/ProductAddons";
 import ProductAdditionalInfo from "@/components/ProductAdditionalInfo";
+import ProductFAQs from "@/components/ProductFAQs";
 import { productsAPI, ProductWithDetails, ProductConfiguration } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
@@ -488,12 +489,6 @@ const ProductDetail = () => {
       }))
     : [];
 
-  const faqs = Array.isArray(product.faqs)
-    ? product.faqs.map((faq: any) => ({
-        question: faq.question,
-        answer: faq.answer
-      }))
-    : [];
 
   const assemblyManuals = Array.isArray(product.assemblyManuals)
     ? product.assemblyManuals.map((manual: any) => ({
@@ -644,7 +639,6 @@ const ProductDetail = () => {
         {/* Additional Information */}
         <ProductAdditionalInfo
           additionalDescriptions={additionalDescriptions}
-          faqs={faqs}
           assemblyManuals={assemblyManuals}
         />
 
@@ -660,6 +654,9 @@ const ProductDetail = () => {
             </div>
           ))}
         </div>
+
+        {/* FAQs Section */}
+        <ProductFAQs productId={product.id} />
       </main>
 
       <Footer />

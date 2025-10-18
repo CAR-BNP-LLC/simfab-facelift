@@ -998,6 +998,87 @@ export function getRetryDelay(error: unknown): number {
   return 5000; // Default 5 second delay
 }
 
+// ============================================================================
+// FAQ API
+// ============================================================================
+
+export interface ProductFAQ {
+  id: number;
+  product_id: number;
+  question: string;
+  answer: string;
+  sort_order: number;
+  is_active: string; // Database stores as '1' or '0'
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateFAQData {
+  question: string;
+  answer: string;
+  sort_order?: number;
+  is_active?: string; // '1' for active, '0' for inactive
+}
+
+export interface UpdateFAQData {
+  question?: string;
+  answer?: string;
+  sort_order?: number;
+  is_active?: string; // '1' for active, '0' for inactive
+}
+
+export const faqsAPI = {
+  // Get all FAQs for a product (public)
+  async getProductFAQs(productId: number): Promise<ProductFAQ[]> {
+    const response = await apiRequest<{ success: boolean; data: ProductFAQ[] }>(
+      `/api/products/${productId}/faqs`
+    );
+    return response.data || [];
+  },
+
+  // Create new FAQ (admin only)
+  async createFAQ(productId: number, data: CreateFAQData): Promise<ProductFAQ> {
+    const response = await apiRequest<{ success: boolean; data: ProductFAQ }>(
+      `/api/products/${productId}/faqs`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+    return response.data;
+  },
+
+  // Update FAQ (admin only)
+  async updateFAQ(id: number, data: UpdateFAQData): Promise<ProductFAQ> {
+    const response = await apiRequest<{ success: boolean; data: ProductFAQ }>(
+      `/api/faqs/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+    return response.data;
+  },
+
+  // Delete FAQ (admin only)
+  async deleteFAQ(id: number): Promise<void> {
+    await apiRequest<{ success: boolean }>(`/api/faqs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Reorder FAQs (admin only)
+  async reorderFAQs(productId: number, faqIds: number[]): Promise<void> {
+    await apiRequest<{ success: boolean }>('/api/faqs/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({
+        product_id: productId,
+        faq_ids: faqIds,
+      }),
+    });
+  },
+};
+
 export default {
   auth: authAPI,
   products: productsAPI,
@@ -1005,5 +1086,6 @@ export default {
   order: orderAPI,
   health: healthAPI,
   adminVariations: adminVariationsAPI,
+  faqs: faqsAPI,
 };
 

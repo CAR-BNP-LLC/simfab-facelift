@@ -29,7 +29,8 @@ import {
   Image as ImageIcon,
   Star,
   GripVertical,
-  Trash
+  Trash,
+  Info
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -42,6 +43,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import VariationsList from '@/components/admin/VariationsList';
@@ -1217,14 +1220,24 @@ const Admin = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       id="featured"
                       checked={productForm.featured}
-                      onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })}
-                      className="rounded"
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, featured: checked as boolean })}
                     />
-                    <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
+                    <div className="flex items-center gap-1">
+                      <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 text-gray-500 hover:text-gray-700 cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p>Featured products are highlighted in navbar category menus</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
 
                   {/* Image upload and variations will be available after product creation */}
@@ -1453,6 +1466,28 @@ const Admin = () => {
             }
           } catch (error) {
             console.error('Failed to reorder image:', error);
+          }
+        }}
+        onSetPrimaryImage={async (imageId) => {
+          try {
+            await fetch(`${API_URL}/api/admin/products/images/${imageId}/set-primary`, {
+              method: 'PUT',
+              credentials: 'include'
+            });
+            if (editingProduct?.id) {
+              fetchProductImages(editingProduct.id);
+            }
+            toast({
+              title: 'Success',
+              description: 'Primary image updated'
+            });
+          } catch (error) {
+            console.error('Failed to set primary image:', error);
+            toast({
+              title: 'Error',
+              description: 'Failed to set primary image',
+              variant: 'destructive'
+            });
           }
         }}
         uploadingImages={uploadingImages}

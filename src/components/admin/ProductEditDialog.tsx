@@ -4,7 +4,10 @@ import {
   Save, 
   Upload,
   Image as ImageIcon,
-  Loader2
+  Loader2,
+  Info,
+  Star,
+  StarOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,8 +17,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import VariationsList from './VariationsList';
+import FAQsList from './FAQsList';
+import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI } from '@/services/api';
 
 interface ProductEditDialogProps {
   open: boolean;
@@ -27,6 +34,7 @@ interface ProductEditDialogProps {
   onImageUpload: (file: File, productId: number) => Promise<void>;
   onImageDelete: (imageId: number) => Promise<void>;
   onImageReorder: (imageId: number, newOrder: number) => Promise<void>;
+  onSetPrimaryImage: (imageId: number) => Promise<void>;
   uploadingImages: boolean;
 }
 
@@ -40,10 +48,13 @@ const ProductEditDialog = ({
   onImageUpload,
   onImageDelete,
   onImageReorder,
+  onSetPrimaryImage,
   uploadingImages
 }: ProductEditDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [faqs, setFaqs] = useState<ProductFAQ[]>([]);
+  const [faqsLoading, setFaqsLoading] = useState(false);
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
@@ -125,8 +136,113 @@ const ProductEditDialog = ({
           }
         })()
       });
+      
+      // Load FAQs for this product
+      if (product.id) {
+        loadFAQs(product.id);
+      }
     }
   }, [product, open]);
+
+  // Load FAQs for the product
+  const loadFAQs = async (productId: number) => {
+    setFaqsLoading(true);
+    try {
+      const productFAQs = await faqsAPI.getProductFAQs(productId);
+      setFaqs(productFAQs);
+    } catch (error) {
+      console.error('Error loading FAQs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load FAQs',
+        variant: 'destructive'
+      });
+    } finally {
+      setFaqsLoading(false);
+    }
+  };
+
+  // FAQ management functions
+  const handleCreateFAQ = async (data: CreateFAQData) => {
+    if (!product) return;
+    
+    try {
+      const newFAQ = await faqsAPI.createFAQ(product.id, data);
+      setFaqs(prev => [...prev, newFAQ]);
+      toast({
+        title: 'Success',
+        description: 'FAQ created successfully'
+      });
+    } catch (error) {
+      console.error('Error creating FAQ:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create FAQ',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  const handleUpdateFAQ = async (id: number, data: UpdateFAQData) => {
+    try {
+      const updatedFAQ = await faqsAPI.updateFAQ(id, data);
+      setFaqs(prev => prev.map(faq => faq.id === id ? updatedFAQ : faq));
+      toast({
+        title: 'Success',
+        description: 'FAQ updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating FAQ:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update FAQ',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteFAQ = async (id: number) => {
+    try {
+      await faqsAPI.deleteFAQ(id);
+      setFaqs(prev => prev.filter(faq => faq.id !== id));
+      toast({
+        title: 'Success',
+        description: 'FAQ deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting FAQ:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete FAQ',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  const handleReorderFAQs = async (faqIds: number[]) => {
+    if (!product) return;
+    
+    try {
+      await faqsAPI.reorderFAQs(product.id, faqIds);
+      // Reload FAQs to get updated order
+      await loadFAQs(product.id);
+      toast({
+        title: 'Success',
+        description: 'FAQ order updated successfully'
+      });
+    } catch (error) {
+      console.error('Error reordering FAQs:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reorder FAQs',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,15 +272,22 @@ const ProductEditDialog = ({
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && product?.id) {
+    const files = e.target.files;
+    if (files && files.length > 0 && product?.id) {
       try {
-        await onImageUpload(file, product.id);
+        // Upload multiple files
+        for (let i = 0; i < files.length; i++) {
+          await onImageUpload(files[i], product.id);
+        }
         e.target.value = ''; // Reset input
+        toast({
+          title: 'Success',
+          description: `${files.length} image(s) uploaded successfully`
+        });
       } catch (error) {
         toast({
           title: 'Error',
-          description: 'Failed to upload image',
+          description: 'Failed to upload images',
           variant: 'destructive'
         });
       }
@@ -296,14 +419,24 @@ const ProductEditDialog = ({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="featured"
                     checked={productForm.featured}
-                    onChange={(e) => setProductForm({ ...productForm, featured: e.target.checked })}
-                    className="rounded"
+                    onCheckedChange={(checked) => setProductForm({ ...productForm, featured: checked as boolean })}
                   />
-                  <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-gray-500 hover:text-gray-700 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Featured products are highlighted in navbar category menus</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -352,11 +485,12 @@ const ProductEditDialog = ({
                 <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
                   <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="text-sm text-muted-foreground mb-2">
-                    Upload product images
+                    Upload product images (select multiple files)
                   </p>
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleImageUpload}
                     className="hidden"
                     id="image-upload"
@@ -375,7 +509,7 @@ const ProductEditDialog = ({
                     ) : (
                       <>
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload Image
+                        Upload Images
                       </>
                     )}
                   </Button>
@@ -399,7 +533,21 @@ const ProductEditDialog = ({
                             </div>
                             
                             {/* Image Actions */}
-                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={image.is_primary === true || image.is_primary === '1' ? "default" : "secondary"}
+                                onClick={() => onSetPrimaryImage(image.id)}
+                                className="h-8 w-8 p-0"
+                                title={image.is_primary === true || image.is_primary === '1' ? "Primary image" : "Set as primary"}
+                              >
+                                {image.is_primary === true || image.is_primary === '1' ? (
+                                  <Star className="h-4 w-4 fill-current" />
+                                ) : (
+                                  <StarOff className="h-4 w-4" />
+                                )}
+                              </Button>
                               <Button
                                 type="button"
                                 size="sm"
@@ -413,7 +561,7 @@ const ProductEditDialog = ({
                             </div>
 
                             {/* Primary Badge */}
-                            {image.is_primary && (
+                            {(image.is_primary === true || image.is_primary === '1') && (
                               <div className="absolute top-2 left-2">
                                 <Badge variant="default" className="text-xs">
                                   Primary
@@ -449,8 +597,21 @@ const ProductEditDialog = ({
                 </CardContent>
               </Card>
             )}
+
           </form>
         </div>
+
+        {/* FAQs - Outside form to prevent nested form issues */}
+        {product && (
+          <FAQsList
+            productId={product.id}
+            faqs={faqs}
+            onFAQCreate={handleCreateFAQ}
+            onFAQUpdate={handleUpdateFAQ}
+            onFAQDelete={handleDeleteFAQ}
+            onFAQReorder={handleReorderFAQs}
+          />
+        )}
 
         <DialogFooter className="flex-shrink-0">
           <Button type="button" variant="outline" onClick={onClose}>

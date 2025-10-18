@@ -9,10 +9,6 @@ interface AdditionalDescription {
   description: string;
 }
 
-interface FAQ {
-  question: string;
-  answer: string;
-}
 
 interface AssemblyManual {
   name: string;
@@ -22,13 +18,11 @@ interface AssemblyManual {
 
 interface ProductAdditionalInfoProps {
   additionalDescriptions?: AdditionalDescription[];
-  faqs?: FAQ[];
   assemblyManuals?: AssemblyManual[];
 }
 
 const ProductAdditionalInfo = ({
   additionalDescriptions = [],
-  faqs = [],
   assemblyManuals = []
 }: ProductAdditionalInfoProps) => {
   const [currentImageIndex, setCurrentImageIndex] = useState<Record<string, number>>({});
@@ -51,7 +45,7 @@ const ProductAdditionalInfo = ({
     }));
   };
 
-  const hasContent = additionalDescriptions.length > 0 || faqs.length > 0 || assemblyManuals.length > 0;
+  const hasContent = additionalDescriptions.length > 0 || assemblyManuals.length > 0;
 
   if (!hasContent) {
     return null;
@@ -119,24 +113,6 @@ const ProductAdditionalInfo = ({
         </div>
       )}
 
-      {/* FAQs */}
-      {faqs.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-3xl font-bold text-primary">FAQs</h2>
-          <Accordion type="single" collapsible className="w-full">
-            {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`faq-${index}`}>
-                <AccordionTrigger className="text-left hover:text-primary transition-colors">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      )}
 
       {/* Assembly Manuals */}
       {assemblyManuals.length > 0 && (
