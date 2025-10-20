@@ -150,7 +150,7 @@ const FlightSim = () => {
                 <div className="absolute inset-0 hidden sm:block">
                   {/* Point 1 - Flight Sim #12 */}
                   <button 
-                    className="absolute top-[9%] left-[43%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                    className="absolute top-[16%] left-[43%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
                     title="Flight Sim #12 Add-On"
                   >
                     <div className="absolute -top-32 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
@@ -159,7 +159,7 @@ const FlightSim = () => {
                         Main Instrument and MFD panel holder. Highly adjustable design allows for repositioning of each MFD/UFC/ICP/HUD according to each aircraft layout. Compatible with WinWing F-18 MIP, Thrustmaster Warthog and SimGears ICP.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Flight Sim #12
                     </div>
                   </button>
@@ -175,14 +175,14 @@ const FlightSim = () => {
                         Active Articulating Arm with Keyboard & Mouse or Laptop Tray kit. The tray kit can be mounted on either the left or right side of the seat.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Keyboard & Mouse or Laptop Tray kit
                     </div>
                   </button>
                   
                   {/* Point 3 - Flight Sim #4 */}
                   <button 
-                    className="absolute top-[35%] left-[38%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute top-[31%] left-[50%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Flight Sim #4 Add-On"
                   >
                     <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
@@ -191,7 +191,7 @@ const FlightSim = () => {
                         Dedicated rudder pedal plate. Compatible with almost every rudder pedal on the market. All mounting hardware is included.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Flight Sim #4
                     </div>
                   </button>
@@ -207,8 +207,8 @@ const FlightSim = () => {
                         Part of the Advanced Modular Side Mount (AMSM) is the takeoff combat-ready panel. The bracket has full articulation for precise user adjustment. Compatible with popular WinWing panels and VirPil panels.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
-                      Advanced Modular Side Mount / combat-ready panel
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                      Advanced Modular Side Mount
                     </div>
                   </button>
                   
@@ -223,7 +223,7 @@ const FlightSim = () => {
                         HOTAS style side-by-side stick and throttle. Compatible with Thrustmaster Warthog and alike controls such as WinWing, VirPil and VKB Gunfighter.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Flight Sim #2
                     </div>
                   </button>
@@ -239,14 +239,14 @@ const FlightSim = () => {
                         Centered stick lower-mount bracket. The bracket is designed to adjust the height positioning of the stick base for proper alignment of the stick grip, whether it is used with grip extension or a default setting. Also suitable for sticks used as helicopter cyclic. Configuration #7 is our unique design grip extension compatible with Thrustmaster Warthog, VirPil and WinWing sticks. Premium quality machined female and male adapters with three lengths of...
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Flight Sim #6 & #7
                     </div>
                   </button>
                   
                   {/* Point 7 - Seat */}
                   <button 
-                    className="absolute bottom-[35%] left-[45%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
+                    className="absolute bottom-[32%] left-[45%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
                     title="Seat"
                   >
                     <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
@@ -255,7 +255,7 @@ const FlightSim = () => {
                         Our patented design seat base slanted cutout with removable foam insert. Cutout of the seat provides full motion of the center-mounted stick with grip extension without protruding into the seat within a proper arm's reach.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Seat
                     </div>
                   </button>
@@ -271,7 +271,7 @@ const FlightSim = () => {
                         AMSM. Side-bracket assembly allows for stackable mounting of throttle, additional horizontally mounted control panel in front or behind throttle and additional takeoff/combat-ready panel mounted on the left side of upper pilot pit space.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Flight Sim #10
                     </div>
                   </button>
@@ -287,7 +287,7 @@ const FlightSim = () => {
                         Added comfort for F-16 pilots. Resting your forearm provides better stick control for long hours of dog fighting.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Arm rest kit
                     </div>
                   </button>
@@ -303,7 +303,7 @@ const FlightSim = () => {
                         Universal helicopter collective bracket. Compatible with VirPil, WinWing and Komodo collectives.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Flight Sim #11
                     </div>
                   </button>
@@ -319,7 +319,7 @@ const FlightSim = () => {
                         Add a shaker to your pit for enhanced immersion.
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       Universal shaker bracket
                     </div>
                   </button>
@@ -335,8 +335,24 @@ const FlightSim = () => {
                         Move around your cockpit by lifting the front until cilycon wheels touch the floor. When the pit gets heavier with added peripheral brackets and controls, simply disconnect each assembly (on either side or front) at the easiest disconnect point, by turning a couple of knobs. Couldn't be easier than that!
                       </div>
                     </div>
-                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-white text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
                       EZ rolling wheels
+                    </div>
+                  </button>
+                  
+                  {/* Point 13 - Right side advanced modular side mount assembly kit */}
+                  <button 
+                    className="absolute top-[60%] right-[20%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                    title="Right side advanced modular side mount assembly kit"
+                  >
+                    <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                      <div className="font-semibold mb-1">Right side advanced modular side mount assembly kit</div>
+                      <div className="text-xs leading-relaxed">
+                        Right side advanced modular side mount assembly kit. Suitable for stacking several controls per user preference.
+                      </div>
+                    </div>
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                      Advanced modular side mount assembly kit
                     </div>
                   </button>
                 </div>
