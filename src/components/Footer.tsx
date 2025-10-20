@@ -21,41 +21,19 @@ const Footer = () => {
   const paymentMethods = [
     {
       name: 'American Express',
-      logo: (
-        <svg viewBox="0 0 100 30" className="w-full h-5">
-          <rect width="100" height="30" fill="#1a1a1a"/>
-          <text x="50" y="20" textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">AMERICAN EXPRESS</text>
-        </svg>
-      )
+      logo: '/payment-methods/amex-logo.webp'
     },
     {
       name: 'Mastercard',
-      logo: (
-        <svg viewBox="0 0 100 30" className="w-full h-5">
-          <rect width="100" height="30" fill="#1a1a1a"/>
-          <circle cx="35" cy="15" r="11" fill="#EB001B"/>
-          <circle cx="65" cy="15" r="11" fill="#F79E1B"/>
-          <path d="M42 15 A11 11 0 0 1 58 15 A11 11 0 0 1 42 15" fill="#FF5F00"/>
-        </svg>
-      )
+      logo: '/payment-methods/mastercard-150x100.webp'
     },
     {
       name: 'Visa',
-      logo: (
-        <svg viewBox="20 5 60 25" className="w-full h-5">
-          <rect width="100" height="30" fill="#1a1a1a"/>
-          <text x="50" y="20" textAnchor="middle" fill="white" fontSize="16" fontWeight="bold">VISA</text>
-        </svg>
-      )
+      logo: '/payment-methods/visa-150x100.webp'
     },
     {
       name: 'PayPal',
-      logo: (
-        <svg viewBox="20 8 60 18" className="w-full h-5">
-          <rect width="100" height="30" fill="#1a1a1a"/>
-          <text x="50" y="20" textAnchor="middle" fill="white" fontSize="12" fontWeight="bold">PayPal</text>
-        </svg>
-      )
+      logo: '/payment-methods/paypal1.webp'
     }
   ];
 
@@ -155,7 +133,11 @@ const Footer = () => {
                     key={index}
                     className="w-12 h-8 sm:w-16 sm:h-10 bg-card rounded flex items-center justify-center px-1 sm:px-2"
                   >
-                    {method.logo}
+                    <img 
+                      src={method.logo} 
+                      alt={method.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
                   </div>
                 ))}
               </div>

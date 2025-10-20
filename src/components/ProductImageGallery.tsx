@@ -18,8 +18,8 @@ const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) 
     return (
       <div className="flex gap-4">
         <div className="flex-1">
-          <div className="aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-            <p className="text-muted-foreground">No images available</p>
+          <div className="aspect-square bg-black rounded-lg overflow-hidden flex items-center justify-center">
+            <p className="text-white">No images available</p>
           </div>
         </div>
       </div>
@@ -49,7 +49,7 @@ const ProductImageGallery = ({ images, productName }: ProductImageGalleryProps) 
 
       {/* Main Image */}
       <div className="flex-1">
-        <div className="bg-muted rounded-lg overflow-hidden flex items-center justify-center">
+        <div className="bg-black rounded-lg overflow-hidden flex items-center justify-center">
           <img 
             src={images[selectedImage]?.url} 
             alt={images[selectedImage]?.alt || productName}
