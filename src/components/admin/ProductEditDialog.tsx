@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import VariationsList from './VariationsList';
 import FAQsList from './FAQsList';
+import PermittedFor from '@/components/auth/PermittedFor';
 import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI } from '@/services/api';
 
 interface ProductEditDialogProps {
@@ -548,16 +549,18 @@ const ProductEditDialog = ({
                                   <StarOff className="h-4 w-4" />
                                 )}
                               </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => onImageDelete(image.id)}
-                                className="h-8 w-8 p-0"
-                                title="Delete image"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                              <PermittedFor authority="products:delete">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => onImageDelete(image.id)}
+                                  className="h-8 w-8 p-0"
+                                  title="Delete image"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </PermittedFor>
                             </div>
 
                             {/* Primary Badge */}
@@ -599,37 +602,39 @@ const ProductEditDialog = ({
             )}
 
           </form>
-        </div>
 
-        {/* FAQs - Outside form to prevent nested form issues */}
-        {product && (
-          <FAQsList
-            productId={product.id}
-            faqs={faqs}
-            onFAQCreate={handleCreateFAQ}
-            onFAQUpdate={handleUpdateFAQ}
-            onFAQDelete={handleDeleteFAQ}
-            onFAQReorder={handleReorderFAQs}
-          />
-        )}
+          {/* FAQs - Inside scrollable area to prevent nested scrollbars */}
+          {product && (
+            <FAQsList
+              productId={product.id}
+              faqs={faqs}
+              onFAQCreate={handleCreateFAQ}
+              onFAQUpdate={handleUpdateFAQ}
+              onFAQDelete={handleDeleteFAQ}
+              onFAQReorder={handleReorderFAQs}
+            />
+          )}
+        </div>
 
         <DialogFooter className="flex-shrink-0">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" onClick={handleSubmit} disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </>
-            )}
-          </Button>
+          <PermittedFor authority="products:edit">
+            <Button type="submit" onClick={handleSubmit} disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
+          </PermittedFor>
         </DialogFooter>
       </DialogContent>
     </Dialog>

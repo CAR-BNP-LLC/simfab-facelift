@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import UserModel, { User, NewsletterSubscription } from '../models/user';
+import RBACModel from '../models/rbac';
+import { Pool } from 'pg';
 
 // Use crypto for generating UUIDs instead of uuid package
 import { randomUUID } from 'crypto';
@@ -10,13 +12,60 @@ declare module 'express-session' {
   interface SessionData {
     userId?: number;
     userEmail?: string;
+    role?: string;
+    authorities?: string[];
   }
 }
 
-// Create user model instance
+// Create model instances
 const userModel = new UserModel();
+// Create separate pool instance for RBAC model
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+const rbacModel = new RBACModel(pool);
 
 export class AuthController {
+  // Helper method to load user authorities and roles
+  static async loadUserAuthorities(userId: number): Promise<{
+    roles: Array<{ id: number; name: string }>;
+    authorities: string[];
+  }> {
+    try {
+      const [roles, authorities] = await Promise.all([
+        rbacModel.getUserRoles(userId),
+        rbacModel.getUserAuthorities(userId)
+      ]);
+
+      return {
+        roles: roles.map(role => ({ id: role.id, name: role.name })),
+        authorities
+      };
+    } catch (error) {
+      console.error('Failed to load user authorities:', error);
+      return { roles: [], authorities: [] };
+    }
+  }
+
+  // Helper method to refresh user authorities in session
+  static async refreshAuthorities(req: Request, res: Response, next: () => void): Promise<void> {
+    if (!req.session?.userId) {
+      next();
+      return;
+    }
+
+    try {
+      if (req.session.userId) {
+        const { roles, authorities } = await AuthController.loadUserAuthorities(req.session.userId);
+        req.session.authorities = authorities;
+      }
+      next();
+    } catch (error) {
+      console.error('Failed to refresh authorities:', error);
+      next();
+    }
+  }
   // Register a new user
   static async register(req: Request, res: Response): Promise<void> {
     try {
@@ -159,9 +208,13 @@ export class AuthController {
         return;
       }
 
+      // Load user authorities and roles
+      const { roles, authorities } = await AuthController.loadUserAuthorities(user.id!);
+
       // Set session
       req.session.userId = user.id;
       req.session.userEmail = user.email;
+      req.session.authorities = authorities;
 
       res.json({
         success: true,
@@ -172,7 +225,9 @@ export class AuthController {
             email: user.email,
             firstName: user.first_name,
             lastName: user.last_name,
-            role: 'customer',
+            role: 'customer', // deprecated - use roles instead
+            roles,
+            authorities,
             emailVerified: false,
             lastLogin: new Date().toISOString()
           },
@@ -413,6 +468,9 @@ export class AuthController {
         return;
       }
 
+      // Load user authorities and roles
+      const { roles, authorities } = await AuthController.loadUserAuthorities(userId);
+
       // Get newsletter subscription
       const newsletterSubscription = await userModel.getNewsletterSubscription(user.email);
 
@@ -424,7 +482,9 @@ export class AuthController {
             email: user.email,
             firstName: user.first_name,
             lastName: user.last_name,
-            role: 'customer',
+            role: 'customer', // deprecated - use roles instead
+            roles,
+            authorities,
             emailVerified: false,
             createdAt: user.created_at
           },

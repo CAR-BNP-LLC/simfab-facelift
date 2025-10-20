@@ -10,6 +10,7 @@ import {
   ShoppingBag, 
   Users, 
   Settings,
+  Shield,
   Plus,
   Edit,
   Trash2,
@@ -50,6 +51,8 @@ import { useErrorHandler } from '@/hooks/use-error-handler';
 import VariationsList from '@/components/admin/VariationsList';
 import VariationManagementDialog from '@/components/admin/VariationManagementDialog';
 import ProductEditDialog from '@/components/admin/ProductEditDialog';
+import RbacManagement from '@/components/admin/RbacManagement';
+import PermittedFor from '@/components/auth/PermittedFor';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -639,7 +642,7 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -656,6 +659,10 @@ const Admin = () => {
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Create Product</span>
             </TabsTrigger>
+            <TabsTrigger value="rbac" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              <span className="hidden sm:inline">Permissions</span>
+            </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Settings</span>
@@ -664,6 +671,7 @@ const Admin = () => {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6">
+            <PermittedFor authority="dashboard:view">
             {loading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -804,10 +812,12 @@ const Admin = () => {
                 </CardContent>
               </Card>
             )}
+            </PermittedFor>
           </TabsContent>
 
           {/* Orders Tab */}
           <TabsContent value="orders" className="space-y-6">
+            <PermittedFor authority="orders:view">
             <Card>
               <CardHeader>
                 <CardTitle>Order Management</CardTitle>
@@ -858,21 +868,26 @@ const Admin = () => {
                               <span className="font-semibold">${parseFloat(order.total_amount).toFixed(2)}</span>
                             </td>
                             <td className="py-3 px-2">
-                              <Select
-                                value={order.status}
-                                onValueChange={(value) => handleUpdateOrderStatus(order.id, value)}
+                              <PermittedFor 
+                                authority="orders:manage" 
+                                fallback={<Badge variant="outline">{order.status}</Badge>}
                               >
-                                <SelectTrigger className="w-[140px]">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="processing">Processing</SelectItem>
-                                  <SelectItem value="shipped">Shipped</SelectItem>
-                                  <SelectItem value="delivered">Delivered</SelectItem>
-                                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                              </Select>
+                                <Select
+                                  value={order.status}
+                                  onValueChange={(value) => handleUpdateOrderStatus(order.id, value)}
+                                >
+                                  <SelectTrigger className="w-[140px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="processing">Processing</SelectItem>
+                                    <SelectItem value="shipped">Shipped</SelectItem>
+                                    <SelectItem value="delivered">Delivered</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </PermittedFor>
                             </td>
                             <td className="py-3 px-2 text-sm text-muted-foreground">
                               {new Date(order.created_at).toLocaleDateString()}
@@ -890,10 +905,12 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+            </PermittedFor>
           </TabsContent>
 
           {/* Products Tab */}
           <TabsContent value="products" className="space-y-6">
+            <PermittedFor authority="products:view">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -906,10 +923,12 @@ const Admin = () => {
                       <Upload className="mr-2 h-4 w-4" />
                       Upload CSV
                     </Button>
-                    <Button onClick={() => setActiveTab('create')}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Product
-                    </Button>
+                    <PermittedFor authority="products:create">
+                      <Button onClick={() => setActiveTab('create')}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Product
+                      </Button>
+                    </PermittedFor>
                   </div>
                 </div>
               </CardHeader>
@@ -1065,20 +1084,24 @@ const Admin = () => {
                             </td>
                             <td className="py-3 px-2">
                               <div className="flex gap-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleEditProduct(product)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
-                                  onClick={() => handleDeleteProduct(product.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                <PermittedFor authority="products:edit">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleEditProduct(product)}
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </PermittedFor>
+                                <PermittedFor authority="products:delete">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm"
+                                    onClick={() => handleDeleteProduct(product.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </PermittedFor>
                               </div>
                             </td>
                           </tr>
@@ -1089,10 +1112,12 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+            </PermittedFor>
           </TabsContent>
 
           {/* Create Product Tab */}
           <TabsContent value="create" className="space-y-6">
+            <PermittedFor authority="products:create">
             <Card>
               <CardHeader>
                 <CardTitle>Create New Product</CardTitle>
@@ -1374,10 +1399,17 @@ const Admin = () => {
                 </form>
               </CardContent>
             </Card>
+            </PermittedFor>
+          </TabsContent>
+
+          {/* RBAC Management Tab */}
+          <TabsContent value="rbac" className="space-y-6">
+            <RbacManagement />
           </TabsContent>
 
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
+            <PermittedFor authority="rbac:manage">
             <Card>
               <CardHeader>
                 <CardTitle>Admin Settings</CardTitle>
@@ -1402,6 +1434,7 @@ const Admin = () => {
                 </div>
               </CardContent>
             </Card>
+            </PermittedFor>
           </TabsContent>
         </Tabs>
       </main>

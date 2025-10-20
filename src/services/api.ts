@@ -118,7 +118,9 @@ export interface User {
   lastName: string;
   phone?: string;
   company?: string;
-  role: string;
+  role: string; // deprecated - use roles instead
+  roles: Array<{ id: number; name: string }>;
+  authorities: string[];
   emailVerified: boolean;
   createdAt: string;
   lastLogin?: string;
@@ -1079,6 +1081,123 @@ export const faqsAPI = {
   },
 };
 
+// ==========================================
+// RBAC API
+// ==========================================
+
+export interface Role {
+  id: number;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+  authorities?: Authority[];
+}
+
+export interface Authority {
+  id: number;
+  resource: string;
+  action: string;
+  description?: string;
+  created_at: string;
+}
+
+export interface UserWithRoles {
+  user_id: number;
+  email: string;
+  first_name: string;
+  last_name: string;
+  roles: Role[];
+  authorities: string[];
+}
+
+export const rbacAPI = {
+  // Roles
+  async getRoles() {
+    return apiRequest<{
+      success: boolean;
+      data: Role[];
+    }>('/api/admin/rbac/roles');
+  },
+
+  async createRole(data: { name: string; description?: string; authorityIds?: number[] }) {
+    return apiRequest<{
+      success: boolean;
+      data: Role;
+      message: string;
+    }>('/api/admin/rbac/roles', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Authorities
+  async getAuthorities() {
+    return apiRequest<{
+      success: boolean;
+      data: Authority[];
+    }>('/api/admin/rbac/authorities');
+  },
+
+  async createAuthority(data: { resource: string; action: string; description?: string }) {
+    return apiRequest<{
+      success: boolean;
+      data: Authority;
+      message: string;
+    }>('/api/admin/rbac/authorities', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Users with roles
+  async getUsersWithRoles() {
+    return apiRequest<{
+      success: boolean;
+      data: UserWithRoles[];
+    }>('/api/admin/rbac/users');
+  },
+
+  async assignRoleToUser(userId: number, roleId: number) {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+    }>(`/api/admin/rbac/users/${userId}/roles`, {
+      method: 'POST',
+      body: JSON.stringify({ roleId }),
+    });
+  },
+
+  async removeRoleFromUser(userId: number, roleId: number) {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+    }>(`/api/admin/rbac/users/${userId}/roles/${roleId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // Role authorities
+  async assignAuthorityToRole(roleId: number, authorityId: number) {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+    }>(`/api/admin/rbac/roles/${roleId}/authorities`, {
+      method: 'POST',
+      body: JSON.stringify({ authorityId }),
+    });
+  },
+
+  async removeAuthorityFromRole(roleId: number, authorityId: number) {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+    }>(`/api/admin/rbac/roles/${roleId}/authorities/${authorityId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export default {
   auth: authAPI,
   products: productsAPI,
@@ -1087,5 +1206,6 @@ export default {
   health: healthAPI,
   adminVariations: adminVariationsAPI,
   faqs: faqsAPI,
+  rbac: rbacAPI,
 };
 

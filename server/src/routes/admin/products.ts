@@ -20,7 +20,7 @@ import {
   reorderImagesSchema,
   productQuerySchema
 } from '../../validators/product';
-import { requireAdmin } from '../../middleware/auth';
+import { requireAuthority } from '../../middleware/auth';
 import { adminRateLimiter } from '../../middleware/rateLimiter';
 
 export const createAdminProductRoutes = (pool: Pool): Router => {
@@ -28,8 +28,7 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   const controller = new AdminProductController(pool);
   const fileUploadService = new FileUploadService();
 
-  // Apply authentication and rate limiting to all admin routes
-  router.use(requireAdmin);
+  // Apply rate limiting to all admin routes
   router.use(adminRateLimiter);
 
   // ============================================================================
@@ -39,10 +38,11 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   /**
    * @route   GET /api/admin/products
    * @desc    List all products (admin view)
-   * @access  Admin
+   * @access  Admin with products:view authority
    */
   router.get(
     '/',
+    requireAuthority('products:view'),
     validateQuery(productQuerySchema),
     controller.listProducts
   );
@@ -50,20 +50,22 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   /**
    * @route   GET /api/admin/products/:id
    * @desc    Get product details
-   * @access  Admin
+   * @access  Admin with products:view authority
    */
   router.get(
     '/:id',
+    requireAuthority('products:view'),
     controller.getProduct
   );
 
   /**
    * @route   POST /api/admin/products
    * @desc    Create new product
-   * @access  Admin
+   * @access  Admin with products:create authority
    */
   router.post(
     '/',
+    requireAuthority('products:create'),
     validateRequest(createProductSchema),
     controller.createProduct
   );
@@ -71,10 +73,11 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   /**
    * @route   PUT /api/admin/products/:id
    * @desc    Update product
-   * @access  Admin
+   * @access  Admin with products:edit authority
    */
   router.put(
     '/:id',
+    requireAuthority('products:edit'),
     validateRequest(updateProductSchema),
     controller.updateProduct
   );
@@ -82,10 +85,11 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   /**
    * @route   DELETE /api/admin/products/:id
    * @desc    Delete product
-   * @access  Admin
+   * @access  Admin with products:delete authority
    */
   router.delete(
     '/:id',
+    requireAuthority('products:delete'),
     controller.deleteProduct
   );
 

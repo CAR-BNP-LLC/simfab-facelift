@@ -8,6 +8,7 @@ import { createProductRoutes } from './routes/products';
 import { createAdminProductRoutes } from './routes/admin/products';
 import { createAdminOrderRoutes } from './routes/admin/orders';
 import { createAdminDashboardRoutes } from './routes/admin/dashboard';
+import { createAdminRBACRoutes } from './routes/admin/rbac';
 import { createCartRoutes } from './routes/cart';
 import { createOrderRoutes } from './routes/orders';
 import { pool } from './config/database';
@@ -67,6 +68,7 @@ app.use('/api/orders', createOrderRoutes(pool));
 app.use('/api/admin/products', createAdminProductRoutes(pool));
 app.use('/api/admin/orders', createAdminOrderRoutes(pool));
 app.use('/api/admin/dashboard', createAdminDashboardRoutes(pool));
+app.use('/api/admin/rbac', createAdminRBACRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

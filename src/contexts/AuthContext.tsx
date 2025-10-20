@@ -6,6 +6,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  hasAuthority: (authority: string) => boolean;
+  hasAnyAuthority: (...authorities: string[]) => boolean;
+  hasAllAuthorities: (...authorities: string[]) => boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => Promise<void>;
@@ -105,12 +108,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Authority checking methods
+  const hasAuthority = (authority: string): boolean => {
+    return user?.authorities?.includes(authority) || false;
+  };
+
+  const hasAnyAuthority = (...authorities: string[]): boolean => {
+    if (!user?.authorities || authorities.length === 0) return false;
+    return authorities.some(authority => user.authorities.includes(authority));
+  };
+
+  const hasAllAuthorities = (...authorities: string[]): boolean => {
+    if (!user?.authorities || authorities.length === 0) return false;
+    return authorities.every(authority => user.authorities.includes(authority));
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
         isAuthenticated: !!user,
+        hasAuthority,
+        hasAnyAuthority,
+        hasAllAuthorities,
         login,
         register,
         logout,
