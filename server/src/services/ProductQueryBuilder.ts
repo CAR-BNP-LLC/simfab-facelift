@@ -304,7 +304,6 @@ export class ProductQueryBuilder {
       FROM products p
       WHERE p.status = $${this.addParam('active')}
         AND p.featured = $${this.addParam(true)}
-        AND p.stock > 0
       ORDER BY p.created_at DESC
       LIMIT $${this.addParam(limit)}
     `;

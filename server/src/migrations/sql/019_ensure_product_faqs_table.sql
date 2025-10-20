@@ -20,3 +20,4 @@ CREATE TABLE product_faqs (
 COMMENT ON TABLE product_faqs IS 'Stores FAQ questions and answers for products';
 COMMENT ON COLUMN product_faqs.is_active IS 'Active status: 1 for active, 0 for inactive';
 COMMENT ON COLUMN product_faqs.sort_order IS 'Order in which FAQs should be displayed';
+

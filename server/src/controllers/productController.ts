@@ -209,17 +209,9 @@ export class ProductController {
     try {
       const limit = parseInt(req.query.limit as string) || 6;
       
-      // Simple query
-      const sql = `
-        SELECT * FROM products
-        WHERE featured = true
-        ORDER BY created_at DESC
-        LIMIT $1
-      `;
-      
-      const result = await this.pool.query(sql, [limit]);
+      const products = await this.productService.getFeaturedProducts(limit);
 
-      res.json(successResponse(result.rows, 'Featured products retrieved'));
+      res.json(successResponse(products, 'Featured products retrieved'));
     } catch (error) {
       next(error);
     }

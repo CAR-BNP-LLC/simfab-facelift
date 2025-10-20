@@ -72,3 +72,4 @@ const ProductFAQs = ({ productId }: ProductFAQsProps) => {
 };
 
 export default ProductFAQs;
+
