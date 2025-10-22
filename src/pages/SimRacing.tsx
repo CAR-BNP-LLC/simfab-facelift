@@ -62,70 +62,126 @@ const SimRacing = () => {
               
               {/* Clickable Points - Hidden on mobile for better UX */}
               <div className="absolute inset-0 hidden sm:block">
-                {/* Point 1 - Top Left */}
+                {/* Point 1 - Front Surround Speaker Tray Kit */}
                 <button 
-                  className="absolute top-[20%] left-[15%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
-                  title="Steering Wheel"
+                  className="absolute top-[15%] left-[50%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                  title="Front Surround Speaker Tray Kit"
                 >
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                    Steering Wheel
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    Front Surround Speaker Tray Kit
                   </div>
                 </button>
                 
-                {/* Point 2 - Top Center */}
+                {/* Point 2 - Keyboard & Mouse or Laptop Tray kit */}
                 <button 
-                  className="absolute top-[25%] left-[50%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
-                  title="Dashboard Display"
+                  className="absolute top-[30%] left-[25%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                  title="Keyboard & Mouse or Laptop Tray kit"
                 >
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                    Dashboard Display
+                  <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                    <div className="font-semibold mb-1">Keyboard & Mouse or Laptop Tray kit</div>
+                    <div className="text-xs leading-relaxed">
+                      Active Articulating Arm with Keyboard & Mouse or Laptop Tray kit. Can be mounted on either left or right hand side.
+                    </div>
+                  </div>
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    Keyboard & Mouse or Laptop Tray kit
                   </div>
                 </button>
                 
-                {/* Point 3 - Middle Left */}
+                {/* Point 3 - Single Monitor Mount Stand */}
                 <button 
-                  className="absolute top-[45%] left-[20%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
-                  title="Shifter & Handbrake"
+                  className="absolute top-[20%] left-[85%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                  title="Single Monitor Mount Stand"
                 >
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                    Shifter & Handbrake
+                  <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                    <div className="font-semibold mb-1">Single Monitor Mount Stand</div>
+                    <div className="text-xs leading-relaxed">
+                      Single Monitor Mount Stand. Designed with spread out legs, for optimal field of view.
+                    </div>
+                  </div>
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    Single Monitor Mount Stand
                   </div>
                 </button>
                 
-                {/* Point 4 - Middle Right */}
+                {/* Point 4 - Rear Surround Speaker Tray Kit */}
                 <button 
-                  className="absolute top-[50%] right-[25%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
-                  title="Pedal Set"
+                  className="absolute top-[65%] right-[60%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                  title="Rear Surround Speaker Tray Kit"
                 >
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                    Pedal Set
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    Rear Surround Speaker Tray Kit
                   </div>
                 </button>
                 
-                {/* Point 5 - Bottom Center */}
+                {/* Point 5 - Universal Bracket for Bass Shaker */}
                 <button 
-                  className="absolute bottom-[30%] left-[45%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
-                  title="Racing Seat"
+                  className="absolute bottom-[20%] left-[25%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                  title="Universal Bracket for Bass Shaker"
                 >
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                    Racing Seat
+                  <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                    <div className="font-semibold mb-1">Universal Bracket for Bass Shaker</div>
+                    <div className="text-xs leading-relaxed">
+                      Universal Bracket for Bass Shaker. Low Frequency Audio Tactile Transducers. Fits all Buttkickers, AuraSound.
+                    </div>
+                  </div>
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    Universal Bracket for Bass Shaker
                   </div>
                 </button>
                 
-                {/* Point 6 - Bottom Right */}
+                {/* Point 6 - EZ rolling wheels */}
                 <button 
-                  className="absolute bottom-[25%] right-[20%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group"
-                  title="Chassis Frame"
+                  className="absolute bottom-[7%] left-[20%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                  title="EZ rolling wheels"
                 >
-                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap">
-                    Chassis Frame
+                  <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                    <div className="font-semibold mb-1">EZ rolling wheels</div>
+                    <div className="text-xs leading-relaxed">
+                      EZ rolling wheels. Standard to all SimFab cockpits. Optional seat frame stabilizer kit when seat is used without front chassis.
+                    </div>
                   </div>
-                </button>
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                    EZ rolling wheels
+                  </div>
+                  </button>
+                  
+                  {/* Point 7 - Gen3 front chassis */}
+                  <button 
+                    className="absolute top-[42%] left-[63%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                    title="Gen3 front chassis"
+                  >
+                    <div className="absolute -top-24 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                      <div className="font-semibold mb-1">Gen3 front chassis</div>
+                      <div className="text-xs leading-relaxed">
+                        Gen3 front chassis, with option to hot swap entire assembly to flight sim rudder pedals with yoke or center mounted stick.
+                      </div>
+                    </div>
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                      Gen3 front chassis
+                    </div>
+                  </button>
+                  
+                  {/* Point 8 - Hot swap shifter/stick */}
+                  <button 
+                    className="absolute top-[62%] left-[72%] w-3 h-3 sm:w-4 sm:h-4 bg-primary rounded-full border-2 border-white shadow-lg hover:scale-110 transition-transform duration-200 group z-20"
+                    title="Hot swap between sim racing shifter and flight sim stick"
+                  >
+                    <div className="absolute -top-20 left-1/2 transform -translate-x-1/2 bg-primary text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-64 z-[9999]">
+                      <div className="font-semibold mb-1">Hot swap between sim racing shifter and flight sim stick</div>
+                      <div className="text-xs leading-relaxed">
+                        Hot swap between sim racing shifter and flight sim stick.
+                      </div>
+                    </div>
+                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-white/80 text-primary text-xs px-2 py-1 rounded font-semibold whitespace-nowrap z-5">
+                      Hot swap shifter/stick
+                    </div>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
       {/* Base Models Section */}
       <section className="py-12 sm:py-16 lg:py-20 bg-background">
