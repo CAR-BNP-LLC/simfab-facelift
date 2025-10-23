@@ -27,6 +27,7 @@ export class OrderController {
       const orderData: CreateOrderData = req.body;
 
       console.log('Creating order for session:', sessionId, 'user:', userId);
+      console.log('Order data received:', JSON.stringify(orderData, null, 2));
 
       const order = await this.orderService.createOrder(sessionId, userId, orderData);
 
@@ -90,7 +91,7 @@ export class OrderController {
       const orderNumber = req.params.orderNumber;
       const userId = req.session?.userId;
 
-      const order = await this.orderService.getOrderByNumber(orderNumber, userId);
+      const order = await this.orderService.getOrderByNumber(orderNumber);
 
       if (!order) {
         return res.status(404).json({
@@ -123,6 +124,56 @@ export class OrderController {
         order,
         message: 'Order cancelled successfully'
       }));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Debug endpoint to test order data
+   * POST /api/orders/debug
+   */
+  debugOrder = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      console.log('Debug order data received:', JSON.stringify(req.body, null, 2));
+      
+      res.json({
+        success: true,
+        data: {
+          received: req.body,
+          shippingState: req.body.shippingAddress?.state,
+          billingState: req.body.billingAddress?.state,
+          shippingStateLength: req.body.shippingAddress?.state?.length,
+          billingStateLength: req.body.billingAddress?.state?.length
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get order by order number (for confirmation page)
+   * GET /api/orders/:orderNumber
+   */
+  getOrderByNumber = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { orderNumber } = req.params;
+      const order = await this.orderService.getOrderByNumber(orderNumber);
+      
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            code: 'ORDER_NOT_FOUND',
+            message: 'Order not found',
+            requestId: req.headers['x-request-id'] || 'unknown',
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+      
+      res.json(successResponse({ order }));
     } catch (error) {
       next(error);
     }

@@ -14,13 +14,16 @@ import {
   Address
 } from '../types/cart';
 import { CartService } from './CartService';
+import { StockReservationService } from './StockReservationService';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class OrderService {
   private cartService: CartService;
+  private stockReservationService: StockReservationService;
 
   constructor(private pool: Pool) {
     this.cartService = new CartService(pool);
+    this.stockReservationService = new StockReservationService(pool);
   }
 
   /**
@@ -59,27 +62,32 @@ export class OrderService {
       const tax = cart.totals.tax;
       const total = cart.totals.total;
 
-      // Create order
+      // Create order with payment expiration
       const orderSql = `
         INSERT INTO orders (
-          order_number, user_id, status, payment_status, shipping_status,
+          order_number, user_id, cart_id, status, payment_status, shipping_status,
           subtotal, tax_amount, shipping_amount, discount_amount, total_amount, currency,
           customer_email, customer_phone,
           billing_address, shipping_address,
-          payment_method, shipping_method, notes
+          payment_method, shipping_method, notes,
+          payment_expires_at, stock_reserved
         ) VALUES (
-          $1, $2, $3, $4, $5,
-          $6, $7, $8, $9, $10, $11,
-          $12, $13,
-          $14, $15,
-          $16, $17, $18
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9, $10, $11, $12,
+          $13, $14,
+          $15, $16,
+          $17, $18, $19,
+          $20, $21
         )
         RETURNING *
       `;
 
+      const paymentExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
       const orderResult = await client.query(orderSql, [
         orderNumber,
         userId || null,
+        cart.id,
         OrderStatus.PENDING,
         PaymentStatus.PENDING,
         'pending',
@@ -95,7 +103,9 @@ export class OrderService {
         JSON.stringify(orderData.shippingAddress),
         orderData.paymentMethodId || null,
         orderData.shippingMethodId || null,
-        orderData.orderNotes || null
+        orderData.orderNotes || null,
+        paymentExpiresAt,
+        true
       ]);
 
       const order = orderResult.rows[0];
@@ -125,15 +135,17 @@ export class OrderService {
 
         orderItems.push(orderItemResult.rows[0]);
 
-        // Decrement product stock
-        await client.query(
-          'UPDATE products SET stock = stock - $1 WHERE id = $2',
-          [cartItem.quantity, cartItem.product_id]
+        // Reserve stock instead of immediately deducting
+        await this.stockReservationService.reserveStock(
+          order.id,
+          cartItem.product_id,
+          cartItem.quantity,
+          client
         );
       }
 
-      // Clear cart after order
-      await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cart.id]);
+      // Preserve cart for checkout - don't clear until payment is completed
+      await client.query('UPDATE carts SET status = $1 WHERE id = $2', ['checkout', cart.id]);
 
       await client.query('COMMIT');
 
@@ -150,42 +162,6 @@ export class OrderService {
       throw error;
     } finally {
       client.release();
-    }
-  }
-
-  /**
-   * Get order by order number
-   */
-  async getOrderByNumber(orderNumber: string, userId?: number): Promise<OrderWithItems | null> {
-    try {
-      let sql = 'SELECT * FROM orders WHERE order_number = $1';
-      const params: any[] = [orderNumber];
-
-      // If userId provided, ensure user owns the order
-      if (userId) {
-        sql += ' AND user_id = $2';
-        params.push(userId);
-      }
-
-      const orderResult = await this.pool.query(sql, params);
-
-      if (orderResult.rows.length === 0) {
-        return null;
-      }
-
-      const order = orderResult.rows[0];
-
-      // Get order items
-      const itemsSql = 'SELECT * FROM order_items WHERE order_id = $1 ORDER BY id';
-      const itemsResult = await this.pool.query(itemsSql, [order.id]);
-
-      return {
-        ...order,
-        items: itemsResult.rows
-      };
-    } catch (error) {
-      console.error('Error getting order by number:', error);
-      throw error;
     }
   }
 
@@ -285,17 +261,8 @@ export class OrderService {
         });
       }
 
-      // Get order items
-      const itemsSql = 'SELECT * FROM order_items WHERE order_id = $1';
-      const itemsResult = await client.query(itemsSql, [order.id]);
-
-      // Restore stock for each item
-      for (const item of itemsResult.rows) {
-        await client.query(
-          'UPDATE products SET stock = stock + $1 WHERE id = $2',
-          [item.quantity, item.product_id]
-        );
-      }
+      // Cancel stock reservations instead of restoring stock
+      await this.stockReservationService.cancelReservation(order.id, client);
 
       // Update order status
       const updateSql = `
@@ -323,6 +290,81 @@ export class OrderService {
   }
 
   /**
+   * Confirm stock reservations for paid order
+   */
+  async confirmOrderPayment(orderId: number): Promise<void> {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Confirm stock reservations
+      await this.stockReservationService.confirmReservation(orderId, client);
+
+      // Update order status
+      await client.query(
+        `UPDATE orders 
+         SET payment_status = $1, status = $2, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $3`,
+        [PaymentStatus.PAID, OrderStatus.PROCESSING, orderId]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error confirming order payment:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Clean up expired orders and their reservations
+   */
+  async cleanupExpiredOrders(): Promise<number> {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Get expired orders
+      const expiredOrders = await client.query(
+        `SELECT id FROM orders 
+         WHERE payment_status = 'pending' 
+         AND payment_expires_at < NOW() 
+         AND status = 'pending'`
+      );
+
+      let cleanedCount = 0;
+
+      for (const order of expiredOrders.rows) {
+        // Cancel stock reservations
+        await this.stockReservationService.cancelReservation(order.id, client);
+
+        // Update order status
+        await client.query(
+          `UPDATE orders 
+           SET status = $1, payment_status = $2, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          [OrderStatus.CANCELLED, PaymentStatus.FAILED, order.id]
+        );
+
+        cleanedCount++;
+      }
+
+      await client.query('COMMIT');
+      return cleanedCount;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error cleaning up expired orders:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Generate unique order number
    */
   private async generateOrderNumber(): Promise<string> {
@@ -343,6 +385,96 @@ export class OrderService {
     const orderNum = String(orderCount).padStart(4, '0');
 
     return `SF-${year}${month}${day}-${orderNum}`;
+  }
+
+  /**
+   * Get order by ID
+   */
+  async getOrderById(orderId: number): Promise<Order | null> {
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(
+        `SELECT o.*, 
+                json_agg(
+                  json_build_object(
+                    'id', oi.id,
+                    'product_id', oi.product_id,
+                    'product_name', oi.product_name,
+                    'product_sku', oi.product_sku,
+                    'quantity', oi.quantity,
+                    'unit_price', oi.unit_price,
+                    'total_price', oi.total_price,
+                    'selected_options', oi.selected_options
+                  )
+                ) as items
+         FROM orders o
+         LEFT JOIN order_items oi ON o.id = oi.order_id
+         WHERE o.id = $1
+         GROUP BY o.id`,
+        [orderId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const order = result.rows[0];
+      return {
+        ...order,
+        items: order.items.filter((item: any) => item.id !== null) // Remove null items
+      };
+    } catch (error) {
+      console.error('Error getting order by ID:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get order by order number
+   */
+  async getOrderByNumber(orderNumber: string): Promise<Order | null> {
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(
+        `SELECT o.*, 
+                json_agg(
+                  json_build_object(
+                    'id', oi.id,
+                    'product_id', oi.product_id,
+                    'product_name', oi.product_name,
+                    'product_sku', oi.product_sku,
+                    'quantity', oi.quantity,
+                    'unit_price', oi.unit_price,
+                    'total_price', oi.total_price,
+                    'selected_options', oi.selected_options
+                  )
+                ) as items
+         FROM orders o
+         LEFT JOIN order_items oi ON o.id = oi.order_id
+         WHERE o.order_number = $1
+         GROUP BY o.id`,
+        [orderNumber]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      const order = result.rows[0];
+      return {
+        ...order,
+        items: order.items.filter((item: any) => item.id !== null) // Remove null items
+      };
+    } catch (error) {
+      console.error('Error getting order by number:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 

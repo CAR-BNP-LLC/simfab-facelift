@@ -19,67 +19,52 @@ import {
   ChevronRight, 
   Loader2,
   Package,
-  AlertCircle 
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCheckout } from '@/contexts/CheckoutContext';
 import { orderAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
-
-interface Address {
-  firstName: string;
-  lastName: string;
-  company?: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phone: string;
-  email: string;
-}
+import PayPalProvider from '@/components/PayPalProvider';
+import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
   const navigate = useNavigate();
   const { cart, loading: cartLoading } = useCart();
   const { user } = useAuth();
+  const { checkoutState, updateCheckoutState, clearStorage } = useCheckout();
   const { toast } = useToast();
 
-  const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
 
-  // Initialize address with user data
-  const [shippingAddress, setShippingAddress] = useState<Address>({
-    firstName: '',
-    lastName: '',
-    company: '',
-    addressLine1: '',
-    addressLine2: '',
-    city: '',
-    state: '',
-    postalCode: '',
-    country: 'US',
-    phone: '',
-    email: ''
-  });
-
-  const [selectedShipping, setSelectedShipping] = useState('standard');
-  const [orderNotes, setOrderNotes] = useState('');
+  // Destructure state from context
+  const {
+    step,
+    shippingAddress,
+    billingAddress,
+    selectedShipping,
+    orderNotes,
+    createdOrder,
+    isBillingSameAsShipping
+  } = checkoutState;
 
   // Auto-fill from user data when available
   useEffect(() => {
-    if (user) {
-      setShippingAddress(prev => ({
-        ...prev,
-        firstName: user.firstName || prev.firstName,
-        lastName: user.lastName || prev.lastName,
-        email: user.email || prev.email
-      }));
+    if (user && (!shippingAddress.firstName || !shippingAddress.email)) {
+      updateCheckoutState({
+        shippingAddress: {
+          ...shippingAddress,
+          firstName: user.firstName || shippingAddress.firstName,
+          lastName: user.lastName || shippingAddress.lastName,
+          email: user.email || shippingAddress.email
+        }
+      });
     }
-  }, [user]);
+  }, [user, shippingAddress.firstName, shippingAddress.email, updateCheckoutState]);
 
   // Shipping options
   const shippingOptions = [
@@ -118,18 +103,42 @@ const Checkout = () => {
     }
   }, [cart, cartLoading, navigate, toast]);
 
-  const handleAddressChange = (field: keyof Address, value: string) => {
-    setShippingAddress(prev => ({ ...prev, [field]: value }));
+  const handleAddressChange = (field: keyof typeof shippingAddress, value: string) => {
+    console.log(`Updating shipping address ${field}:`, value);
+    updateCheckoutState({
+      shippingAddress: { ...shippingAddress, [field]: value }
+    });
+  };
+
+  const handleBillingAddressChange = (field: keyof typeof billingAddress, value: string) => {
+    updateCheckoutState({
+      billingAddress: { ...billingAddress, [field]: value }
+    });
+  };
+
+  const handleShippingChange = (value: string) => {
+    updateCheckoutState({ selectedShipping: value });
+  };
+
+  const handleOrderNotesChange = (value: string) => {
+    updateCheckoutState({ orderNotes: value });
+  };
+
+  const handleBillingSameAsShippingChange = (checked: boolean) => {
+    updateCheckoutState({
+      isBillingSameAsShipping: checked,
+      billingAddress: checked ? shippingAddress : billingAddress
+    });
   };
 
   const validateAddress = (): boolean => {
-    const required: (keyof Address)[] = ['firstName', 'lastName', 'addressLine1', 'city', 'state', 'postalCode', 'phone', 'email'];
+    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'city', 'state', 'postalCode', 'phone', 'email'];
     
     for (const field of required) {
       if (!shippingAddress[field]) {
         toast({
           title: 'Missing information',
-          description: `Please fill in ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`,
+          description: `Please fill in ${String(field).replace(/([A-Z])/g, ' $1').toLowerCase()}`,
           variant: 'destructive'
         });
         return false;
@@ -153,12 +162,12 @@ const Checkout = () => {
     if (step === 2 && !validateAddress()) {
       return;
     }
-    setStep(step + 1);
+    updateCheckoutState({ step: step + 1 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBack = () => {
-    setStep(step - 1);
+    updateCheckoutState({ step: step - 1 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -168,23 +177,51 @@ const Checkout = () => {
 
       const orderData = {
         shippingAddress,
-        billingAddress: shippingAddress, // Use same for now
+        billingAddress: isBillingSameAsShipping ? shippingAddress : billingAddress,
         shippingMethodId: selectedShipping,
         paymentMethodId: 'pending',
         orderNotes
       };
 
       console.log('Creating order:', orderData);
+      console.log('Shipping address state:', orderData.shippingAddress.state);
+      console.log('Billing address state:', orderData.billingAddress.state);
+      console.log('Current checkout state:', checkoutState);
+      console.log('Shipping address from context:', shippingAddress);
+      console.log('Billing address from context:', billingAddress);
+
+      // Validate state fields before sending
+      if (!orderData.shippingAddress.state || orderData.shippingAddress.state.length < 2) {
+        toast({
+          title: 'Invalid shipping state',
+          description: 'Please enter a valid state (at least 2 characters)',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      if (!orderData.billingAddress.state || orderData.billingAddress.state.length < 2) {
+        toast({
+          title: 'Invalid billing state',
+          description: 'Please enter a valid state (at least 2 characters)',
+          variant: 'destructive'
+        });
+        return;
+      }
 
       const response = await orderAPI.createOrder(orderData);
 
-      if (response.success && response.data.order) {
-        toast({
-          title: 'Order placed!',
-          description: `Order ${response.data.order.order_number} created successfully`,
-        });
+      console.log('Order creation response:', response);
 
-        navigate(`/order-confirmation/${response.data.order.order_number}`);
+      if (response.success && response.data.order) {
+        console.log('Order created successfully:', response.data.order);
+        updateCheckoutState({ 
+          createdOrder: response.data.order,
+          step: 5 // Move to payment step
+        });
+      } else {
+        console.error('Order creation failed:', response);
+        throw new Error('Failed to create order');
       }
     } catch (error) {
       console.error('Order creation failed:', error);
@@ -196,6 +233,67 @@ const Checkout = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = (paymentId: string) => {
+    toast({
+      title: 'Payment successful!',
+      description: 'Your order has been placed successfully.',
+    });
+    
+    // Capture order number before resetting state
+    const orderNumber = createdOrder?.order_number;
+    
+    // Reset checkout state after successful payment
+    updateCheckoutState({
+      step: 1,
+      shippingAddress: {
+        firstName: '',
+        lastName: '',
+        company: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        country: 'US',
+        phone: '',
+        email: ''
+      },
+      billingAddress: {
+        firstName: '',
+        lastName: '',
+        company: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        postalCode: '',
+        country: 'US',
+        phone: '',
+        email: ''
+      },
+      selectedShipping: 'standard',
+      orderNotes: '',
+      createdOrder: null,
+      isBillingSameAsShipping: true
+    });
+    
+    if (orderNumber) {
+      navigate(`/order-confirmation/${orderNumber}`);
+    } else {
+      console.error('No order number available for confirmation');
+      navigate('/');
+    }
+  };
+
+  const handlePaymentError = (error: any) => {
+    console.error('Payment failed:', error);
+    toast({
+      title: 'Payment failed',
+      description: 'Failed to process payment. Please try again.',
+      variant: 'destructive'
+    });
   };
 
   // Get cart data
@@ -247,6 +345,27 @@ const Checkout = () => {
             <p className="text-muted-foreground">Complete your purchase</p>
           </div>
 
+          {/* Debug Section */}
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800">Debug Info</h3>
+                <p className="text-xs text-yellow-600">
+                  Shipping State: "{shippingAddress.state}" ({shippingAddress.state?.length || 0} chars) | 
+                  Billing State: "{billingAddress.state}" ({billingAddress.state?.length || 0} chars)
+                </p>
+              </div>
+              <Button 
+                onClick={clearStorage} 
+                variant="outline" 
+                size="sm"
+                className="text-xs"
+              >
+                Clear Storage
+              </Button>
+            </div>
+          </div>
+
           {/* Progress Indicator */}
           <div className="mb-8">
             <div className="flex items-center justify-between max-w-3xl mx-auto">
@@ -254,7 +373,8 @@ const Checkout = () => {
                 { num: 1, label: 'Cart' },
                 { num: 2, label: 'Shipping' },
                 { num: 3, label: 'Delivery' },
-                { num: 4, label: 'Review' }
+                { num: 4, label: 'Review' },
+                { num: 5, label: 'Payment' }
               ].map((stepInfo, idx) => (
                 <div key={stepInfo.num} className="flex items-center flex-1">
                   <div className="flex flex-col items-center flex-1">
@@ -263,7 +383,7 @@ const Checkout = () => {
                     </div>
                     <span className="text-xs mt-2 hidden sm:block">{stepInfo.label}</span>
                   </div>
-                  {idx < 3 && (
+                  {idx < 4 && (
                     <div className={`h-1 flex-1 ${step > stepInfo.num ? 'bg-primary' : 'bg-muted'}`} />
                   )}
                 </div>
@@ -457,13 +577,13 @@ const Checkout = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <RadioGroup value={selectedShipping} onValueChange={setSelectedShipping}>
+                    <RadioGroup value={selectedShipping} onValueChange={handleShippingChange}>
                       <div className="space-y-3">
                         {shippingOptions.map((option) => (
                           <div
                             key={option.id}
                             className="flex items-center space-x-3 border border-border rounded-lg p-4 cursor-pointer hover:bg-muted/50"
-                            onClick={() => setSelectedShipping(option.id)}
+                            onClick={() => handleShippingChange(option.id)}
                           >
                             <RadioGroupItem value={option.id} id={option.id} />
                             <div className="flex-1">
@@ -515,7 +635,7 @@ const Checkout = () => {
                           <MapPin className="h-5 w-5" />
                           Shipping Address
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => setStep(2)}>
+                        <Button variant="ghost" size="sm" onClick={() => updateCheckoutState({ step: 2 })}>
                           Edit
                         </Button>
                       </CardTitle>
@@ -541,7 +661,7 @@ const Checkout = () => {
                           <Truck className="h-5 w-5" />
                           Shipping Method
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => setStep(3)}>
+                        <Button variant="ghost" size="sm" onClick={() => updateCheckoutState({ step: 3 })}>
                           Edit
                         </Button>
                       </CardTitle>
@@ -568,7 +688,7 @@ const Checkout = () => {
                           <ShoppingCart className="h-5 w-5" />
                           Order Items ({items.length})
                         </span>
-                        <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
+                        <Button variant="ghost" size="sm" onClick={() => updateCheckoutState({ step: 1 })}>
                           Edit
                         </Button>
                       </CardTitle>
@@ -605,7 +725,7 @@ const Checkout = () => {
                         className="w-full min-h-[100px] p-3 border border-border rounded-md bg-background"
                         placeholder="Add any special instructions for your order..."
                         value={orderNotes}
-                        onChange={(e) => setOrderNotes(e.target.value)}
+                        onChange={(e) => handleOrderNotesChange(e.target.value)}
                       />
                     </CardContent>
                   </Card>
@@ -638,6 +758,18 @@ const Checkout = () => {
                     </Button>
                   </div>
                 </div>
+              )}
+
+              {/* Step 5: Payment */}
+              {step === 5 && createdOrder && (
+                <PayPalProvider>
+                  <PaymentStep
+                    orderTotal={orderTotal}
+                    orderId={createdOrder.id}
+                    onPaymentSuccess={handlePaymentSuccess}
+                    onPaymentError={handlePaymentError}
+                  />
+                </PayPalProvider>
               )}
             </div>
 
