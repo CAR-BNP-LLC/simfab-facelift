@@ -147,6 +147,22 @@ export const successResponse = <T>(
 };
 
 /**
+ * Create error response object
+ */
+export const errorResponse = (
+  message: string,
+  code?: string
+): any => {
+  return {
+    success: false,
+    error: {
+      code: code || 'ERROR',
+      message
+    }
+  };
+};
+
+/**
  * Create paginated response object
  */
 export const paginatedResponse = <T>(

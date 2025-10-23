@@ -100,14 +100,15 @@ async function seedRBAC() {
     // Assign admin role to first user if they exist
     console.log('🔗 Assigning roles to existing users...');
     try {
-      const users = await userModel.getAllUsers();
-      if (users.length > 0) {
-        const firstUser = users[0];
-        await rbacModel.assignRoleToUser(firstUser.id!, adminRole.id);
-        console.log(`  ✅ Assigned admin role to user: ${firstUser.email}`);
-      } else {
-        console.log('  ℹ️  No existing users found to assign roles');
-      }
+      // TODO: Implement getAllUsers method in UserModel
+      // const users = await userModel.getAllUsers();
+      // if (users.length > 0) {
+      //   const firstUser = users[0];
+      //   await rbacModel.assignRoleToUser(firstUser.id!, adminRole.id);
+      //   console.log(`  ✅ Assigned admin role to user: ${firstUser.email}`);
+      // } else {
+        console.log('  ℹ️  User role assignment skipped - getAllUsers method not implemented');
+      // }
     } catch (error) {
       console.error('  ❌ Failed to assign roles to users:', error);
     }

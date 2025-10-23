@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { CheckoutProvider } from "@/contexts/CheckoutContext";
+import PayPalProvider from "@/components/PayPalProvider";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
@@ -14,6 +16,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import MonitorStands from "./pages/MonitorStands";
 import Services from "./pages/Services";
 import AssemblyManuals from "./pages/AssemblyManuals";
@@ -29,8 +32,8 @@ import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
-import OrderConfirmation from "./pages/OrderConfirmation";
 import CookieNotice from "./components/CookieNotice";
+import DebugAdminButton from "./components/DebugAdminButton";
 
 const queryClient = new QueryClient();
 
@@ -38,10 +41,12 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <CartProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <CheckoutProvider>
+          <PayPalProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/shop" element={<Shop />} />
@@ -71,8 +76,11 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieNotice />
+          <DebugAdminButton />
           </BrowserRouter>
-        </TooltipProvider>
+          </TooltipProvider>
+        </PayPalProvider>
+        </CheckoutProvider>
       </CartProvider>
     </AuthProvider>
   </QueryClientProvider>

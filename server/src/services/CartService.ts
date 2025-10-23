@@ -14,15 +14,17 @@ import {
   UpdateCartItemData,
   AppliedCoupon
 } from '../types/cart';
-import { ProductConfiguration } from '../types/product';
 import { PriceCalculatorService } from './PriceCalculatorService';
+import { StockReservationService } from './StockReservationService';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class CartService {
   private priceCalculator: PriceCalculatorService;
+  private stockReservationService: StockReservationService;
 
   constructor(private pool: Pool) {
     this.priceCalculator = new PriceCalculatorService(pool);
+    this.stockReservationService = new StockReservationService(pool);
   }
 
   /**
@@ -181,9 +183,12 @@ export class CartService {
         throw new ValidationError('Product is not available for purchase');
       }
 
-      if (product.stock < data.quantity) {
-        throw new ValidationError(`Insufficient stock. Only ${product.stock} available`, {
-          available: product.stock,
+      // Check available stock (considering reservations)
+      const availableStock = await this.stockReservationService.getAvailableStock(product.id);
+      
+      if (data.quantity > availableStock) {
+        throw new ValidationError(`Insufficient stock. Only ${availableStock} available`, {
+          available: availableStock,
           requested: data.quantity
         });
       }
@@ -329,9 +334,12 @@ export class CartService {
         throw new ValidationError('Quantity cannot exceed 100');
       }
 
-      if (quantity > item.stock) {
-        throw new ValidationError(`Insufficient stock. Only ${item.stock} available`, {
-          available: item.stock,
+      // Check available stock (considering reservations)
+      const availableStock = await this.stockReservationService.getAvailableStock(item.product_id);
+      
+      if (quantity > availableStock) {
+        throw new ValidationError(`Insufficient stock. Only ${availableStock} available`, {
+          available: availableStock,
           requested: quantity
         });
       }
@@ -577,6 +585,66 @@ export class CartService {
     } catch (error) {
       console.error('Error cleaning up expired carts:', error);
       return 0;
+    }
+  }
+
+  /**
+   * Preserve cart for checkout process
+   */
+  async preserveCartForCheckout(cartId: string): Promise<void> {
+    try {
+      await this.pool.query(
+        'UPDATE carts SET status = $1 WHERE id = $2',
+        ['checkout', cartId]
+      );
+    } catch (error) {
+      console.error('Error preserving cart for checkout:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Clear cart after successful payment
+   */
+  async clearCartAfterPayment(cartId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Clear cart items
+      await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+      
+      // Update cart status to completed
+      await client.query('UPDATE carts SET status = $1 WHERE id = $2', ['completed', cartId]);
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error clearing cart after payment:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Restore cart from checkout if payment failed
+   */
+  async restoreCartFromCheckout(cartId: string): Promise<CartWithItems | null> {
+    try {
+      const result = await this.pool.query(
+        'UPDATE carts SET status = $1 WHERE id = $2 AND status = $3 RETURNING *',
+        ['active', cartId, 'checkout']
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return await this.getCartWithItems(cartId);
+    } catch (error) {
+      console.error('Error restoring cart from checkout:', error);
+      throw error;
     }
   }
 }

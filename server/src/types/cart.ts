@@ -131,6 +131,7 @@ export interface Order {
   id: number;
   order_number: string;
   user_id: number | null;
+  cart_id: string | null;
   status: OrderStatus;
   payment_status: PaymentStatus;
   shipping_status: string;

@@ -6,7 +6,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Generic API request handler with timeout
-async function apiRequest<T>(
+export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
@@ -856,6 +856,73 @@ export const orderAPI = {
 };
 
 // ==========================================
+// PAYMENT API
+// ==========================================
+
+export const paymentAPI = {
+  /**
+   * Create PayPal payment
+   */
+  createPayment: (data: {
+    orderId: number;
+    amount: number;
+    currency: string;
+    returnUrl: string;
+    cancelUrl: string;
+  }) => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        payment: {
+          paymentId: string;
+          approvalUrl: string;
+          status: string;
+        };
+      };
+      message: string;
+    }>('/api/payments/create', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Execute PayPal payment
+   */
+  executePayment: (data: {
+    paymentId: string;
+    payerId: string;
+    orderId: number;
+  }) => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        payment: {
+          paymentId: string;
+          status: string;
+        };
+      };
+      message: string;
+    }>('/api/payments/execute', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Get payment status
+   */
+  getPaymentStatus: (paymentId: string) => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        payment: any;
+      };
+    }>(`/api/payments/${paymentId}`);
+  }
+};
+
+// ==========================================
 // ADMIN VARIATION API
 // ==========================================
 
@@ -1203,6 +1270,7 @@ export default {
   products: productsAPI,
   cart: cartAPI,
   order: orderAPI,
+  payment: paymentAPI,
   health: healthAPI,
   adminVariations: adminVariationsAPI,
   faqs: faqsAPI,

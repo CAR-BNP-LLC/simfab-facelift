@@ -32,6 +32,16 @@ export const createOrderRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   POST /api/orders/debug
+   * @desc    Debug order data (no validation)
+   * @access  Public
+   */
+  router.post(
+    '/debug',
+    controller.debugOrder
+  );
+
+  /**
    * @route   GET /api/orders
    * @desc    Get user's orders
    * @access  Authenticated
@@ -43,12 +53,12 @@ export const createOrderRoutes = (pool: Pool): Router => {
 
   /**
    * @route   GET /api/orders/:orderNumber
-   * @desc    Get order details
-   * @access  Public (authenticated to see own orders)
+   * @desc    Get order by order number (for confirmation page)
+   * @access  Public
    */
   router.get(
     '/:orderNumber',
-    controller.getOrder
+    controller.getOrderByNumber
   );
 
   /**

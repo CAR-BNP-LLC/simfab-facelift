@@ -192,22 +192,24 @@ export class AdminOrderController {
     try {
       const pool = this.orderService['pool'];
 
-      // Today's stats
+      // Today's stats (only paid orders)
       const todayStatsSql = `
         SELECT 
           COUNT(*)::int as order_count,
           COALESCE(SUM(total_amount), 0)::float as revenue
         FROM orders
         WHERE DATE(created_at) = CURRENT_DATE
+        AND payment_status = 'paid'
       `;
 
-      // Month stats
+      // Month stats (only paid orders)
       const monthStatsSql = `
         SELECT 
           COUNT(*)::int as order_count,
           COALESCE(SUM(total_amount), 0)::float as revenue
         FROM orders
         WHERE DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)
+        AND payment_status = 'paid'
       `;
 
       // Order status counts
@@ -228,7 +230,7 @@ export class AdminOrderController {
         LIMIT 5
       `;
 
-      // Top products
+      // Top products (only from paid orders)
       const topProductsSql = `
         SELECT 
           oi.product_name,
@@ -237,6 +239,7 @@ export class AdminOrderController {
         FROM order_items oi
         JOIN orders o ON o.id = oi.order_id
         WHERE o.created_at >= CURRENT_DATE - INTERVAL '30 days'
+        AND o.payment_status = 'paid'
         GROUP BY oi.product_name
         ORDER BY total_sold DESC
         LIMIT 5
