@@ -41,6 +41,10 @@ services:
       PAYPAL_CLIENT_ID_PROD: ${PAYPAL_CLIENT_ID_PROD:-}
       PAYPAL_CLIENT_SECRET_PROD: ${PAYPAL_CLIENT_SECRET_PROD:-}
       PAYPAL_MODE_PROD: live
+      # ShipStation Custom Store Configuration
+      SHIPSTATION_USERNAME: ${SHIPSTATION_USERNAME:-your_shipstation_username}
+      SHIPSTATION_PASSWORD: ${SHIPSTATION_PASSWORD:-your_shipstation_password}
+      SHIPSTATION_ENABLED: ${SHIPSTATION_ENABLED:-true}
     ports:
       - "3001:3001"
     volumes:
