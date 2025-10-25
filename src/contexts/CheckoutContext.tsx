@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface Address {
+export interface Address {
   firstName: string;
   lastName: string;
   company?: string;

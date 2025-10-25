@@ -7,6 +7,30 @@ interface PayPalButtonProps {
   amount: number;
   orderId: number;
   paymentMethod?: 'paypal_account' | 'guest_card';
+  billingAddress?: {
+    firstName: string;
+    lastName: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+    email?: string;
+  };
+  shippingAddress?: {
+    firstName: string;
+    lastName: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+    email?: string;
+  };
   onSuccess?: (paymentId: string) => void;
   onError?: (error: any) => void;
 }
@@ -15,6 +39,8 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
   amount,
   orderId,
   paymentMethod = 'paypal_account',
+  billingAddress,
+  shippingAddress,
   onSuccess,
   onError
 }) => {
@@ -29,7 +55,9 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
         currency: 'USD',
         paymentMethod,
         returnUrl: `${window.location.origin}/checkout/success`,
-        cancelUrl: `${window.location.origin}/checkout/cancel`
+        cancelUrl: `${window.location.origin}/checkout/cancel`,
+        billingAddress,
+        shippingAddress
       });
 
       if (response.success) {

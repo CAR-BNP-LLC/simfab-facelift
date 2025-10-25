@@ -82,7 +82,7 @@ export class OrderService {
         RETURNING *
       `;
 
-      const paymentExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      const paymentExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
       const orderResult = await client.query(orderSql, [
         orderNumber,
@@ -321,6 +321,7 @@ export class OrderService {
 
   /**
    * Clean up expired orders and their reservations
+   * This will DELETE the orders completely so they don't appear in admin dashboard
    */
   async cleanupExpiredOrders(): Promise<number> {
     const client = await this.pool.connect();
@@ -339,21 +340,20 @@ export class OrderService {
       let cleanedCount = 0;
 
       for (const order of expiredOrders.rows) {
-        // Cancel stock reservations
+        // Cancel stock reservations first
         await this.stockReservationService.cancelReservation(order.id, client);
 
-        // Update order status
+        // Delete the order completely (this will cascade delete order_items due to foreign key)
         await client.query(
-          `UPDATE orders 
-           SET status = $1, payment_status = $2, updated_at = CURRENT_TIMESTAMP
-           WHERE id = $3`,
-          [OrderStatus.CANCELLED, PaymentStatus.FAILED, order.id]
+          `DELETE FROM orders WHERE id = $1`,
+          [order.id]
         );
 
         cleanedCount++;
       }
 
       await client.query('COMMIT');
+      console.log(`Cleaned up ${cleanedCount} expired unpaid orders`);
       return cleanedCount;
     } catch (error) {
       await client.query('ROLLBACK');

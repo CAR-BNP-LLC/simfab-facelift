@@ -30,6 +30,7 @@ import { useCheckout } from '@/contexts/CheckoutContext';
 import { orderAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import PayPalProvider from '@/components/PayPalProvider';
+import { AddressForm } from '@/components/checkout/AddressForm';
 import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
@@ -437,134 +438,24 @@ const Checkout = () => {
 
               {/* Step 2: Shipping Address */}
               {step === 2 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Shipping Address
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="firstName">First Name *</Label>
-                          <Input
-                            id="firstName"
-                            value={shippingAddress.firstName}
-                            onChange={(e) => handleAddressChange('firstName', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="lastName">Last Name *</Label>
-                          <Input
-                            id="lastName"
-                            value={shippingAddress.lastName}
-                            onChange={(e) => handleAddressChange('lastName', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="company">Company (optional)</Label>
-                        <Input
-                          id="company"
-                          value={shippingAddress.company || ''}
-                          onChange={(e) => handleAddressChange('company', e.target.value)}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="addressLine1">Street Address *</Label>
-                        <Input
-                          id="addressLine1"
-                          placeholder="123 Main Street"
-                          value={shippingAddress.addressLine1}
-                          onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="addressLine2">Apartment, suite, etc. (optional)</Label>
-                        <Input
-                          id="addressLine2"
-                          placeholder="Apt 4B"
-                          value={shippingAddress.addressLine2 || ''}
-                          onChange={(e) => handleAddressChange('addressLine2', e.target.value)}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="city">City *</Label>
-                          <Input
-                            id="city"
-                            value={shippingAddress.city}
-                            onChange={(e) => handleAddressChange('city', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="state">State *</Label>
-                          <Input
-                            id="state"
-                            placeholder="NY"
-                            value={shippingAddress.state}
-                            onChange={(e) => handleAddressChange('state', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="postalCode">ZIP Code *</Label>
-                          <Input
-                            id="postalCode"
-                            placeholder="10001"
-                            value={shippingAddress.postalCode}
-                            onChange={(e) => handleAddressChange('postalCode', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="phone">Phone *</Label>
-                          <Input
-                            id="phone"
-                            type="tel"
-                            placeholder="+1-555-0123"
-                            value={shippingAddress.phone}
-                            onChange={(e) => handleAddressChange('phone', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="email">Email *</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={shippingAddress.email}
-                            onChange={(e) => handleAddressChange('email', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 flex justify-between">
-                      <Button variant="outline" onClick={handleBack}>
-                        ← Back to Cart
-                      </Button>
-                      <Button onClick={handleNext}>
-                        Continue to Shipping
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-6">
+                  <AddressForm
+                    title="Shipping Address"
+                    address={shippingAddress as any}
+                    onAddressChange={handleAddressChange}
+                    required={true}
+                  />
+                  
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={handleBack}>
+                      ← Back to Cart
+                    </Button>
+                    <Button onClick={handleNext}>
+                      Continue to Shipping
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {/* Step 3: Shipping Method */}
@@ -766,6 +657,8 @@ const Checkout = () => {
                   <PaymentStep
                     orderTotal={orderTotal}
                     orderId={createdOrder.id}
+                    billingAddress={isBillingSameAsShipping ? shippingAddress : billingAddress}
+                    shippingAddress={shippingAddress}
                     onPaymentSuccess={handlePaymentSuccess}
                     onPaymentError={handlePaymentError}
                   />
