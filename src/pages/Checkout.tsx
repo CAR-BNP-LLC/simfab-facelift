@@ -111,6 +111,13 @@ const Checkout = () => {
     });
   };
 
+  const handleAddressBatchChange = (updates: Partial<typeof shippingAddress>) => {
+    console.log('Batch updating shipping address:', updates);
+    updateCheckoutState({
+      shippingAddress: { ...shippingAddress, ...updates }
+    });
+  };
+
   const handleBillingAddressChange = (field: keyof typeof billingAddress, value: string) => {
     updateCheckoutState({
       billingAddress: { ...billingAddress, [field]: value }
@@ -133,10 +140,15 @@ const Checkout = () => {
   };
 
   const validateAddress = (): boolean => {
-    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'city', 'state', 'postalCode', 'phone', 'email'];
+    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'city', 'postalCode', 'phone', 'email'];
+    
+    console.log('Validating address:', shippingAddress);
     
     for (const field of required) {
-      if (!shippingAddress[field]) {
+      const value = shippingAddress[field];
+      console.log(`Field ${field}:`, value, 'Empty?', !value || value.trim() === '');
+      
+      if (!value || value.trim() === '') {
         toast({
           title: 'Missing information',
           description: `Please fill in ${String(field).replace(/([A-Z])/g, ' $1').toLowerCase()}`,
@@ -172,16 +184,26 @@ const Checkout = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Helper function to clean up empty strings in address
+  const cleanAddress = (address: any) => {
+    const cleaned = { ...address };
+    // Convert empty strings to null for optional fields
+    if (cleaned.company === '') cleaned.company = null;
+    if (cleaned.addressLine2 === '') cleaned.addressLine2 = null;
+    if (cleaned.phone === '') cleaned.phone = null;
+    return cleaned;
+  };
+
   const handleSubmitOrder = async () => {
     try {
       setSubmitting(true);
 
       const orderData = {
-        shippingAddress,
-        billingAddress: isBillingSameAsShipping ? shippingAddress : billingAddress,
+        shippingAddress: cleanAddress(shippingAddress),
+        billingAddress: cleanAddress(isBillingSameAsShipping ? shippingAddress : billingAddress),
         shippingMethodId: selectedShipping,
         paymentMethodId: 'pending',
-        orderNotes
+        orderNotes: orderNotes || null
       };
 
       console.log('Creating order:', orderData);
@@ -443,6 +465,7 @@ const Checkout = () => {
                     title="Shipping Address"
                     address={shippingAddress as any}
                     onAddressChange={handleAddressChange}
+                    onAddressBatchChange={handleAddressBatchChange}
                     required={true}
                   />
                   

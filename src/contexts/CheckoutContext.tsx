@@ -44,7 +44,7 @@ const defaultCheckoutState: CheckoutState = {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US',
+    country: '',
     phone: '',
     email: ''
   },
@@ -57,7 +57,7 @@ const defaultCheckoutState: CheckoutState = {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US',
+    country: '',
     phone: '',
     email: ''
   },
