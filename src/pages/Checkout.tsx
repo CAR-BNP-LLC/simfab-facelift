@@ -94,7 +94,7 @@ const Checkout = () => {
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (!cartLoading && (!cart || cart.items.length === 0)) {
+    if (!cartLoading && (!cart || !cart.items || cart.items.length === 0)) {
       toast({
         title: 'Cart is empty',
         description: 'Add some products before checking out',
@@ -203,7 +203,7 @@ const Checkout = () => {
         billingAddress: cleanAddress(isBillingSameAsShipping ? shippingAddress : billingAddress),
         shippingMethodId: selectedShipping,
         paymentMethodId: 'pending',
-        orderNotes: orderNotes || null
+        orderNotes: orderNotes || ''
       };
 
       console.log('Creating order:', orderData);
@@ -329,19 +329,16 @@ const Checkout = () => {
 
   // Get image
   const getImageUrl = (item: any) => {
-    if (item.product_image) {
-      if (typeof item.product_image === 'string') {
-        try {
-          const images = JSON.parse(item.product_image);
-          if (Array.isArray(images) && images.length > 0) {
-            return images[0].image_url || images[0].url || '/placeholder.svg';
-          }
-        } catch {
-          return item.product_image;
-        }
-      }
+    // product_image is already a single URL string from the API
+    if (item.product_image && typeof item.product_image === 'string') {
       return item.product_image;
     }
+    
+    // Fallback: try to get from product_images array if available
+    if (item.product_images && Array.isArray(item.product_images) && item.product_images.length > 0) {
+      return item.product_images[0].image_url || item.product_images[0].url || '/placeholder.svg';
+    }
+    
     return '/placeholder.svg';
   };
 
@@ -368,26 +365,6 @@ const Checkout = () => {
             <p className="text-muted-foreground">Complete your purchase</p>
           </div>
 
-          {/* Debug Section */}
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-yellow-800">Debug Info</h3>
-                <p className="text-xs text-yellow-600">
-                  Shipping State: "{shippingAddress.state}" ({shippingAddress.state?.length || 0} chars) | 
-                  Billing State: "{billingAddress.state}" ({billingAddress.state?.length || 0} chars)
-                </p>
-              </div>
-              <Button 
-                onClick={clearStorage} 
-                variant="outline" 
-                size="sm"
-                className="text-xs"
-              >
-                Clear Storage
-              </Button>
-            </div>
-          </div>
 
           {/* Progress Indicator */}
           <div className="mb-8">

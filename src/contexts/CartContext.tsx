@@ -76,7 +76,7 @@ export const useCart = () => {
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as true since we load cart on mount
   const { toast } = useToast();
 
   // Load cart on mount
@@ -89,6 +89,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    */
   const refreshCart = async () => {
     try {
+      setLoading(true);
       const response = await fetch(`${API_URL}/api/cart`, {
         credentials: 'include'
       });
@@ -103,6 +104,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error) {
       console.error('Error refreshing cart:', error);
       setCart(null);
+    } finally {
+      setLoading(false);
     }
   };
 

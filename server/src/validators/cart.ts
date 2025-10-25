@@ -63,7 +63,7 @@ export const createOrderSchema = Joi.object({
   shippingAddress: addressSchema.required(),
   shippingMethodId: Joi.string().max(100).optional(),
   paymentMethodId: Joi.string().max(100).optional(),
-  orderNotes: Joi.string().max(1000).allow('').optional(),
+  orderNotes: Joi.string().max(1000).allow('', null).optional(),
   subscribeNewsletter: Joi.boolean().optional()
 });
 

@@ -59,19 +59,16 @@ const Cart = () => {
 
   // Get product image
   const getImageUrl = (item: any) => {
-    if (item.product_image) {
-      if (typeof item.product_image === 'string') {
-        try {
-          const images = JSON.parse(item.product_image);
-          if (Array.isArray(images) && images.length > 0) {
-            return images[0].image_url || images[0].url || null;
-          }
-        } catch {
-          return item.product_image;
-        }
-      }
+    // product_image is already a single URL string from the API
+    if (item.product_image && typeof item.product_image === 'string') {
       return item.product_image;
     }
+    
+    // Fallback: try to get from product_images array if available
+    if (item.product_images && Array.isArray(item.product_images) && item.product_images.length > 0) {
+      return item.product_images[0].image_url || item.product_images[0].url || null;
+    }
+    
     return null;
   };
 
