@@ -10,7 +10,7 @@ export const validate = (schema: Joi.ObjectSchema, property: 'body' | 'query' | 
   return (req: Request, res: Response, next: NextFunction) => {
     const { error, value } = schema.validate(req[property], {
       abortEarly: false, // Return all errors, not just the first one
-      stripUnknown: true, // Remove unknown fields
+      stripUnknown: false, // Don't remove unknown fields (important for nested JSON structures)
       convert: true // Convert types (e.g., string to number)
     });
 

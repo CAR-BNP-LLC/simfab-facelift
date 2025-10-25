@@ -1082,6 +1082,75 @@ export interface ProductFAQ {
   updated_at: string;
 }
 
+// ============================================================================
+// PRODUCT DESCRIPTION COMPONENT TYPES
+// ============================================================================
+
+export interface ProductDescriptionComponent {
+  id: number;
+  product_id: number;
+  component_type: 'text' | 'image' | 'two_column' | 'three_column' | 'full_width_image';
+  content: any; // Will be typed based on component_type
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TextBlockContent {
+  heading?: string;
+  headingSize?: 'xl' | '2xl' | '3xl' | '4xl';
+  headingColor?: string;
+  paragraph?: string;
+  textColor?: string;
+  alignment?: 'left' | 'center' | 'right';
+  padding?: { top: number; bottom: number; left: number; right: number };
+}
+
+export interface ImageBlockContent {
+  imageUrl: string;
+  altText?: string;
+  caption?: string;
+  width?: 'small' | 'medium' | 'large' | 'full';
+  alignment?: 'left' | 'center' | 'right';
+  padding?: { top: number; bottom: number; left: number; right: number };
+}
+
+export interface TwoColumnContent {
+  leftColumn: {
+    type: 'text' | 'image';
+    content: TextBlockContent | ImageBlockContent;
+  };
+  rightColumn: {
+    type: 'text' | 'image';
+    content: TextBlockContent | ImageBlockContent;
+  };
+  columnRatio?: '50-50' | '60-40' | '40-60';
+  gap?: number;
+  reverseOnMobile?: boolean;
+  padding?: { top: number; bottom: number; left: number; right: number };
+}
+
+export interface ThreeColumnContent {
+  columns: [
+    { icon?: string; heading: string; text: string; iconColor?: string; textColor?: string },
+    { icon?: string; heading: string; text: string; iconColor?: string; textColor?: string },
+    { icon?: string; heading: string; text: string; iconColor?: string; textColor?: string }
+  ];
+  gap?: number;
+  alignment?: 'left' | 'center' | 'right';
+  backgroundColor?: string;
+  padding?: { top: number; bottom: number; left: number; right: number };
+}
+
+export interface FullWidthImageContent {
+  imageUrl: string;
+  altText?: string;
+  caption?: string;
+  height?: 'small' | 'medium' | 'large' | 'auto';
+  padding?: { top: number; bottom: number; left: number; right: number };
+}
+
 export interface CreateFAQData {
   question: string;
   answer: string;
@@ -1145,6 +1214,82 @@ export const faqsAPI = {
         faq_ids: faqIds,
       }),
     });
+  },
+};
+
+// ============================================================================
+// PRODUCT DESCRIPTION API
+// ============================================================================
+
+export const productDescriptionsAPI = {
+  /**
+   * Get description components for a product (public)
+   */
+  async getProductDescriptionComponents(productId: number): Promise<ProductDescriptionComponent[]> {
+    const response = await apiRequest<{ success: boolean; data: ProductDescriptionComponent[] }>(
+      `/api/products/${productId}/description-components`
+    );
+    return response.data || [];
+  },
+
+  /**
+   * Get all description components for a product (admin)
+   */
+  async getAllProductDescriptionComponents(productId: number): Promise<ProductDescriptionComponent[]> {
+    const response = await apiRequest<{ success: boolean; data: ProductDescriptionComponent[] }>(
+      `/api/admin/products/${productId}/description-components`
+    );
+    return response.data || [];
+  },
+
+  /**
+   * Create description component (admin)
+   */
+  async createDescriptionComponent(productId: number, data: any): Promise<ProductDescriptionComponent> {
+    const response = await apiRequest<{ success: boolean; data: ProductDescriptionComponent }>(
+      `/api/admin/products/${productId}/description-components`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Update description component (admin)
+   */
+  async updateDescriptionComponent(id: number, data: any): Promise<ProductDescriptionComponent> {
+    const response = await apiRequest<{ success: boolean; data: ProductDescriptionComponent }>(
+      `/api/admin/description-components/${id}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }
+    );
+    return response.data;
+  },
+
+  /**
+   * Delete description component (admin)
+   */
+  async deleteDescriptionComponent(id: number): Promise<void> {
+    await apiRequest<{ success: boolean }>(`/api/admin/description-components/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Reorder description components (admin)
+   */
+  async reorderDescriptionComponents(productId: number, componentIds: number[]): Promise<void> {
+    await apiRequest<{ success: boolean }>(
+      `/api/admin/products/${productId}/description-components/reorder`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ componentIds }),
+      }
+    );
   },
 };
 
@@ -1274,6 +1419,7 @@ export default {
   health: healthAPI,
   adminVariations: adminVariationsAPI,
   faqs: faqsAPI,
+  productDescriptions: productDescriptionsAPI,
   rbac: rbacAPI,
 };
 

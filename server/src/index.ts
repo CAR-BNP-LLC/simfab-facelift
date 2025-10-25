@@ -4,6 +4,7 @@ import session from 'express-session';
 import path from 'path';
 import authRouter from './routes/auth';
 import faqsRouter from './routes/faqs';
+import productDescriptionRouter from './routes/productDescriptions';
 import { createProductRoutes } from './routes/products';
 import { createAdminProductRoutes } from './routes/admin/products';
 import { createAdminOrderRoutes } from './routes/admin/orders';
@@ -70,6 +71,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api', faqsRouter);
+app.use('/api', productDescriptionRouter);
 app.use('/api/products', createProductRoutes(pool));
 app.use('/api/cart', createCartRoutes(pool));
 app.use('/api/orders', createOrderRoutes(pool));

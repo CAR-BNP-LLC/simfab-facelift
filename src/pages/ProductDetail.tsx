@@ -9,6 +9,7 @@ import ProductVariations from "@/components/ProductVariations";
 import ProductAddons from "@/components/ProductAddons";
 import ProductAdditionalInfo from "@/components/ProductAdditionalInfo";
 import ProductFAQs from "@/components/ProductFAQs";
+import ProductDescriptionBuilder from "@/components/ProductDescriptionBuilder";
 import { productsAPI, ProductWithDetails, ProductConfiguration } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
@@ -654,6 +655,9 @@ const ProductDetail = () => {
             </div>
           ))}
         </div>
+
+        {/* Product Description Builder */}
+        <ProductDescriptionBuilder productId={product.id} />
 
         {/* FAQs Section */}
         <ProductFAQs productId={product.id} />
