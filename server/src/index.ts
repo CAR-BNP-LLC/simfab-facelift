@@ -4,6 +4,7 @@ import session from 'express-session';
 import path from 'path';
 import authRouter from './routes/auth';
 import faqsRouter from './routes/faqs';
+import productDescriptionRouter from './routes/productDescriptions';
 import { createProductRoutes } from './routes/products';
 import { createAdminProductRoutes } from './routes/admin/products';
 import { createAdminOrderRoutes } from './routes/admin/orders';
@@ -20,6 +21,7 @@ import { createProductionRoutes } from './routes/admin/production';
 import { createTestingRoutes } from './routes/admin/testing';
 import { createPhase4Routes } from './routes/admin/phase4';
 import { createDebugRoutes } from './routes/debug';
+import { createShipStationRoutes } from './routes/shipstation';
 import { pool } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { CleanupService } from './services/CleanupService';
@@ -77,6 +79,7 @@ cronService.initialize();
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api', faqsRouter);
+app.use('/api', productDescriptionRouter);
 app.use('/api/products', createProductRoutes(pool));
 app.use('/api/cart', createCartRoutes(pool));
 app.use('/api/orders', createOrderRoutes(pool));
@@ -93,6 +96,7 @@ app.use('/api/admin/production', createProductionRoutes(pool));
 app.use('/api/admin/testing', createTestingRoutes(pool));
 app.use('/api/admin/phase4', createPhase4Routes(pool));
 app.use('/api/admin/debug', createDebugRoutes(pool));
+app.use('/api/shipstation', createShipStationRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -130,6 +134,12 @@ app.get('/', (req, res) => {
         create: '/api/payments/create',
         execute: '/api/payments/execute',
         status: '/api/payments/:paymentId'
+      },
+      shipstation: {
+        orders: '/api/shipstation/orders',
+        shipmentUpdate: '/api/shipstation/shipmentupdate',
+        test: '/api/shipstation/test',
+        health: '/api/shipstation/health'
       },
       admin: {
         debug: {

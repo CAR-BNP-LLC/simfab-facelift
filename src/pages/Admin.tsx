@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Package, 
@@ -31,7 +32,8 @@ import {
   Star,
   GripVertical,
   Trash,
-  Info
+  Info,
+  ExternalLink
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -1117,7 +1119,22 @@ const Admin = () => {
                         {filteredAndSortedProducts().map((product) => (
                           <tr key={product.id} className="border-b border-border hover:bg-muted/50">
                             <td className="py-3 px-2">
-                              <span className="font-mono text-sm">{product.sku}</span>
+                              <div className="flex items-center gap-2 group">
+                                <span className="font-mono text-sm group-hover:text-primary transition-colors">
+                                  {product.sku}
+                                </span>
+                                {product.slug && (
+                                  <Link 
+                                    to={`/product/${product.slug}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-muted-foreground hover:text-primary transition-colors"
+                                    title="View product page"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Link>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3 px-2 max-w-xs">
                               <p className="font-medium truncate">{product.name}</p>
