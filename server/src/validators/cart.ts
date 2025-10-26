@@ -47,14 +47,14 @@ export const applyCouponSchema = Joi.object({
 const addressSchema = Joi.object({
   firstName: Joi.string().min(1).max(100).required(),
   lastName: Joi.string().min(1).max(100).required(),
-  company: Joi.string().max(255).optional(),
+  company: Joi.string().max(255).allow('', null).optional(),
   addressLine1: Joi.string().min(3).max(255).required(),
-  addressLine2: Joi.string().max(255).optional(),
+  addressLine2: Joi.string().max(255).allow('', null).optional(),
   city: Joi.string().min(2).max(100).required(),
   state: Joi.string().min(2).max(100).required(),
   postalCode: Joi.string().min(3).max(20).required(),
   country: Joi.string().min(2).max(100).required(),
-  phone: Joi.string().max(20).optional(),
+  phone: Joi.string().max(20).allow('', null).optional(),
   email: Joi.string().email().optional()
 });
 
@@ -63,7 +63,7 @@ export const createOrderSchema = Joi.object({
   shippingAddress: addressSchema.required(),
   shippingMethodId: Joi.string().max(100).optional(),
   paymentMethodId: Joi.string().max(100).optional(),
-  orderNotes: Joi.string().max(1000).allow('').optional(),
+  orderNotes: Joi.string().max(1000).allow('', null).optional(),
   subscribeNewsletter: Joi.boolean().optional()
 });
 

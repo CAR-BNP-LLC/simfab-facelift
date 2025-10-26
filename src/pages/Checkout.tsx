@@ -30,6 +30,7 @@ import { useCheckout } from '@/contexts/CheckoutContext';
 import { orderAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import PayPalProvider from '@/components/PayPalProvider';
+import { AddressForm } from '@/components/checkout/AddressForm';
 import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
@@ -93,7 +94,7 @@ const Checkout = () => {
 
   // Redirect if cart is empty
   useEffect(() => {
-    if (!cartLoading && (!cart || cart.items.length === 0)) {
+    if (!cartLoading && (!cart || !cart.items || cart.items.length === 0)) {
       toast({
         title: 'Cart is empty',
         description: 'Add some products before checking out',
@@ -107,6 +108,13 @@ const Checkout = () => {
     console.log(`Updating shipping address ${field}:`, value);
     updateCheckoutState({
       shippingAddress: { ...shippingAddress, [field]: value }
+    });
+  };
+
+  const handleAddressBatchChange = (updates: Partial<typeof shippingAddress>) => {
+    console.log('Batch updating shipping address:', updates);
+    updateCheckoutState({
+      shippingAddress: { ...shippingAddress, ...updates }
     });
   };
 
@@ -132,10 +140,15 @@ const Checkout = () => {
   };
 
   const validateAddress = (): boolean => {
-    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'city', 'state', 'postalCode', 'phone', 'email'];
+    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'city', 'postalCode', 'phone', 'email'];
+    
+    console.log('Validating address:', shippingAddress);
     
     for (const field of required) {
-      if (!shippingAddress[field]) {
+      const value = shippingAddress[field];
+      console.log(`Field ${field}:`, value, 'Empty?', !value || value.trim() === '');
+      
+      if (!value || value.trim() === '') {
         toast({
           title: 'Missing information',
           description: `Please fill in ${String(field).replace(/([A-Z])/g, ' $1').toLowerCase()}`,
@@ -171,16 +184,26 @@ const Checkout = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Helper function to clean up empty strings in address
+  const cleanAddress = (address: any) => {
+    const cleaned = { ...address };
+    // Convert empty strings to null for optional fields
+    if (cleaned.company === '') cleaned.company = null;
+    if (cleaned.addressLine2 === '') cleaned.addressLine2 = null;
+    if (cleaned.phone === '') cleaned.phone = null;
+    return cleaned;
+  };
+
   const handleSubmitOrder = async () => {
     try {
       setSubmitting(true);
 
       const orderData = {
-        shippingAddress,
-        billingAddress: isBillingSameAsShipping ? shippingAddress : billingAddress,
+        shippingAddress: cleanAddress(shippingAddress),
+        billingAddress: cleanAddress(isBillingSameAsShipping ? shippingAddress : billingAddress),
         shippingMethodId: selectedShipping,
         paymentMethodId: 'pending',
-        orderNotes
+        orderNotes: orderNotes || ''
       };
 
       console.log('Creating order:', orderData);
@@ -306,19 +329,16 @@ const Checkout = () => {
 
   // Get image
   const getImageUrl = (item: any) => {
-    if (item.product_image) {
-      if (typeof item.product_image === 'string') {
-        try {
-          const images = JSON.parse(item.product_image);
-          if (Array.isArray(images) && images.length > 0) {
-            return images[0].image_url || images[0].url || '/placeholder.svg';
-          }
-        } catch {
-          return item.product_image;
-        }
-      }
+    // product_image is already a single URL string from the API
+    if (item.product_image && typeof item.product_image === 'string') {
       return item.product_image;
     }
+    
+    // Fallback: try to get from product_images array if available
+    if (item.product_images && Array.isArray(item.product_images) && item.product_images.length > 0) {
+      return item.product_images[0].image_url || item.product_images[0].url || '/placeholder.svg';
+    }
+    
     return '/placeholder.svg';
   };
 
@@ -345,26 +365,6 @@ const Checkout = () => {
             <p className="text-muted-foreground">Complete your purchase</p>
           </div>
 
-          {/* Debug Section */}
-          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-yellow-800">Debug Info</h3>
-                <p className="text-xs text-yellow-600">
-                  Shipping State: "{shippingAddress.state}" ({shippingAddress.state?.length || 0} chars) | 
-                  Billing State: "{billingAddress.state}" ({billingAddress.state?.length || 0} chars)
-                </p>
-              </div>
-              <Button 
-                onClick={clearStorage} 
-                variant="outline" 
-                size="sm"
-                className="text-xs"
-              >
-                Clear Storage
-              </Button>
-            </div>
-          </div>
 
           {/* Progress Indicator */}
           <div className="mb-8">
@@ -437,134 +437,25 @@ const Checkout = () => {
 
               {/* Step 2: Shipping Address */}
               {step === 2 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Shipping Address
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="firstName">First Name *</Label>
-                          <Input
-                            id="firstName"
-                            value={shippingAddress.firstName}
-                            onChange={(e) => handleAddressChange('firstName', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="lastName">Last Name *</Label>
-                          <Input
-                            id="lastName"
-                            value={shippingAddress.lastName}
-                            onChange={(e) => handleAddressChange('lastName', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="company">Company (optional)</Label>
-                        <Input
-                          id="company"
-                          value={shippingAddress.company || ''}
-                          onChange={(e) => handleAddressChange('company', e.target.value)}
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="addressLine1">Street Address *</Label>
-                        <Input
-                          id="addressLine1"
-                          placeholder="123 Main Street"
-                          value={shippingAddress.addressLine1}
-                          onChange={(e) => handleAddressChange('addressLine1', e.target.value)}
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor="addressLine2">Apartment, suite, etc. (optional)</Label>
-                        <Input
-                          id="addressLine2"
-                          placeholder="Apt 4B"
-                          value={shippingAddress.addressLine2 || ''}
-                          onChange={(e) => handleAddressChange('addressLine2', e.target.value)}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                          <Label htmlFor="city">City *</Label>
-                          <Input
-                            id="city"
-                            value={shippingAddress.city}
-                            onChange={(e) => handleAddressChange('city', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="state">State *</Label>
-                          <Input
-                            id="state"
-                            placeholder="NY"
-                            value={shippingAddress.state}
-                            onChange={(e) => handleAddressChange('state', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="postalCode">ZIP Code *</Label>
-                          <Input
-                            id="postalCode"
-                            placeholder="10001"
-                            value={shippingAddress.postalCode}
-                            onChange={(e) => handleAddressChange('postalCode', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="phone">Phone *</Label>
-                          <Input
-                            id="phone"
-                            type="tel"
-                            placeholder="+1-555-0123"
-                            value={shippingAddress.phone}
-                            onChange={(e) => handleAddressChange('phone', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="email">Email *</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={shippingAddress.email}
-                            onChange={(e) => handleAddressChange('email', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-6 flex justify-between">
-                      <Button variant="outline" onClick={handleBack}>
-                        ← Back to Cart
-                      </Button>
-                      <Button onClick={handleNext}>
-                        Continue to Shipping
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="space-y-6">
+                  <AddressForm
+                    title="Shipping Address"
+                    address={shippingAddress as any}
+                    onAddressChange={handleAddressChange}
+                    onAddressBatchChange={handleAddressBatchChange}
+                    required={true}
+                  />
+                  
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={handleBack}>
+                      ← Back to Cart
+                    </Button>
+                    <Button onClick={handleNext}>
+                      Continue to Shipping
+                      <ChevronRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               )}
 
               {/* Step 3: Shipping Method */}
@@ -766,6 +657,8 @@ const Checkout = () => {
                   <PaymentStep
                     orderTotal={orderTotal}
                     orderId={createdOrder.id}
+                    billingAddress={isBillingSameAsShipping ? shippingAddress : billingAddress}
+                    shippingAddress={shippingAddress}
                     onPaymentSuccess={handlePaymentSuccess}
                     onPaymentError={handlePaymentError}
                   />

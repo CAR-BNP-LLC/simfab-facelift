@@ -11,6 +11,30 @@ import { useEffect } from 'react';
 interface PaymentStepProps {
   orderTotal: number;
   orderId: number;
+  billingAddress?: {
+    firstName: string;
+    lastName: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+    email?: string;
+  };
+  shippingAddress?: {
+    firstName: string;
+    lastName: string;
+    addressLine1: string;
+    addressLine2?: string;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    phone?: string;
+    email?: string;
+  };
   onPaymentSuccess: (paymentId: string) => void;
   onPaymentError: (error: any) => void;
 }
@@ -18,6 +42,8 @@ interface PaymentStepProps {
 export const PaymentStep: React.FC<PaymentStepProps> = ({
   orderTotal,
   orderId,
+  billingAddress,
+  shippingAddress,
   onPaymentSuccess,
   onPaymentError
 }) => {
@@ -135,6 +161,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                     amount={orderTotal}
                     orderId={orderId}
                     paymentMethod={selectedMethod}
+                    billingAddress={billingAddress}
+                    shippingAddress={shippingAddress}
                     onSuccess={handlePaymentSuccess}
                     onError={handlePaymentError}
                   />

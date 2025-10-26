@@ -15,6 +15,7 @@ import { createOrderRoutes } from './routes/orders';
 import { createPaymentRoutes } from './routes/payments';
 import { createWebhookRoutes } from './routes/webhooks';
 import { createCleanupRoutes } from './routes/admin/cleanup';
+import { createCronRoutes } from './routes/admin/cron';
 import { createWebhookTestRoutes } from './routes/admin/webhookTest';
 import { createProductionRoutes } from './routes/admin/production';
 import { createTestingRoutes } from './routes/admin/testing';
@@ -23,6 +24,8 @@ import { createDebugRoutes } from './routes/debug';
 import { createShipStationRoutes } from './routes/shipstation';
 import { pool } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
+import { CleanupService } from './services/CleanupService';
+import { CronService } from './services/CronService';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -69,6 +72,10 @@ app.use(session({
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+// Initialize cron service before setting up routes
+const cronService = new CronService(pool);
+cronService.initialize();
+
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api', faqsRouter);
@@ -83,6 +90,7 @@ app.use('/api/admin/orders', createAdminOrderRoutes(pool));
 app.use('/api/admin/dashboard', createAdminDashboardRoutes(pool));
 app.use('/api/admin/rbac', createAdminRBACRoutes(pool));
 app.use('/api/admin/cleanup', createCleanupRoutes(pool));
+app.use('/api/admin/cron', createCronRoutes(pool, cronService));
 app.use('/api/admin/webhook-test', createWebhookTestRoutes(pool));
 app.use('/api/admin/production', createProductionRoutes(pool));
 app.use('/api/admin/testing', createTestingRoutes(pool));

@@ -153,7 +153,7 @@
 
   /* Navigation Styles */
   .nav-link {
-    @apply text-foreground/80 hover:text-foreground uppercase tracking-wider
+    @apply text-white hover:text-white uppercase tracking-wider
            text-sm font-heading font-medium transition-colors relative;
   }
 

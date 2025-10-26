@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface Address {
+export interface Address {
   firstName: string;
   lastName: string;
   company?: string;
@@ -44,7 +44,7 @@ const defaultCheckoutState: CheckoutState = {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US',
+    country: '',
     phone: '',
     email: ''
   },
@@ -57,7 +57,7 @@ const defaultCheckoutState: CheckoutState = {
     city: '',
     state: '',
     postalCode: '',
-    country: 'US',
+    country: '',
     phone: '',
     email: ''
   },

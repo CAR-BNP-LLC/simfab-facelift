@@ -13,7 +13,8 @@ export class CleanupService {
 
   /**
    * Clean up expired orders and reservations
-   * This should be run as a scheduled job (every 15 minutes)
+   * This should be run as a scheduled job (every 5 minutes)
+   * Orders expire after 15 minutes of no payment
    */
   async cleanupExpiredOrders(): Promise<{
     expiredOrders: number;

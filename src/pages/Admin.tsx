@@ -54,6 +54,7 @@ import VariationsList from '@/components/admin/VariationsList';
 import VariationManagementDialog from '@/components/admin/VariationManagementDialog';
 import ProductEditDialog from '@/components/admin/ProductEditDialog';
 import RbacManagement from '@/components/admin/RbacManagement';
+import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
 import PermittedFor from '@/components/auth/PermittedFor';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
@@ -84,6 +85,10 @@ const Admin = () => {
   const [variationsLoading, setVariationsLoading] = useState(false);
   const [variationDialogOpen, setVariationDialogOpen] = useState(false);
   const [editingVariation, setEditingVariation] = useState<VariationWithOptions | null>(null);
+  
+  // Order details modal state
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [orderDetailsModalOpen, setOrderDetailsModalOpen] = useState(false);
   
   const { toast } = useToast();
   const { handleError, handleSuccess } = useErrorHandler();
@@ -206,6 +211,37 @@ const Admin = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewOrderDetails = async (orderId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/orders/${orderId}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        setSelectedOrder(data.data);
+        setOrderDetailsModalOpen(true);
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to load order details',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load order details',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleCloseOrderDetails = () => {
+    setOrderDetailsModalOpen(false);
+    setSelectedOrder(null);
   };
 
   const handleProductSubmit = async (e: React.FormEvent) => {
@@ -845,15 +881,20 @@ const Admin = () => {
                           <th className="text-left py-3 px-2">Items</th>
                           <th className="text-left py-3 px-2">Total</th>
                           <th className="text-left py-3 px-2">Status</th>
+                          <th className="text-left py-3 px-2">Payment</th>
                           <th className="text-left py-3 px-2">Date</th>
                           <th className="text-left py-3 px-2">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {orders.map((order) => (
-                          <tr key={order.id} className="border-b border-border hover:bg-muted/50">
+                          <tr 
+                            key={order.id} 
+                            className="border-b border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                            onClick={() => handleViewOrderDetails(order.id)}
+                          >
                             <td className="py-3 px-2">
-                              <span className="font-mono text-sm">{order.order_number}</span>
+                              <span className="font-mono text-sm font-semibold">{order.order_number}</span>
                             </td>
                             <td className="py-3 px-2">
                               <div className="text-sm">
@@ -861,6 +902,9 @@ const Admin = () => {
                                   <p className="font-medium">{order.user_first_name} {order.user_last_name}</p>
                                 ) : null}
                                 <p className="text-muted-foreground">{order.user_email || order.customer_email}</p>
+                                {order.customer_phone && (
+                                  <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
+                                )}
                               </div>
                             </td>
                             <td className="py-3 px-2">
@@ -869,7 +913,7 @@ const Admin = () => {
                             <td className="py-3 px-2">
                               <span className="font-semibold">${parseFloat(order.total_amount).toFixed(2)}</span>
                             </td>
-                            <td className="py-3 px-2">
+                            <td className="py-3 px-2" onClick={(e) => e.stopPropagation()}>
                               <PermittedFor 
                                 authority="orders:manage" 
                                 fallback={<Badge variant="outline">{order.status}</Badge>}
@@ -891,11 +935,27 @@ const Admin = () => {
                                 </Select>
                               </PermittedFor>
                             </td>
+                            <td className="py-3 px-2" onClick={(e) => e.stopPropagation()}>
+                              <Badge 
+                                variant={
+                                  order.payment_status === 'paid' ? 'default' :
+                                  order.payment_status === 'pending' ? 'secondary' :
+                                  order.payment_status === 'failed' ? 'destructive' :
+                                  'outline'
+                                }
+                              >
+                                {order.payment_status || 'Unknown'}
+                              </Badge>
+                            </td>
                             <td className="py-3 px-2 text-sm text-muted-foreground">
                               {new Date(order.created_at).toLocaleDateString()}
                             </td>
-                            <td className="py-3 px-2">
-                              <Button variant="ghost" size="sm">
+                            <td className="py-3 px-2" onClick={(e) => e.stopPropagation()}>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleViewOrderDetails(order.id)}
+                              >
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </td>
@@ -1541,6 +1601,13 @@ const Admin = () => {
           }
         }}
         uploadingImages={uploadingImages}
+      />
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        open={orderDetailsModalOpen}
+        onClose={handleCloseOrderDetails}
       />
 
       <Footer />
