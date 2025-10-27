@@ -140,6 +140,9 @@ export class ProductService {
       // Get FAQs
       const faqs = await this.getProductFAQs(id);
 
+      // Get description components
+      const descriptionComponents = await this.getProductDescriptionComponents(id);
+
       // Get assembly manuals
       const assemblyManuals = await this.getAssemblyManuals(id);
 
@@ -151,6 +154,7 @@ export class ProductService {
         variations,
         addons,
         faqs,
+        descriptionComponents,
         assemblyManuals,
         additionalInfo,
         rating: {
@@ -513,6 +517,21 @@ export class ProductService {
       SELECT * FROM product_faqs
       WHERE product_id = $1
       ORDER BY sort_order
+    `;
+
+    const result = await this.pool.query(sql, [productId]);
+    return result.rows;
+  }
+
+  /**
+   * Get product description components
+   */
+  private async getProductDescriptionComponents(productId: number) {
+    const sql = `
+      SELECT id, product_id, component_type, content, sort_order, is_active, created_at, updated_at
+      FROM product_description_components
+      WHERE product_id = $1 AND is_active = true
+      ORDER BY sort_order ASC, created_at ASC
     `;
 
     const result = await this.pool.query(sql, [productId]);

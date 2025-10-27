@@ -26,9 +26,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import VariationsList from './VariationsList';
 import FAQsList from './FAQsList';
+import DescriptionComponentsList from './DescriptionComponentsList';
 import PermittedFor from '@/components/auth/PermittedFor';
-import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI } from '@/services/api';
 import { format } from 'date-fns';
+import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI, ProductDescriptionComponent, productDescriptionsAPI } from '@/services/api';
 
 interface ProductEditDialogProps {
   open: boolean;
@@ -63,6 +64,7 @@ const ProductEditDialog = ({
   const [faqsLoading, setFaqsLoading] = useState(false);
   const [saleStartDate, setSaleStartDate] = useState<Date | undefined>(undefined);
   const [saleEndDate, setSaleEndDate] = useState<Date | undefined>(undefined);
+  const [descriptionComponents, setDescriptionComponents] = useState<ProductDescriptionComponent[]>([]);
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
@@ -164,9 +166,10 @@ const ProductEditDialog = ({
         })()
       });
       
-      // Load FAQs for this product
+      // Load FAQs and description components for this product
       if (product.id) {
         loadFAQs(product.id);
+        loadDescriptionComponents(product.id);
       }
     }
   }, [product, open]);
@@ -186,6 +189,21 @@ const ProductEditDialog = ({
       });
     } finally {
       setFaqsLoading(false);
+    }
+  };
+
+  // Load description components for the product
+  const loadDescriptionComponents = async (productId: number) => {
+    try {
+      const components = await productDescriptionsAPI.getAllProductDescriptionComponents(productId);
+      setDescriptionComponents(components);
+    } catch (error) {
+      console.error('Error loading description components:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load description components',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -268,6 +286,83 @@ const ProductEditDialog = ({
         variant: 'destructive'
       });
       throw error;
+    }
+  };
+
+  // Description component management functions
+  const handleCreateDescriptionComponent = async (data: any) => {
+    if (!product) return;
+    
+    try {
+      await productDescriptionsAPI.createDescriptionComponent(product.id, data);
+      await loadDescriptionComponents(product.id);
+      toast({
+        title: 'Success',
+        description: 'Description component created successfully'
+      });
+    } catch (error) {
+      console.error('Error creating description component:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create description component',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUpdateDescriptionComponent = async (id: number, data: any) => {
+    try {
+      await productDescriptionsAPI.updateDescriptionComponent(id, data);
+      await loadDescriptionComponents(product.id);
+      toast({
+        title: 'Success',
+        description: 'Description component updated successfully'
+      });
+    } catch (error) {
+      console.error('Error updating description component:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update description component',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteDescriptionComponent = async (id: number) => {
+    try {
+      await productDescriptionsAPI.deleteDescriptionComponent(id);
+      await loadDescriptionComponents(product.id);
+      toast({
+        title: 'Success',
+        description: 'Description component deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting description component:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete description component',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleReorderDescriptionComponents = async (componentIds: number[]) => {
+    if (!product) return;
+    
+    try {
+      await productDescriptionsAPI.reorderDescriptionComponents(product.id, componentIds);
+      await loadDescriptionComponents(product.id);
+      toast({
+        title: 'Success',
+        description: 'Description components reordered successfully'
+      });
+    } catch (error) {
+      console.error('Error reordering description components:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to reorder description components',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -845,6 +940,18 @@ const ProductEditDialog = ({
             )}
 
           </form>
+
+          {/* Description Components */}
+          {product && (
+            <DescriptionComponentsList
+              productId={product.id}
+              components={descriptionComponents}
+              onComponentCreate={handleCreateDescriptionComponent}
+              onComponentUpdate={handleUpdateDescriptionComponent}
+              onComponentDelete={handleDeleteDescriptionComponent}
+              onComponentReorder={handleReorderDescriptionComponents}
+            />
+          )}
 
           {/* FAQs - Inside scrollable area to prevent nested scrollbars */}
           {product && (
