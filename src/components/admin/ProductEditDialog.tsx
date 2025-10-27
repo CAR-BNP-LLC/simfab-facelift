@@ -7,7 +7,9 @@ import {
   Loader2,
   Info,
   Star,
-  StarOff
+  StarOff,
+  CalendarIcon,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,11 +21,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import VariationsList from './VariationsList';
 import FAQsList from './FAQsList';
 import DescriptionComponentsList from './DescriptionComponentsList';
 import PermittedFor from '@/components/auth/PermittedFor';
+import { format } from 'date-fns';
 import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI, ProductDescriptionComponent, productDescriptionsAPI } from '@/services/api';
 
 interface ProductEditDialogProps {
@@ -57,6 +62,8 @@ const ProductEditDialog = ({
   const [loading, setLoading] = useState(false);
   const [faqs, setFaqs] = useState<ProductFAQ[]>([]);
   const [faqsLoading, setFaqsLoading] = useState(false);
+  const [saleStartDate, setSaleStartDate] = useState<Date | undefined>(undefined);
+  const [saleEndDate, setSaleEndDate] = useState<Date | undefined>(undefined);
   const [descriptionComponents, setDescriptionComponents] = useState<ProductDescriptionComponent[]>([]);
   const [productForm, setProductForm] = useState({
     sku: '',
@@ -68,6 +75,11 @@ const ProductEditDialog = ({
     status: 'active',
     featured: false,
     regular_price: '',
+    sale_price: '',
+    is_on_sale: false,
+    sale_start_date: '',
+    sale_end_date: '',
+    sale_label: '',
     stock_quantity: '10',
     categories: 'accessories',
     tags: ''
@@ -99,6 +111,15 @@ const ProductEditDialog = ({
   // Initialize form when product changes
   useEffect(() => {
     if (product && open) {
+      // Parse dates
+      const parseDate = (date: Date | string | null | undefined): Date | undefined => {
+        if (!date) return undefined;
+        return new Date(date);
+      };
+
+      setSaleStartDate(parseDate(product.sale_start_date));
+      setSaleEndDate(parseDate(product.sale_end_date));
+
       setProductForm({
         sku: product.sku || '',
         name: product.name || '',
@@ -109,6 +130,11 @@ const ProductEditDialog = ({
         status: product.status || 'active',
         featured: product.featured || false,
         regular_price: product.regular_price?.toString() || '',
+        sale_price: product.sale_price?.toString() || '',
+        is_on_sale: product.is_on_sale || false,
+        sale_start_date: '',
+        sale_end_date: '',
+        sale_label: product.sale_label || '',
         stock_quantity: product.stock?.toString() || '0',
         categories: (() => {
           try {
@@ -349,6 +375,11 @@ const ProductEditDialog = ({
       const formData = {
         ...productForm,
         regular_price: parseFloat(productForm.regular_price) || 0,
+        sale_price: productForm.sale_price ? parseFloat(productForm.sale_price) : null,
+        is_on_sale: productForm.is_on_sale,
+        sale_start_date: saleStartDate || null,
+        sale_end_date: saleEndDate || null,
+        sale_label: productForm.sale_label || null,
         stock_quantity: parseInt(productForm.stock_quantity) || 0,
         categories: [productForm.categories],
         tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : []
@@ -483,6 +514,218 @@ const ProductEditDialog = ({
                       onChange={(e) => setProductForm({ ...productForm, stock_quantity: e.target.value })}
                     />
                   </div>
+                </div>
+
+                {/* Discount Section */}
+                <div className="border-t pt-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Checkbox
+                      id="is_on_sale"
+                      checked={productForm.is_on_sale}
+                      onCheckedChange={(checked) => setProductForm({ ...productForm, is_on_sale: checked as boolean })}
+                    />
+                    <Label htmlFor="is_on_sale" className="cursor-pointer font-medium">
+                      Product is on sale
+                    </Label>
+                  </div>
+
+                  {productForm.is_on_sale && (
+                    <div className="space-y-4 pl-6 border-l-2 border-blue-200">
+                      <div>
+                        <Label htmlFor="sale_price">Sale Price ($) *</Label>
+                        <Input
+                          id="sale_price"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={productForm.sale_price}
+                          onChange={(e) => setProductForm({ ...productForm, sale_price: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Sale Start Date & Time (Optional)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {saleStartDate ? format(saleStartDate, "PPP HH:mm") : "Select start date & time"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <div className="flex">
+                                <Calendar
+                                  mode="single"
+                                  selected={saleStartDate}
+                                  onSelect={setSaleStartDate}
+                                  initialFocus
+                                  className="rounded-md"
+                                />
+                                <div className="border-l p-3 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor="start-hour" className="w-12">Hour:</Label>
+                                    <Select 
+                                      value={saleStartDate?.getHours().toString().padStart(2, '0') || '00'}
+                                      onValueChange={(value) => {
+                                        const date = saleStartDate || new Date();
+                                        date.setHours(parseInt(value));
+                                        setSaleStartDate(new Date(date));
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Array.from({ length: 24 }, (_, i) => (
+                                          <SelectItem key={i} value={i.toString().padStart(2, '0')}>
+                                            {i.toString().padStart(2, '0')}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor="start-minute" className="w-12">Min:</Label>
+                                    <Select 
+                                      value={saleStartDate?.getMinutes().toString().padStart(2, '0') || '00'}
+                                      onValueChange={(value) => {
+                                        const date = saleStartDate || new Date();
+                                        date.setMinutes(parseInt(value));
+                                        setSaleStartDate(new Date(date));
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Array.from({ length: 12 }, (_, i) => (
+                                          <SelectItem key={i} value={(i * 5).toString().padStart(2, '0')}>
+                                            {(i * 5).toString().padStart(2, '0')}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          {saleStartDate && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSaleStartDate(undefined)}
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Sale End Date & Time (Optional)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className="w-full justify-start text-left font-normal"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {saleEndDate ? format(saleEndDate, "PPP HH:mm") : "Select end date & time"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <div className="flex">
+                                <Calendar
+                                  mode="single"
+                                  selected={saleEndDate}
+                                  onSelect={setSaleEndDate}
+                                  initialFocus
+                                  className="rounded-md"
+                                />
+                                <div className="border-l p-3 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor="end-hour" className="w-12">Hour:</Label>
+                                    <Select 
+                                      value={saleEndDate?.getHours().toString().padStart(2, '0') || '00'}
+                                      onValueChange={(value) => {
+                                        const date = saleEndDate || new Date();
+                                        date.setHours(parseInt(value));
+                                        setSaleEndDate(new Date(date));
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Array.from({ length: 24 }, (_, i) => (
+                                          <SelectItem key={i} value={i.toString().padStart(2, '0')}>
+                                            {i.toString().padStart(2, '0')}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Label htmlFor="end-minute" className="w-12">Min:</Label>
+                                    <Select 
+                                      value={saleEndDate?.getMinutes().toString().padStart(2, '0') || '00'}
+                                      onValueChange={(value) => {
+                                        const date = saleEndDate || new Date();
+                                        date.setMinutes(parseInt(value));
+                                        setSaleEndDate(new Date(date));
+                                      }}
+                                    >
+                                      <SelectTrigger className="w-20">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {Array.from({ length: 12 }, (_, i) => (
+                                          <SelectItem key={i} value={(i * 5).toString().padStart(2, '0')}>
+                                            {(i * 5).toString().padStart(2, '0')}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                          {saleEndDate && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSaleEndDate(undefined)}
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="sale_label">Sale Badge Label (e.g., "50% OFF")</Label>
+                        <Input
+                          id="sale_label"
+                          placeholder="50% OFF"
+                          value={productForm.sale_label}
+                          onChange={(e) => setProductForm({ ...productForm, sale_label: e.target.value })}
+                        />
+                      </div>
+
+                      {/* Auto-calculate discount percentage */}
+                      {productForm.regular_price && productForm.sale_price && (
+                        <div className="text-sm text-blue-600 font-medium">
+                          Discount: {Math.round(((parseFloat(productForm.regular_price) - parseFloat(productForm.sale_price)) / parseFloat(productForm.regular_price)) * 100)}% OFF
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

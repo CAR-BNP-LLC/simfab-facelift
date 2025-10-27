@@ -35,12 +35,14 @@ import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cart, loading: cartLoading } = useCart();
+  const { cart, loading: cartLoading, applyCoupon } = useCart();
   const { user } = useAuth();
   const { checkoutState, updateCheckoutState, clearStorage } = useCheckout();
   const { toast } = useToast();
 
   const [submitting, setSubmitting] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   // Destructure state from context
   const {
@@ -182,6 +184,20 @@ const Checkout = () => {
   const handleBack = () => {
     updateCheckoutState({ step: step - 1 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    
+    try {
+      setApplyingCoupon(true);
+      await applyCoupon(couponCode);
+      setCouponCode('');
+    } catch (error) {
+      console.error('Failed to apply coupon:', error);
+    } finally {
+      setApplyingCoupon(false);
+    }
   };
 
   // Helper function to clean up empty strings in address
@@ -653,16 +669,24 @@ const Checkout = () => {
 
               {/* Step 5: Payment */}
               {step === 5 && createdOrder && (
-                <PayPalProvider>
-                  <PaymentStep
-                    orderTotal={orderTotal}
-                    orderId={createdOrder.id}
-                    billingAddress={isBillingSameAsShipping ? shippingAddress : billingAddress}
-                    shippingAddress={shippingAddress}
-                    onPaymentSuccess={handlePaymentSuccess}
-                    onPaymentError={handlePaymentError}
-                  />
-                </PayPalProvider>
+                <div className="space-y-6">
+                  <PayPalProvider>
+                    <PaymentStep
+                      orderTotal={orderTotal}
+                      orderId={createdOrder.id}
+                      billingAddress={isBillingSameAsShipping ? shippingAddress : billingAddress}
+                      shippingAddress={shippingAddress}
+                      onPaymentSuccess={handlePaymentSuccess}
+                      onPaymentError={handlePaymentError}
+                    />
+                  </PayPalProvider>
+                  
+                  <div className="flex justify-start">
+                    <Button variant="outline" onClick={handleBack}>
+                      ← Back to Review
+                    </Button>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -674,6 +698,56 @@ const Checkout = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
+                    {/* Applied Coupons */}
+                    {cart?.appliedCoupons && cart.appliedCoupons.length > 0 && (
+                      <div className="border-b pb-3 mb-3">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">Applied Coupons:</p>
+                        {cart.appliedCoupons.map((coupon: any, idx: number) => {
+                          const discount = Number(coupon?.discountAmount ?? coupon?.amount ?? 0);
+                          return (
+                            <div key={idx} className="flex items-center justify-between bg-green-50 dark:bg-green-950 p-2 rounded mb-1">
+                              <div>
+                                <span className="font-mono font-semibold text-sm text-green-700 dark:text-green-300">{coupon?.code || 'Coupon'}</span>
+                                <p className="text-xs text-green-600 dark:text-green-400">-${discount.toFixed(2)}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Coupon Code Input - Only show before payment step */}
+                    {step < 5 && (
+                      <div className="border-b pb-3 mb-3">
+                        <label className="block text-sm font-medium mb-2">
+                          Coupon Code
+                        </label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="text"
+                            placeholder="Enter code"
+                            value={couponCode}
+                            onChange={(e) => setCouponCode(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                            disabled={cartLoading || applyingCoupon}
+                            className="text-sm"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleApplyCoupon}
+                            disabled={cartLoading || applyingCoupon || !couponCode.trim()}
+                          >
+                            {applyingCoupon ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              'Apply'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal:</span>
                       <span className="font-medium">${totals.subtotal.toFixed(2)}</span>

@@ -290,13 +290,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(data.error?.message || 'Invalid coupon code');
       }
 
+      const discountAmount = data.data?.coupon?.discountAmount || data.data?.coupon?.amount || 0;
+      
+      // Update cart state with the new cart from response (includes updated totals)
+      if (data.data?.cart) {
+        setCart(data.data.cart);
+      }
+      
       toast({
         title: 'Coupon applied!',
-        description: `You saved $${data.data.discount.amount.toFixed(2)}`,
+        description: `You saved $${discountAmount.toFixed(2)}`,
       });
-
-      // Refresh cart
-      await refreshCart();
     } catch (error) {
       toast({
         title: 'Error',

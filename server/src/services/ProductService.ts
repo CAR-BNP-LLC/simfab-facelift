@@ -284,6 +284,9 @@ export class ProductService {
     const client = await this.pool.connect();
 
     try {
+      // Log the incoming data for debugging
+      console.log('ProductService.updateProduct - Received data:', JSON.stringify(data, null, 2));
+      
       await client.query('BEGIN');
 
       // Check product exists
@@ -305,6 +308,13 @@ export class ProductService {
           paramCounter++;
         }
       };
+      
+      // Helper to force add field (even if null)
+      const forceAddField = (field: string, value: any) => {
+        updateFields.push(`${field} = $${paramCounter}`);
+        values.push(value);
+        paramCounter++;
+      };
 
       // Add all possible fields (using actual database columns)
       addField('name', data.name);
@@ -316,6 +326,21 @@ export class ProductService {
       addField('featured', data.featured);
       addField('regular_price', data.regular_price);
       addField('sale_price', data.sale_price);
+      
+      // Discount fields - always update these fields, even if null
+      if (data.is_on_sale !== undefined) {
+        forceAddField('is_on_sale', data.is_on_sale);
+      }
+      if ('sale_start_date' in data) {
+        forceAddField('sale_start_date', data.sale_start_date);
+      }
+      if ('sale_end_date' in data) {
+        forceAddField('sale_end_date', data.sale_end_date);
+      }
+      if ('sale_label' in data) {
+        forceAddField('sale_label', data.sale_label);
+      }
+      
       addField('weight_lbs', data.weight_lbs);
       addField('length_in', data.length_in);
       addField('width_in', data.width_in);
@@ -352,6 +377,10 @@ export class ProductService {
       `;
 
       values.push(id);
+
+      // Log the SQL query for debugging
+      console.log('ProductService.updateProduct - SQL:', sql);
+      console.log('ProductService.updateProduct - Values:', values);
 
       const result = await client.query(sql, values);
       await client.query('COMMIT');

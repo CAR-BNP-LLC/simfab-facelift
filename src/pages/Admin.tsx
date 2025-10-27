@@ -33,6 +33,7 @@ import {
   GripVertical,
   Trash,
   Info,
+  Ticket
   ExternalLink
 } from 'lucide-react';
 import Header from '@/components/Header';
@@ -55,6 +56,8 @@ import VariationManagementDialog from '@/components/admin/VariationManagementDia
 import ProductEditDialog from '@/components/admin/ProductEditDialog';
 import RbacManagement from '@/components/admin/RbacManagement';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
+import CouponList from '@/components/admin/CouponList';
+import CouponForm from '@/components/admin/CouponForm';
 import PermittedFor from '@/components/auth/PermittedFor';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
@@ -89,6 +92,10 @@ const Admin = () => {
   // Order details modal state
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [orderDetailsModalOpen, setOrderDetailsModalOpen] = useState(false);
+  
+  // Coupon management state
+  const [couponFormOpen, setCouponFormOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<any>(null);
   
   const { toast } = useToast();
   const { handleError, handleSuccess } = useErrorHandler();
@@ -608,6 +615,49 @@ const Admin = () => {
     }
   };
 
+  // Coupon handlers
+  const handleCreateCoupon = () => {
+    setEditingCoupon(null);
+    setCouponFormOpen(true);
+  };
+
+  const handleEditCoupon = (coupon: any) => {
+    setEditingCoupon(coupon);
+    setCouponFormOpen(true);
+  };
+
+  const handleDeleteCoupon = async (coupon: any) => {
+    if (!confirm(`Are you sure you want to delete coupon "${coupon.code}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/coupons/${coupon.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Success',
+          description: 'Coupon deleted successfully',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete coupon',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCouponSave = () => {
+    // The CouponList will re-fetch automatically
+    setCouponFormOpen(false);
+    setEditingCoupon(null);
+  };
+
   // Sorting and filtering functions
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -680,7 +730,7 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -692,6 +742,10 @@ const Admin = () => {
             <TabsTrigger value="products" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="coupons" className="flex items-center gap-2">
+              <Ticket className="h-4 w-4" />
+              <span className="hidden sm:inline">Coupons</span>
             </TabsTrigger>
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -1138,9 +1192,27 @@ const Admin = () => {
                             </td>
                             <td className="py-3 px-2 max-w-xs">
                               <p className="font-medium truncate">{product.name}</p>
+                              {product.is_on_sale && (
+                                <Badge variant="destructive" className="text-xs mt-1">
+                                  SALE
+                                </Badge>
+                              )}
                             </td>
                             <td className="py-3 px-2">
-                              ${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
+                              <div className="flex flex-col gap-1">
+                                {product.is_on_sale && product.sale_price ? (
+                                  <>
+                                    <span className="font-bold text-destructive">
+                                      ${parseFloat(product.sale_price.toString()).toFixed(2)}
+                                    </span>
+                                    <span className="text-xs line-through text-muted-foreground">
+                                      ${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <span>${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}</span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3 px-2">
                               <Badge variant={product.stock > 0 ? 'default' : 'destructive'}>
@@ -1479,6 +1551,17 @@ const Admin = () => {
             </PermittedFor>
           </TabsContent>
 
+          {/* Coupons Tab */}
+          <TabsContent value="coupons" className="space-y-6">
+            <PermittedFor authority="coupons:view">
+              <CouponList
+                onCreateClick={handleCreateCoupon}
+                onEditClick={handleEditCoupon}
+                onDeleteClick={handleDeleteCoupon}
+              />
+            </PermittedFor>
+          </TabsContent>
+
           {/* RBAC Management Tab */}
           <TabsContent value="rbac" className="space-y-6">
             <RbacManagement />
@@ -1608,6 +1691,17 @@ const Admin = () => {
         order={selectedOrder}
         open={orderDetailsModalOpen}
         onClose={handleCloseOrderDetails}
+      />
+
+      {/* Coupon Form Dialog */}
+      <CouponForm
+        open={couponFormOpen}
+        onClose={() => {
+          setCouponFormOpen(false);
+          setEditingCoupon(null);
+        }}
+        onSave={handleCouponSave}
+        coupon={editingCoupon}
       />
 
       <Footer />

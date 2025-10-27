@@ -93,19 +93,38 @@ const Shop = () => {
     setPage(1); // Reset to first page
   };
 
+  // Check if sale is currently active
+  const isSaleActive = (product: any) => {
+    if (!product.is_on_sale) return false;
+    
+    const now = new Date();
+    const startDate = product.sale_start_date ? new Date(product.sale_start_date) : null;
+    const endDate = product.sale_end_date ? new Date(product.sale_end_date) : null;
+    
+    if (startDate && now < startDate) return false;
+    if (endDate && now > endDate) return false;
+    
+    return true;
+  };
+
   const getProductPrice = (product: any) => {
     try {
+      const onSale = isSaleActive(product);
+      
       // Handle both nested and flat price structures
       if (product.price && typeof product.price === 'object') {
         // New API structure
         if (product.price.min !== undefined && product.price.max !== undefined && product.price.min !== product.price.max) {
           return `$${product.price.min.toFixed(2)} - $${product.price.max.toFixed(2)}`;
         }
+        if (onSale && product.price.sale) {
+          return { price: product.price.sale, original: product.price.regular, onSale: true };
+        }
         if (product.price.regular) {
-          return `$${product.price.regular.toFixed(2)}`;
+          return { price: product.price.regular, original: null, onSale: false };
         }
         if (product.price.min) {
-          return `$${product.price.min.toFixed(2)}`;
+          return { price: product.price.min, original: null, onSale: false };
         }
       }
       
@@ -113,17 +132,19 @@ const Shop = () => {
       if (product.price_min !== undefined && product.price_max !== undefined && product.price_min !== product.price_max) {
         return `$${product.price_min.toFixed(2)} - $${product.price_max.toFixed(2)}`;
       }
-      if (product.regular_price !== undefined && product.regular_price !== null) {
-        return `$${product.regular_price.toFixed(2)}`;
-      }
-      if (product.sale_price !== undefined && product.sale_price !== null) {
-        return `$${product.sale_price.toFixed(2)}`;
+      
+      if (onSale && product.sale_price !== undefined && product.sale_price !== null) {
+        return { price: product.sale_price, original: product.regular_price, onSale: true };
       }
       
-      return 'Price TBD';
+      if (product.regular_price !== undefined && product.regular_price !== null) {
+        return { price: product.regular_price, original: null, onSale: false };
+      }
+      
+      return { price: 0, original: null, onSale: false };
     } catch (error) {
       console.error('Error getting product price:', error, product);
-      return 'Price TBD';
+      return { price: 0, original: null, onSale: false };
     }
   };
 
@@ -267,7 +288,7 @@ const Shop = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => (
                 <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group">
-                  <CardContent className="p-0">
+                  <CardContent className="p-0 relative">
                     {/* Product Image */}
                     <div className="aspect-square bg-muted rounded-t-lg overflow-hidden">
                       {getProductImage(product) ? (
@@ -285,15 +306,44 @@ const Shop = () => {
                     
                     {/* Product Info */}
                     <div className="p-4">
+                      {/* Sale Badge */}
+                      {isSaleActive(product) && product.sale_label && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold z-10">
+                          {product.sale_label}
+                        </div>
+                      )}
+                      
                       <h3 className="text-sm font-medium text-foreground mb-3 line-clamp-2 min-h-[2.5rem]">
                         {product.name}
                       </h3>
                       
                       {/* Price */}
                       <div className="mb-4">
-                        <span className="text-lg font-bold text-foreground">
-                          {getProductPrice(product)}
-                        </span>
+                        {(() => {
+                          const priceData = getProductPrice(product);
+                          if (typeof priceData === 'string') {
+                            return <span className="text-lg font-bold text-foreground">{priceData}</span>;
+                          }
+                          return (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg font-bold text-destructive">
+                                  ${priceData.price.toFixed(2)}
+                                </span>
+                                {priceData.original && (
+                                  <span className="text-sm line-through text-muted-foreground">
+                                    ${priceData.original.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                              {priceData.onSale && priceData.original && (
+                                <span className="text-xs text-green-600 font-medium">
+                                  Save ${(priceData.original - priceData.price).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                       
                       {/* Stock Status */}

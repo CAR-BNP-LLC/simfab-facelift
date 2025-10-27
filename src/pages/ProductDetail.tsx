@@ -295,37 +295,55 @@ const ProductDetail = () => {
     }));
   };
 
+  // Check if sale is currently active
+  const isSaleActive = () => {
+    const prod = product as any;
+    if (!prod.is_on_sale) return false;
+    
+    const now = new Date();
+    const startDate = prod.sale_start_date ? new Date(prod.sale_start_date) : null;
+    const endDate = prod.sale_end_date ? new Date(prod.sale_end_date) : null;
+    
+    if (startDate && now < startDate) return false;
+    if (endDate && now > endDate) return false;
+    
+    return true;
+  };
+
   const getDisplayPrice = () => {
     try {
       if (calculatedPrice !== null && calculatedPrice !== undefined) {
-        return `$${calculatedPrice.toFixed(2)}`;
+        return { price: calculatedPrice, original: null, onSale: false };
       }
       
-      if (!product) return 'Loading...';
+      if (!product) return { price: 0, original: null, onSale: false };
       
       const prod = product as any;
+      const onSale = isSaleActive();
       
       // Try different price field combinations
       if (prod.price_min !== undefined && prod.price_max !== undefined && prod.price_min !== prod.price_max) {
-        return `$${prod.price_min.toFixed(2)} - $${prod.price_max.toFixed(2)}`;
+        return { price: prod.price_min, original: prod.price_max, onSale: false, range: true };
       }
       if (prod.price?.min !== undefined && prod.price?.max !== undefined) {
-        return `$${prod.price.min.toFixed(2)} - $${prod.price.max.toFixed(2)}`;
-      }
-      if (prod.regular_price !== undefined && prod.regular_price !== null) {
-        return `$${prod.regular_price.toFixed(2)}`;
-      }
-      if (prod.price?.regular) {
-        return `$${prod.price.regular.toFixed(2)}`;
-      }
-      if (prod.sale_price !== undefined && prod.sale_price !== null) {
-        return `$${prod.sale_price.toFixed(2)}`;
+        return { price: prod.price.min, original: prod.price.max, onSale: false, range: true };
       }
       
-      return 'Price TBD';
+      if (onSale && prod.sale_price !== undefined && prod.sale_price !== null) {
+        return { price: prod.sale_price, original: prod.regular_price, onSale: true };
+      }
+      
+      if (prod.regular_price !== undefined && prod.regular_price !== null) {
+        return { price: prod.regular_price, original: null, onSale: false };
+      }
+      if (prod.price?.regular) {
+        return { price: prod.price.regular, original: null, onSale: false };
+      }
+      
+      return { price: 0, original: null, onSale: false };
     } catch (error) {
       console.error('Error displaying price:', error);
-      return 'Price TBD';
+      return { price: 0, original: null, onSale: false };
     }
   };
 
@@ -523,18 +541,56 @@ const ProductDetail = () => {
           <div className="lg:col-span-4 lg:sticky lg:top-8 lg:pr-4">
             <div className="space-y-6">
             <div>
+              {/* Sale Badge */}
+              {isSaleActive() && (product as any).sale_label && (
+                <div className="inline-block bg-red-500 text-white px-3 py-1 rounded-md text-sm font-bold mb-3">
+                  {(product as any).sale_label}
+                </div>
+              )}
+              
               <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
               <p className="text-muted-foreground leading-relaxed mb-4">
                 {product.shortDescription || product.description}
               </p>
-              <div className="flex items-baseline gap-3">
-                <p className="text-4xl font-bold">
-                  {getDisplayPrice()}
-                </p>
-                {calculating && (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                )}
-              </div>
+              
+              {(() => {
+                const priceData = getDisplayPrice();
+                if (priceData.range) {
+                  return (
+                    <div className="flex items-baseline gap-3">
+                      <p className="text-4xl font-bold">
+                        ${priceData.price.toFixed(2)} - ${priceData.original.toFixed(2)}
+                      </p>
+                      {calculating && (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-baseline gap-3">
+                      <p className={`text-4xl font-bold ${priceData.onSale ? 'text-destructive' : ''}`}>
+                        ${priceData.price.toFixed(2)}
+                      </p>
+                      {priceData.original && (
+                        <p className="text-xl line-through text-muted-foreground">
+                          ${priceData.original.toFixed(2)}
+                        </p>
+                      )}
+                      {calculating && (
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
+                    {priceData.onSale && priceData.original && (
+                      <p className="text-sm text-green-600 font-medium">
+                        Save ${(priceData.original - priceData.price).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+              
               {calculatedPrice !== null && (
                 <p className="text-sm text-muted-foreground mt-1">
                   Price updates based on your selections

@@ -59,7 +59,9 @@ export interface AppliedCoupon {
   code: string;
   type: 'percentage' | 'fixed';
   value: number;
-  discountAmount: number;
+  discountAmount?: number; // Alias for compatibility
+  amount?: number;
+  description?: string;
 }
 
 // ============================================================================
@@ -95,6 +97,7 @@ export interface Coupon {
   maximum_discount_amount: number | null;
   usage_limit: number | null;
   usage_count: number;
+  per_user_limit: number | null;
   start_date: Date | null;
   end_date: Date | null;
   is_active: boolean;

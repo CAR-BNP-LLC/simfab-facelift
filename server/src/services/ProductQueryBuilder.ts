@@ -59,6 +59,7 @@ export class ProductQueryBuilder {
         p.shipping_class, p.brands, p.created_at, p.updated_at,
         p.status, p.featured, p.price_min, p.price_max, p.meta_data,
         p.seo_title, p.seo_description,
+        p.is_on_sale, p.sale_start_date, p.sale_end_date, p.sale_label,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -147,6 +148,7 @@ export class ProductQueryBuilder {
         p.shipping_class, p.brands, p.created_at, p.updated_at,
         p.status, p.featured, p.price_min, p.price_max, p.meta_data,
         p.seo_title, p.seo_description,
+        p.is_on_sale, p.sale_start_date, p.sale_end_date, p.sale_label,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order LIMIT 1) pi),

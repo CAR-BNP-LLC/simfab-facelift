@@ -132,7 +132,7 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
       onError={handlePayPalError}
       style={{
         layout: 'vertical',
-        color: paymentMethod === 'guest_card' ? 'blue' : 'gold',
+        color: paymentMethod === 'guest_card' ? 'black' : 'gold',
         shape: 'rect',
         label: paymentMethod === 'guest_card' ? 'pay' : 'paypal',
         height: 45,

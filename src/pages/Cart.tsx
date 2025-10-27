@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { Plus, Minus, X, ShoppingCart, Loader2 } from 'lucide-react';
+import { Plus, Minus, X, ShoppingCart, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
@@ -246,6 +246,27 @@ const Cart = () => {
             <div className="lg:col-span-1">
               <div className="bg-card rounded-lg shadow-sm border border-border p-6 sticky top-4">
                 <h2 className="text-xl font-bold mb-6">Cart Summary</h2>
+
+                {/* Applied Coupons */}
+                {cart?.appliedCoupons && cart.appliedCoupons.length > 0 && (
+                  <div className="mb-6 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                    <p className="text-xs font-medium text-muted-foreground mb-2">Applied Coupons:</p>
+                    {cart.appliedCoupons.map((coupon: any, idx: number) => {
+                      const discount = Number(coupon?.discountAmount ?? coupon?.amount ?? 0);
+                      return (
+                        <div key={idx} className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            <span className="font-mono font-semibold text-sm text-green-700 dark:text-green-300">{coupon?.code || 'Coupon'}</span>
+                          </div>
+                          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                            -${discount.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Coupon Code */}
                 <div className="mb-6">

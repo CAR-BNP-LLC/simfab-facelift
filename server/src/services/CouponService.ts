@@ -8,14 +8,27 @@ import { Coupon, CouponValidation, CartTotals } from '../types/cart';
 import { ValidationError } from '../utils/errors';
 
 export class CouponService {
-  constructor(private pool: Pool) {}
+  public pool: Pool;
+  
+  constructor(pool: Pool) {
+    this.pool = pool;
+  }
 
   /**
    * Get coupon by code
    */
-  async getCouponByCode(code: string): Promise<Coupon | null> {
+  async getCouponByCode(code: string): Promise<any> {
     const sql = `
-      SELECT * FROM coupons
+      SELECT 
+        id, code, description, 
+        discount_type as type, 
+        discount_value as value,
+        minimum_order_amount, maximum_discount_amount,
+        usage_limit, usage_count, per_user_limit,
+        valid_from as start_date, valid_until as end_date,
+        is_active, applicable_products, applicable_categories, 
+        excluded_products, created_at, updated_at
+      FROM coupons
       WHERE UPPER(code) = UPPER($1) AND is_active = true
     `;
 
@@ -118,15 +131,23 @@ export class CouponService {
     minimum_order_amount?: number;
     maximum_discount_amount?: number;
     usage_limit?: number;
+    per_user_limit?: number;
     start_date?: Date;
     end_date?: Date;
-  }): Promise<Coupon> {
+  }): Promise<any> {
     const sql = `
       INSERT INTO coupons (
-        code, type, value, description, minimum_order_amount,
-        maximum_discount_amount, usage_limit, start_date, end_date, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
-      RETURNING *
+        code, discount_type, discount_value, description, minimum_order_amount,
+        maximum_discount_amount, usage_limit, per_user_limit, valid_from, valid_until, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+      RETURNING 
+        id, code, description, 
+        discount_type as type, 
+        discount_value as value,
+        minimum_order_amount, maximum_discount_amount,
+        usage_limit, usage_count, per_user_limit,
+        valid_from as start_date, valid_until as end_date,
+        is_active, created_at, updated_at
     `;
 
     const result = await this.pool.query(sql, [
@@ -137,6 +158,7 @@ export class CouponService {
       data.minimum_order_amount || null,
       data.maximum_discount_amount || null,
       data.usage_limit || null,
+      data.per_user_limit || 1,
       data.start_date || null,
       data.end_date || null
     ]);
