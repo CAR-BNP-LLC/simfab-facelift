@@ -164,50 +164,54 @@ export class CartController {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
 
-      // Get cart
-      const cart = await this.cartService.getCartWithItems(sessionId, userId);
+      // Get cart to get cartId
+      const cart = await this.cartService.getOrCreateCart(sessionId, userId);
 
-      if (!cart || cart.items.length === 0) {
-        throw new ValidationError('Cannot apply coupon to empty cart');
+      if (!cart) {
+        throw new ValidationError('Cart not found');
       }
 
-      // Validate coupon
-      const validation = await this.couponService.validateCoupon(couponCode, cart.totals.subtotal);
+      // Apply coupon using CartService
+      const appliedCoupon = await this.cartService.applyCoupon(cart.id, couponCode);
 
-      if (!validation.valid) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'INVALID_COUPON',
-            message: validation.errors[0] || 'Invalid coupon code',
-            errors: validation.errors
-          }
-        });
-      }
-
-      // Calculate discount
-      const discount = this.couponService.calculateDiscount(validation.coupon!, cart.totals.subtotal);
-
-      // TODO: Store applied coupon in cart
-      // For now, just return the discount info
+      // Get updated cart with new totals
+      const updatedCart = await this.cartService.getCartWithItems(sessionId, userId);
 
       res.json(successResponse({
-        coupon: {
-          code: validation.coupon!.code,
-          type: validation.coupon!.type,
-          value: validation.coupon!.value,
-          description: validation.coupon!.description
-        },
-        discount: {
-          amount: discount,
-          percentage: validation.coupon!.type === 'percentage' ? validation.coupon!.value : null
-        },
-        cartTotals: {
-          ...cart.totals,
-          discount,
-          total: cart.totals.subtotal - discount + cart.totals.shipping + cart.totals.tax
-        },
+        coupon: appliedCoupon,
+        cart: updatedCart,
         message: 'Coupon applied successfully'
+      }));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Remove coupon from cart
+   * POST /api/cart/remove-coupon
+   */
+  removeCoupon = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const sessionId = req.sessionID;
+      const userId = req.session?.userId;
+
+      // Get cart
+      const cart = await this.cartService.getOrCreateCart(sessionId, userId);
+
+      if (!cart) {
+        throw new ValidationError('Cart not found');
+      }
+
+      // Remove coupon
+      await this.cartService.removeCoupon(cart.id);
+
+      // Get updated cart with new totals
+      const updatedCart = await this.cartService.getCartWithItems(sessionId, userId);
+
+      res.json(successResponse({
+        cart: updatedCart,
+        message: 'Coupon removed successfully'
       }));
     } catch (error) {
       next(error);

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, User, ShoppingCart, Menu, X, Settings } from 'lucide-react';
+import { Search, User, ShoppingCart, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import DebugPanel from './DebugPanel';
 import CartSidebar from './CartSidebar';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,7 +10,6 @@ import { productsAPI } from '@/services/api';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeMegaMenu, setActiveMegaMenu] = useState<string | null>(null);
-  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [megaMenuProducts, setMegaMenuProducts] = useState<Record<string, any[]>>({});
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
@@ -439,15 +437,6 @@ const Header = () => {
                 )}
               </button>
               
-              {/* Debug Button */}
-              <button 
-                className="text-foreground hover:text-primary transition-colors"
-                onClick={() => setShowDebugPanel(!showDebugPanel)}
-                title="Debug Panel"
-              >
-                <Settings className="w-4 h-4 lg:w-5 lg:h-5" />
-              </button>
-              
               {/* Admin Button */}
               <Button 
                 variant="outline"
@@ -700,27 +689,6 @@ const Header = () => {
           </div>
         )}
       </div>
-
-      {/* Debug Panel */}
-      {showDebugPanel && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-lg shadow-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Debug Panel</h2>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowDebugPanel(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
-              <DebugPanel />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Cart Sidebar */}
       <CartSidebar 

@@ -53,6 +53,12 @@ export interface Product {
   regular_price: number | null;
   sale_price: number | null;
   
+  // Discount fields
+  is_on_sale: boolean;
+  sale_start_date: Date | null;
+  sale_end_date: Date | null;
+  sale_label: string | null;
+  
   // Physical attributes
   weight_lbs: number | null;
   length_in: number | null;
@@ -301,6 +307,10 @@ export interface CreateProductDto {
   sale_price?: number;
   sale_start_date?: Date;
   sale_end_date?: Date;
+  
+  // Discount fields
+  is_on_sale?: boolean;
+  sale_label?: string;
   
   // Physical
   weight_lbs?: number;

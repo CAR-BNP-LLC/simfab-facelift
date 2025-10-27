@@ -33,7 +33,6 @@ import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import CookieNotice from "./components/CookieNotice";
-import DebugAdminButton from "./components/DebugAdminButton";
 
 const queryClient = new QueryClient();
 
@@ -76,7 +75,6 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <CookieNotice />
-          <DebugAdminButton />
           </BrowserRouter>
           </TooltipProvider>
         </PayPalProvider>

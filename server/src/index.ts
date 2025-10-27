@@ -9,6 +9,7 @@ import { createAdminProductRoutes } from './routes/admin/products';
 import { createAdminOrderRoutes } from './routes/admin/orders';
 import { createAdminDashboardRoutes } from './routes/admin/dashboard';
 import { createAdminRBACRoutes } from './routes/admin/rbac';
+import { createAdminCouponRoutes } from './routes/admin/coupons';
 import { createCartRoutes } from './routes/cart';
 import { createOrderRoutes } from './routes/orders';
 import { createPaymentRoutes } from './routes/payments';
@@ -19,7 +20,6 @@ import { createWebhookTestRoutes } from './routes/admin/webhookTest';
 import { createProductionRoutes } from './routes/admin/production';
 import { createTestingRoutes } from './routes/admin/testing';
 import { createPhase4Routes } from './routes/admin/phase4';
-import { createDebugRoutes } from './routes/debug';
 import { pool } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { CleanupService } from './services/CleanupService';
@@ -86,13 +86,13 @@ app.use('/api/admin/products', createAdminProductRoutes(pool));
 app.use('/api/admin/orders', createAdminOrderRoutes(pool));
 app.use('/api/admin/dashboard', createAdminDashboardRoutes(pool));
 app.use('/api/admin/rbac', createAdminRBACRoutes(pool));
+app.use('/api/admin/coupons', createAdminCouponRoutes(pool));
 app.use('/api/admin/cleanup', createCleanupRoutes(pool));
 app.use('/api/admin/cron', createCronRoutes(pool, cronService));
 app.use('/api/admin/webhook-test', createWebhookTestRoutes(pool));
 app.use('/api/admin/production', createProductionRoutes(pool));
 app.use('/api/admin/testing', createTestingRoutes(pool));
 app.use('/api/admin/phase4', createPhase4Routes(pool));
-app.use('/api/admin/debug', createDebugRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -130,11 +130,6 @@ app.get('/', (req, res) => {
         create: '/api/payments/create',
         execute: '/api/payments/execute',
         status: '/api/payments/:paymentId'
-      },
-      admin: {
-        debug: {
-          grantAdminRole: '/api/admin/debug/grant-admin-role'
-        }
       }
     }
   });
