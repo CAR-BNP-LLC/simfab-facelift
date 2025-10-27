@@ -560,6 +560,49 @@ export class ProductService {
     return result.rows;
   }
 
+  /**
+   * Get bundle items for a product (if it's a bundle)
+   */
+  async getBundleItems(productId: number) {
+    const sql = `
+      SELECT 
+        bi.*,
+        p.name as item_product_name,
+        p.slug as item_product_slug,
+        p.regular_price as item_product_price
+      FROM product_bundle_items bi
+      JOIN products p ON p.id = bi.item_product_id
+      WHERE bi.bundle_product_id = $1
+      ORDER BY bi.item_type DESC, bi.sort_order ASC
+    `;
+
+    const result = await this.pool.query(sql, [productId]);
+    return result.rows;
+  }
+
+  /**
+   * Get product bundle items with details (for customer-facing)
+   */
+  async getBundleItemsWithDetails(productId: number) {
+    const bundleItems = await this.getBundleItems(productId);
+    
+    // Get details for each item
+    const itemsWithDetails = await Promise.all(
+      bundleItems.map(async (item) => {
+        const itemVariations = await this.getProductVariations(item.item_product_id);
+        return {
+          ...item,
+          variations: itemVariations
+        };
+      })
+    );
+
+    return {
+      required: itemsWithDetails.filter(item => item.item_type === 'required'),
+      optional: itemsWithDetails.filter(item => item.item_type === 'optional')
+    };
+  }
+
   private generateSlug(name: string): string {
     return name
       .toLowerCase()

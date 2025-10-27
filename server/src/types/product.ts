@@ -69,6 +69,7 @@ export interface Product {
   stock: number; // Database uses 'stock' not 'stock_quantity'
   low_stock_amount: number; // Database uses 'low_stock_amount'
   in_stock: string; // Database uses string '1' or '0'
+  is_bundle: boolean; // If true, this product contains other products
   
   // Shipping
   tax_class: string | null;
@@ -112,6 +113,7 @@ export interface ProductVariation {
   name: string;
   description: string | null;
   is_required: boolean;
+  tracks_stock: boolean; // If true, each option has separate stock
   sort_order: number;
   created_at: Date;
 }
@@ -125,6 +127,13 @@ export interface VariationOption {
   image_url: string | null;
   is_default: boolean;
   sort_order: number;
+  
+  // Stock tracking fields
+  stock_quantity: number | null; // Stock available for this specific option
+  low_stock_threshold: number | null;
+  reserved_quantity: number; // Currently reserved in pending orders
+  is_available: boolean | null; // For backwards compatibility
+  
   created_at: Date;
 }
 
@@ -410,5 +419,61 @@ export interface ProductListItem extends Product {
 export interface BulkUpdateProducts {
   productIds: number[];
   updates: Partial<UpdateProductDto>;
+}
+
+// ============================================================================
+// BUNDLE & STOCK TYPES
+// ============================================================================
+
+export interface ProductBundleItem {
+  id: number;
+  bundle_product_id: number;
+  item_product_id: number;
+  quantity: number;
+  item_type: 'required' | 'optional';
+  is_configurable: boolean;
+  price_adjustment: number;
+  display_name: string | null;
+  description: string | null;
+  sort_order: number;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface VariationStockReservation {
+  id: number;
+  order_id: number;
+  variation_option_id: number;
+  quantity: number;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'expired';
+  expires_at: Date;
+  created_at: Date;
+}
+
+export interface StockCheckResult {
+  available: boolean;
+  availableQuantity: number;
+  message?: string;
+  variationStock?: Array<{
+    variationName: string;
+    optionName: string;
+    available: number;
+  }>;
+}
+
+export interface BundleConfiguration {
+  requiredItems: Array<{
+    productId: number;
+    productName: string;
+    quantity: number;
+    configuration?: Record<number, number>; // variationId -> optionId
+  }>;
+  optionalItems: Array<{
+    productId: number;
+    productName: string;
+    quantity: number;
+    priceAdjustment: number;
+    selected: boolean;
+  }>;
 }
 

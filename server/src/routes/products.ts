@@ -137,5 +137,26 @@ export const createProductRoutes = (pool: Pool): Router => {
     controller.validateConfiguration
   );
 
+  /**
+   * @route   GET /api/products/:id/bundle-items
+   * @desc    Get bundle items for a product (if bundle)
+   * @access  Public
+   */
+  router.get(
+    '/:id/bundle-items',
+    controller.getBundleItems
+  );
+
+  /**
+   * @route   POST /api/products/:id/check-availability
+   * @desc    Check stock availability for a product configuration
+   * @access  Public
+   */
+  router.post(
+    '/:id/check-availability',
+    validateRequest(calculatePriceSchema),
+    controller.checkAvailability
+  );
+
   return router;
 };
