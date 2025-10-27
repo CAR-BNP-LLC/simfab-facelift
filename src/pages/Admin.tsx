@@ -33,7 +33,7 @@ import {
   GripVertical,
   Trash,
   Info,
-  Ticket
+  Ticket,
   ExternalLink
 } from 'lucide-react';
 import Header from '@/components/Header';
