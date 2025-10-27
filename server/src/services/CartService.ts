@@ -110,6 +110,11 @@ export class CartService {
           p.name as product_name,
           p.sku as product_sku,
           p.slug as product_slug,
+          p.regular_price,
+          p.sale_price,
+          p.is_on_sale,
+          p.sale_start_date,
+          p.sale_end_date,
           COALESCE(
             (SELECT json_agg(row_to_json(pi))
              FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -127,14 +132,25 @@ export class CartService {
       const itemsResult = await this.pool.query(itemsSql, [cart.id]);
       const items = itemsResult.rows;
 
+      // Get applied coupons
+      const couponsResult = await this.pool.query(
+        `SELECT c.id, c.code, c.discount_type as type, c.discount_value as value, 
+                c.description, cc.discount_amount as amount
+         FROM cart_coupons cc
+         JOIN coupons c ON c.id = cc.coupon_id
+         WHERE cc.cart_id = $1`,
+        [cart.id]
+      );
+      const appliedCoupons = couponsResult.rows;
+
       // Calculate totals
-      const totals = this.calculateTotals(items);
+      const totals = await this.calculateTotals(cart.id, items);
 
       return {
         ...cart,
         items,
         totals,
-        appliedCoupons: [] // TODO: Implement coupon storage
+        appliedCoupons
       };
     } catch (error) {
       console.error('Error getting cart with items:', error);
@@ -486,23 +502,78 @@ export class CartService {
   /**
    * Calculate cart totals
    */
-  private calculateTotals(items: CartItemWithProduct[]): CartTotals {
+  private async calculateTotals(cartId: number, items: CartItemWithProduct[]): Promise<CartTotals> {
+    // Calculate subtotal from items
     const subtotal = items.reduce((sum, item) => sum + parseFloat(item.total_price.toString()), 0);
-    const discount = 0; // TODO: Calculate from applied coupons
+
+    // Calculate product discounts (from sale prices)
+    const productDiscount = items.reduce((sum, item) => {
+      // Access discount fields directly from item (they're joined in the SQL query)
+      const isOnSale = (item as any).is_on_sale;
+      if (isOnSale && this.isSaleActive(item)) {
+        const regularPrice = parseFloat(((item as any).regular_price || 0).toString());
+        const salePrice = parseFloat(((item as any).sale_price || 0).toString());
+        const discountPerUnit = Math.max(0, regularPrice - salePrice);
+        return sum + (discountPerUnit * item.quantity);
+      }
+      return sum;
+    }, 0);
+
+    // Get coupon discounts
+    const couponDiscount = await this.getCouponDiscounts(cartId);
+
+    const totalDiscount = productDiscount + couponDiscount;
     const shipping = 0; // TODO: Calculate based on shipping method
     const tax = 0; // TODO: Calculate based on address
-    const total = subtotal - discount + shipping + tax;
+    const total = subtotal - totalDiscount + shipping + tax;
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
     return {
       subtotal: Math.round(subtotal * 100) / 100,
-      discount: Math.round(discount * 100) / 100,
+      discount: Math.round(totalDiscount * 100) / 100,
       shipping: Math.round(shipping * 100) / 100,
       tax: Math.round(tax * 100) / 100,
       total: Math.round(total * 100) / 100,
       currency: 'USD',
       itemCount
     };
+  }
+
+  /**
+   * Check if product sale is currently active
+   */
+  private isSaleActive(item: any): boolean {
+    if (!item?.is_on_sale) return false;
+
+    const now = new Date();
+    
+    // Check start date
+    if (item.sale_start_date && new Date(item.sale_start_date) > now) {
+      return false;
+    }
+    
+    // Check end date
+    if (item.sale_end_date && new Date(item.sale_end_date) < now) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
+   * Get total coupon discount amount for cart
+   */
+  private async getCouponDiscounts(cartId: number): Promise<number> {
+    try {
+      const result = await this.pool.query(
+        'SELECT COALESCE(SUM(discount_amount), 0) as total FROM cart_coupons WHERE cart_id = $1',
+        [cartId]
+      );
+      return parseFloat(result.rows[0]?.total || 0);
+    } catch (error) {
+      console.error('Error getting coupon discounts:', error);
+      return 0;
+    }
   }
 
   /**
@@ -646,6 +717,146 @@ export class CartService {
       console.error('Error restoring cart from checkout:', error);
       throw error;
     }
+  }
+
+  /**
+   * Apply coupon to cart
+   */
+  async applyCoupon(cartId: number, couponCode: string): Promise<AppliedCoupon> {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Get cart with items to calculate subtotal
+      const cartResult = await client.query(
+        'SELECT * FROM carts WHERE id = $1',
+        [cartId]
+      );
+      
+      if (cartResult.rows.length === 0) {
+        throw new NotFoundError('Cart', { cartId });
+      }
+      
+      // Get cart items and calculate subtotal
+      const itemsResult = await client.query(
+        `SELECT ci.quantity, ci.total_price 
+         FROM cart_items ci 
+         WHERE ci.cart_id = $1`,
+        [cartId]
+      );
+      
+      if (itemsResult.rows.length === 0) {
+        throw new ValidationError('Cannot apply coupon to empty cart');
+      }
+      
+      const subtotal = itemsResult.rows.reduce((sum, item) => 
+        sum + parseFloat(item.total_price.toString()), 0
+      );
+      
+      // Get coupon
+      const couponResult = await client.query(
+        'SELECT * FROM coupons WHERE UPPER(code) = UPPER($1) AND is_active = true',
+        [couponCode]
+      );
+      
+      if (couponResult.rows.length === 0) {
+        throw new ValidationError('Invalid coupon code');
+      }
+      
+      const coupon = couponResult.rows[0];
+      
+      // Validate coupon dates
+      const now = new Date();
+      if (coupon.valid_from && new Date(coupon.valid_from) > now) {
+        throw new ValidationError('Coupon is not yet valid');
+      }
+      
+      if (coupon.valid_until && new Date(coupon.valid_until) < now) {
+        throw new ValidationError('Coupon has expired');
+      }
+      
+      // Check minimum order amount
+      if (coupon.minimum_order_amount && subtotal < coupon.minimum_order_amount) {
+        throw new ValidationError(`Minimum order amount of $${coupon.minimum_order_amount} required`);
+      }
+      
+      // Check usage limit
+      if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+        throw new ValidationError('Coupon usage limit reached');
+      }
+      
+      // Check per-user limit if user is logged in
+      if (cartResult.rows[0].user_id && coupon.per_user_limit) {
+        const userUsageResult = await client.query(
+          `SELECT COUNT(*)::int as count 
+           FROM coupon_usage 
+           WHERE coupon_id = $1 AND user_id = $2`,
+          [coupon.id, cartResult.rows[0].user_id]
+        );
+        
+        const userUsageCount = userUsageResult.rows[0].count;
+        
+        if (userUsageCount >= coupon.per_user_limit) {
+          throw new ValidationError('You have already used this coupon the maximum number of times');
+        }
+      }
+      
+      // Calculate discount
+      let discount = 0;
+      if (coupon.discount_type === 'percentage') {
+        discount = (subtotal * coupon.discount_value) / 100;
+      } else if (coupon.discount_type === 'fixed') {
+        discount = coupon.discount_value;
+      }
+      
+      // Apply maximum discount limit
+      if (coupon.maximum_discount_amount && discount > coupon.maximum_discount_amount) {
+        discount = coupon.maximum_discount_amount;
+      }
+      
+      // Discount cannot exceed cart total
+      if (discount > subtotal) {
+        discount = subtotal;
+      }
+      
+      discount = Math.round(discount * 100) / 100;
+      
+      // Store applied coupon
+      await client.query(
+        `INSERT INTO cart_coupons (cart_id, coupon_id, discount_amount)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (cart_id, coupon_id) DO UPDATE
+         SET discount_amount = $3`,
+        [cartId, coupon.id, discount]
+      );
+      
+      await client.query('COMMIT');
+      
+      return {
+        code: coupon.code,
+        type: coupon.discount_type,
+        value: coupon.discount_value,
+        discountAmount: discount,
+        amount: discount,
+        description: coupon.description
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  
+  /**
+   * Remove coupon from cart
+   */
+  async removeCoupon(cartId: number): Promise<void> {
+    await this.pool.query(
+      'DELETE FROM cart_coupons WHERE cart_id = $1',
+      [cartId]
+    );
   }
 }
 

@@ -25,6 +25,10 @@ export const createProductSchema = Joi.object({
   sale_price: Joi.number().positive().optional(),
   sale_start_date: Joi.date().optional(),
   sale_end_date: Joi.date().optional(),
+  
+  // Discount fields
+  is_on_sale: Joi.boolean().optional(),
+  sale_label: Joi.string().max(100).optional(),
 
   // Physical attributes
   weight_lbs: Joi.number().positive().optional(),
@@ -66,8 +70,12 @@ export const updateProductSchema = Joi.object({
   // Pricing
   regular_price: Joi.number().positive().optional(),
   sale_price: Joi.number().positive().optional(),
+  
+  // Discount fields
+  is_on_sale: Joi.boolean().optional(),
   sale_start_date: Joi.date().allow(null).optional(),
   sale_end_date: Joi.date().allow(null).optional(),
+  sale_label: Joi.string().max(100).allow(null, '').optional(),
 
   // Physical attributes
   weight_lbs: Joi.number().positive().allow(null).optional(),

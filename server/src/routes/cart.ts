@@ -95,6 +95,16 @@ export const createCartRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   POST /api/cart/remove-coupon
+   * @desc    Remove discount coupon from cart
+   * @access  Public
+   */
+  router.post(
+    '/remove-coupon',
+    controller.removeCoupon
+  );
+
+  /**
    * @route   POST /api/cart/merge
    * @desc    Merge guest cart with user cart (after login)
    * @access  Authenticated

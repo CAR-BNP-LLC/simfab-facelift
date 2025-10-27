@@ -331,6 +331,11 @@ export interface Product {
   };
   createdAt: string;
   updatedAt: string;
+  // Discount fields
+  is_on_sale?: boolean;
+  sale_start_date?: string | null;
+  sale_end_date?: string | null;
+  sale_label?: string | null;
 }
 
 export interface ProductWithDetails extends Product {

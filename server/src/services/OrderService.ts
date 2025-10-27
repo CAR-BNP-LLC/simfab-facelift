@@ -325,6 +325,33 @@ export class OrderService {
         [PaymentStatus.PAID, OrderStatus.PROCESSING, orderId]
       );
 
+      // Record coupon usage
+      const orderResult = await client.query(
+        'SELECT cart_id, user_id, discount_amount FROM orders WHERE id = $1',
+        [orderId]
+      );
+
+      if (orderResult.rows.length > 0) {
+        const order = orderResult.rows[0];
+        const cartId = order.cart_id;
+        const userId = order.user_id;
+
+        // Get applied coupons for this cart
+        const cartCouponsResult = await client.query(
+          'SELECT coupon_id, discount_amount FROM cart_coupons WHERE cart_id = $1',
+          [cartId]
+        );
+
+        // Record each coupon usage
+        for (const cartCoupon of cartCouponsResult.rows) {
+          await client.query(
+            `INSERT INTO coupon_usage (coupon_id, user_id, order_id, discount_amount)
+             VALUES ($1, $2, $3, $4)`,
+            [cartCoupon.coupon_id, userId, orderId, cartCoupon.discount_amount]
+          );
+        }
+      }
+
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
