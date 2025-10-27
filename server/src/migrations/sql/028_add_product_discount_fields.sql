@@ -30,3 +30,4 @@ COMMENT ON TABLE cart_coupons IS 'Tracks which coupons are applied to which cart
 COMMENT ON COLUMN cart_coupons.discount_amount IS 'The calculated discount amount at time of application';
 COMMENT ON COLUMN products.is_on_sale IS 'Whether the product is currently on sale';
 COMMENT ON COLUMN products.sale_label IS 'Badge text to display on sale products (e.g., "50% OFF")';
+
