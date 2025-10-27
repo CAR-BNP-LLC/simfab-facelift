@@ -45,6 +45,12 @@ export class OrderService {
       if (!cart || cart.items.length === 0) {
         throw new ValidationError('Cannot create order with empty cart');
       }
+      
+      console.log('Cart items for order creation:', cart.items.map(item => ({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        product_image: item.product_image
+      })));
 
       // Validate cart
       const validation = await this.cartService.validateCartForCheckout(cart.id);
@@ -110,11 +116,19 @@ export class OrderService {
       const orderItems: OrderItem[] = [];
 
       for (const cartItem of cart.items) {
+        console.log('Creating order item from cart item:', {
+          product_id: cartItem.product_id,
+          product_name: cartItem.product_name,
+          product_sku: cartItem.product_sku,
+          product_image: cartItem.product_image,
+          has_image: !!cartItem.product_image
+        });
+        
         const orderItemSql = `
           INSERT INTO order_items (
-            order_id, product_id, product_name, product_sku,
+            order_id, product_id, product_name, product_sku, product_image,
             quantity, unit_price, total_price, selected_options
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           RETURNING *
         `;
 
@@ -123,11 +137,17 @@ export class OrderService {
           cartItem.product_id,
           cartItem.product_name,
           cartItem.product_sku,
+          cartItem.product_image || null,
           cartItem.quantity,
           cartItem.unit_price,
           cartItem.total_price,
           cartItem.configuration
         ]);
+        
+        console.log('Order item created with image:', {
+          id: orderItemResult.rows[0].id,
+          product_image: orderItemResult.rows[0].product_image
+        });
 
         orderItems.push(orderItemResult.rows[0]);
 

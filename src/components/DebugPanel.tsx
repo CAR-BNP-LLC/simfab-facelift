@@ -38,7 +38,7 @@ const DebugPanel = () => {
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://simfabdev-d6add0a229a7.herokuapp.com/api';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api"
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -59,7 +59,8 @@ const DebugPanel = () => {
       const data = await response.json();
       
       if (data.success) {
-        setProducts(data.data);
+        // Ensure data.data is an array
+        setProducts(Array.isArray(data.data) ? data.data : []);
       } else {
         setError(data.error || 'Failed to fetch products');
       }

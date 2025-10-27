@@ -123,9 +123,9 @@ The integration maps internal order statuses to ShipStation statuses as follows:
   <Order>
     <OrderID>123</OrderID>
     <OrderNumber>ORDER-001</OrderNumber>
-    <OrderDate>2025-10-25T10:00:00.000Z</OrderDate>
+    <OrderDate>10/26/2025 11:36:14 AM</OrderDate>
     <OrderStatus>paid</OrderStatus>
-    <LastModifiedDate>2025-10-25T10:00:00.000Z</LastModifiedDate>
+    <LastModified>10/26/2025 11:36:14 AM</LastModified>
     <ShippingMethod>Standard Shipping</ShippingMethod>
     <PaymentMethod>PayPal</PaymentMethod>
     <OrderTotal>118.00</OrderTotal>
@@ -149,20 +149,21 @@ The integration maps internal order statuses to ShipStation statuses as follows:
         <Phone>555-123-4567</Phone>
         <Email>customer@example.com</Email>
       </BillTo>
+      <ShipTo>
+        <Name>John Doe</Name>
+        <Company>Test Company</Company>
+        <Address1>123 Test St</Address1>
+        <Address2></Address2>
+        <City>Test City</City>
+        <State>CA</State>
+        <PostalCode>12345</PostalCode>
+        <Country>US</Country>
+        <Phone>555-123-4567</Phone>
+      </ShipTo>
     </Customer>
-    <ShippingAddress>
-      <Name>John Doe</Name>
-      <Company>Test Company</Company>
-      <Address1>123 Test St</Address1>
-      <Address2></Address2>
-      <City>Test City</City>
-      <State>CA</State>
-      <PostalCode>12345</PostalCode>
-      <Country>US</Country>
-      <Phone>555-123-4567</Phone>
-    </ShippingAddress>
     <Items>
       <Item>
+        <LineItemID>1</LineItemID>
         <SKU>PRODUCT-SKU-001</SKU>
         <Name>Test Product</Name>
         <ImageUrl></ImageUrl>
@@ -172,7 +173,6 @@ The integration maps internal order statuses to ShipStation statuses as follows:
         <UnitPrice>100.00</UnitPrice>
         <Location></Location>
         <Options></Options>
-        <ProductID>1</ProductID>
       </Item>
     </Items>
   </Order>

@@ -21,20 +21,83 @@ export class ShipStationController {
   }
 
   /**
-   * Export orders to ShipStation (GET endpoint)
+   * Export orders to ShipStation (GET/POST endpoint)
    * ShipStation calls this endpoint to pull orders
    */
   exportOrders = async (req: ShipStationRequest, res: Response, next: NextFunction) => {
     try {
-      // Parse query parameters
-      const { action, start_date, end_date, page } = req.query;
+      // Debug: Log request details
+      console.log('=== ShipStation Export Request ===');
+      console.log('Method:', req.method);
+      console.log('Query params:', JSON.stringify(req.query));
+      console.log('Body:', typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
+      console.log('Headers:', {
+        'content-type': req.get('content-type'),
+        'user-agent': req.get('user-agent')
+      });
 
-      // Validate required parameters
+      // Get parameters from query string or body (POST requests may have params in body)
+      const action = req.query.action || req.body?.action;
+      const start_date = req.query.start_date || req.body?.start_date;
+      const end_date = req.query.end_date || req.body?.end_date;
+      const page = req.query.page || req.body?.page;
+
+      console.log('Parsed parameters:', { action, start_date, end_date, page });
+
+      // Handle shipment notification (ShipStation sends these to the orders endpoint)
+      if (action === 'shipnotify') {
+        console.log('Processing shipment notification');
+        
+        // Helper to get value from query or body, handling empty strings
+        const getParam = (key: string) => {
+          const queryVal = req.query[key];
+          const bodyVal = req.body?.[key];
+          return (typeof queryVal === 'string' && queryVal.trim() !== '') ? queryVal : 
+                 (typeof bodyVal === 'string' && bodyVal.trim() !== '') ? bodyVal : undefined;
+        };
+        
+        const trackingData = {
+          order_number: getParam('order_number'),
+          tracking_number: getParam('tracking_number'),
+          carrier: getParam('carrier'),
+          shipped_date: new Date().toISOString(),
+          service_code: getParam('service')
+        };
+
+        console.log('Extracted tracking data:', trackingData);
+
+        // Order number and carrier are required, tracking_number is optional (may be assigned later)
+        if (!trackingData.order_number || !trackingData.carrier) {
+          console.error('Missing required shipment data:', trackingData);
+          return res.status(400).send(buildErrorResponseXML('Missing required shipment data. Required: order_number, carrier'));
+        }
+
+        // If tracking number is not provided, we can still process the shipment notification
+        if (!trackingData.tracking_number) {
+          console.warn('Tracking number not provided, proceeding with shipment update anyway');
+        }
+
+        const success = await this.shipStationService.processShipmentUpdateByData(trackingData);
+        
+        if (success) {
+          res.set('Content-Type', 'application/xml; charset=utf-8');
+          res.send(buildSuccessResponseXML());
+          console.log('Shipment notification processed successfully');
+        } else {
+          console.error('Failed to process shipment notification');
+          res.status(400).send(buildErrorResponseXML('Failed to process shipment update'));
+        }
+        return;
+      }
+
+      // Handle order export
       if (action !== 'export') {
-        return res.status(400).send(buildErrorResponseXML('Invalid action parameter'));
+        console.error('Invalid action parameter:', action);
+        return res.status(400).send(buildErrorResponseXML(`Invalid action parameter: ${action}. Expected 'export' or 'shipnotify'`));
       }
 
       if (!start_date || !end_date) {
+        console.error('Missing date parameters:', { start_date, end_date });
         return res.status(400).send(buildErrorResponseXML('Missing start_date or end_date parameter'));
       }
 
@@ -43,13 +106,17 @@ export class ShipStationController {
       const endDate = new Date(end_date as string);
       const pageNum = parseInt(page as string) || 1;
 
+      console.log('Parsed dates:', { startDate, endDate, pageNum });
+
       // Validate dates
       if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        console.error('Invalid date format:', { start_date, end_date });
         return res.status(400).send(buildErrorResponseXML('Invalid date format'));
       }
 
       // Ensure end date is not before start date
       if (endDate < startDate) {
+        console.error('End date before start date');
         return res.status(400).send(buildErrorResponseXML('End date must be after start date'));
       }
 
@@ -57,6 +124,7 @@ export class ShipStationController {
       const maxDays = 30;
       const daysDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
       if (daysDiff > maxDays) {
+        console.error('Date range too large:', daysDiff);
         return res.status(400).send(buildErrorResponseXML(`Date range cannot exceed ${maxDays} days`));
       }
 
@@ -64,6 +132,9 @@ export class ShipStationController {
 
       // Generate XML response
       const xmlResponse = await this.shipStationService.getOrdersXML(startDate, endDate, pageNum);
+      
+      console.log('Generated XML response length:', xmlResponse.length);
+      console.log('XML preview (first 500 chars):', xmlResponse.substring(0, 500));
 
       // Set appropriate headers for XML response
       res.set({
@@ -74,8 +145,13 @@ export class ShipStationController {
       });
 
       res.send(xmlResponse);
+      console.log('Response sent successfully');
     } catch (error) {
       console.error('Error in ShipStation export:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       res.status(500).send(buildErrorResponseXML('Internal server error'));
     }
   };

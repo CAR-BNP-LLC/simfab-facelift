@@ -30,6 +30,9 @@ import { CronService } from './services/CronService';
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
+// Trust proxy for accurate IP addresses (Docker/Heroku/proxy)
+app.set('trust proxy', 1);
+
 // Session store - using PostgreSQL for all environments
 const pgSession = require('connect-pg-simple')(session);
 

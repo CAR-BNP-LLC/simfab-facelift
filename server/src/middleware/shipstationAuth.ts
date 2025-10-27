@@ -16,8 +16,14 @@ export interface ShipStationRequest extends Request {
  * Basic HTTP Auth middleware for ShipStation
  */
 export function shipstationAuth(req: ShipStationRequest, res: Response, next: NextFunction) {
+  console.log('=== ShipStation Auth Middleware ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Has auth header:', !!req.headers.authorization);
+
   // Skip auth if ShipStation is disabled
   if (process.env.SHIPSTATION_ENABLED !== 'true') {
+    console.error('ShipStation is disabled');
     return res.status(503).json({
       success: false,
       error: {
@@ -31,6 +37,7 @@ export function shipstationAuth(req: ShipStationRequest, res: Response, next: Ne
   const authHeader = req.headers.authorization;
   
   if (!authHeader || !authHeader.startsWith('Basic ')) {
+    console.error('No basic auth header provided');
     return res.status(401).json({
       success: false,
       error: {
@@ -46,7 +53,10 @@ export function shipstationAuth(req: ShipStationRequest, res: Response, next: Ne
     const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
     const [username, password] = credentials.split(':');
 
+    console.log('Decoded credentials - Username:', username, '(length:', username?.length, ')');
+
     if (!username || !password) {
+      console.error('Invalid credentials format');
       return res.status(401).json({
         success: false,
         error: {
@@ -73,6 +83,7 @@ export function shipstationAuth(req: ShipStationRequest, res: Response, next: Ne
 
     if (username !== expectedUsername || password !== expectedPassword) {
       console.warn(`Invalid ShipStation credentials attempt from IP: ${req.ip}`);
+      console.warn('Expected username length:', expectedUsername?.length, 'Provided:', username?.length);
       return res.status(401).json({
         success: false,
         error: {

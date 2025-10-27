@@ -92,6 +92,7 @@ export class ShipStationService {
                 'id', oi.id,
                 'product_name', oi.product_name,
                 'product_sku', oi.product_sku,
+                'product_image', oi.product_image,
                 'quantity', oi.quantity,
                 'unit_price', oi.unit_price,
                 'total_price', oi.total_price,
@@ -172,31 +173,59 @@ export class ShipStationService {
       } = trackingData;
 
       // Update order with tracking information
-      const updateSql = `
-        UPDATE orders 
-        SET 
-          shipping_status = 'shipped',
-          tracking_number = $1,
-          carrier = $2,
-          updated_at = CURRENT_TIMESTAMP,
-          metadata = COALESCE(metadata, '{}'::jsonb) || 
-            jsonb_build_object(
-              'shipped_date', $3,
-              'service_code', $4,
-              'shipstation_updated', CURRENT_TIMESTAMP
-            )
-        WHERE order_number = $5
-        AND payment_status = 'paid'
-        RETURNING id, order_number
-      `;
+      // Handle optional tracking_number - only update if provided
+      let updateSql: string;
+      let params: any[];
+      
+      if (tracking_number) {
+        // Full update with tracking number
+        updateSql = `
+          UPDATE orders 
+          SET 
+            status = 'shipped',
+            shipping_status = 'shipped',
+            tracking_number = $1,
+            carrier = $2,
+            updated_at = CURRENT_TIMESTAMP,
+            metadata = COALESCE(metadata, '{}'::jsonb) || 
+              jsonb_build_object(
+                'shipped_date', $3::text,
+                'service_code', $4::text,
+                'shipstation_updated', CURRENT_TIMESTAMP
+              )
+          WHERE order_number = $5
+          AND payment_status = 'paid'
+          RETURNING id, order_number
+        `;
+        params = [tracking_number, carrier, shipped_date, service_code || null, order_number];
+      } else {
+        // Update without tracking number (tracking may be assigned later)
+        updateSql = `
+          UPDATE orders 
+          SET 
+            status = 'shipped',
+            shipping_status = 'shipped',
+            carrier = $1,
+            updated_at = CURRENT_TIMESTAMP,
+            metadata = COALESCE(metadata, '{}'::jsonb) || 
+              jsonb_build_object(
+                'shipped_date', $2::text,
+                'service_code', $3::text,
+                'shipstation_updated', CURRENT_TIMESTAMP
+              )
+          WHERE order_number = $4
+          AND payment_status = 'paid'
+          RETURNING id, order_number
+        `;
+        params = [carrier, shipped_date, service_code || null, order_number];
+      }
 
-      const result = await this.pool.query(updateSql, [
-        tracking_number,
-        carrier,
-        shipped_date,
-        service_code || null,
-        order_number
-      ]);
+      console.log('Executing SQL with params:', params);
+      console.log('SQL:', updateSql);
+      
+      const result = await this.pool.query(updateSql, params);
+      
+      console.log('SQL executed successfully, rows affected:', result.rowCount);
 
       if (result.rows.length === 0) {
         console.warn(`Order not found or not eligible for shipment update: ${order_number}`);
@@ -210,10 +239,12 @@ export class ShipStationService {
         VALUES ($1, 'shipped', $2, CURRENT_TIMESTAMP)
       `;
 
-      const comment = `Shipment updated via ShipStation. Tracking: ${tracking_number}, Carrier: ${carrier}`;
+      const comment = tracking_number 
+        ? `Shipment updated via ShipStation. Tracking: ${tracking_number}, Carrier: ${carrier}`
+        : `Shipment updated via ShipStation. Carrier: ${carrier} (tracking pending)`;
       await this.pool.query(logSql, [orderId, comment]);
 
-      console.log(`Order ${order_number} updated with tracking ${tracking_number}`);
+      console.log(`Order ${order_number} updated${tracking_number ? ' with tracking ' + tracking_number : ''}`);
       return true;
     } catch (error) {
       console.error('Error updating order shipment:', error);
@@ -233,6 +264,24 @@ export class ShipStationService {
     }
 
     return await this.updateOrderShipment(trackingData);
+  }
+
+  /**
+   * Process ShipStation shipment update from direct data (query params)
+   */
+  async processShipmentUpdateByData(trackingData: any): Promise<boolean> {
+    console.log('Processing shipment update from direct data:', trackingData);
+    
+    // Convert the tracking data to the expected format
+    const formattedData: ShipStationTrackingData = {
+      order_number: trackingData.order_number,
+      tracking_number: trackingData.tracking_number,
+      carrier: trackingData.carrier,
+      shipped_date: trackingData.shipped_date || new Date().toISOString(),
+      service_code: trackingData.service_code
+    };
+
+    return await this.updateOrderShipment(formattedData);
   }
 
   /**

@@ -30,6 +30,7 @@ export interface ShipStationOrderItem {
   id: number;
   product_name: string;
   product_sku: string;
+  product_image?: string;
   quantity: number;
   unit_price: number;
   total_price: number;
@@ -58,10 +59,25 @@ function escapeXml(text: string): string {
 }
 
 /**
- * Format date for ShipStation XML (ISO 8601 format)
+ * Format date for ShipStation XML (MM/DD/YYYY HH:MM:SS AM/PM format)
+ * ShipStation expects dates in the format: 10/26/2025 11:36:14 AM
  */
 function formatDateForXML(date: Date): string {
-  return date.toISOString();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const year = date.getFullYear();
+  
+  let hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  
+  // Convert to 12-hour format
+  hours = hours % 12;
+  hours = hours ? hours : 12; // 0 should be 12
+  const hoursStr = String(hours).padStart(2, '0');
+  
+  return `${month}/${day}/${year} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
 }
 
 /**
@@ -92,43 +108,36 @@ function mapOrderStatus(order: ShipStationOrder): string {
  */
 function buildCustomerXML(order: ShipStationOrder): string {
   const billing = order.billing_address || {};
+  const shipping = order.shipping_address || {};
   
+  // Use correct camelCase field names from Address interface
   return `
     <Customer>
       <CustomerCode>${escapeXml(order.customer_email)}</CustomerCode>
       <BillTo>
-        <Name>${escapeXml(billing.first_name || '')} ${escapeXml(billing.last_name || '')}</Name>
+        <Name>${escapeXml(billing.firstName || '')} ${escapeXml(billing.lastName || '')}</Name>
         <Company>${escapeXml(billing.company || '')}</Company>
-        <Address1>${escapeXml(billing.address1 || '')}</Address1>
-        <Address2>${escapeXml(billing.address2 || '')}</Address2>
+        <Address1>${escapeXml(billing.addressLine1 || '')}</Address1>
+        <Address2>${escapeXml(billing.addressLine2 || '')}</Address2>
         <City>${escapeXml(billing.city || '')}</City>
         <State>${escapeXml(billing.state || '')}</State>
-        <PostalCode>${escapeXml(billing.postal_code || '')}</PostalCode>
+        <PostalCode>${escapeXml(billing.postalCode || '')}</PostalCode>
         <Country>${escapeXml(billing.country || 'US')}</Country>
         <Phone>${escapeXml(order.customer_phone || '')}</Phone>
         <Email>${escapeXml(order.customer_email)}</Email>
       </BillTo>
+      <ShipTo>
+        <Name>${escapeXml(shipping.firstName || '')} ${escapeXml(shipping.lastName || '')}</Name>
+        <Company>${escapeXml(shipping.company || '')}</Company>
+        <Address1>${escapeXml(shipping.addressLine1 || '')}</Address1>
+        <Address2>${escapeXml(shipping.addressLine2 || '')}</Address2>
+        <City>${escapeXml(shipping.city || '')}</City>
+        <State>${escapeXml(shipping.state || '')}</State>
+        <PostalCode>${escapeXml(shipping.postalCode || '')}</PostalCode>
+        <Country>${escapeXml(shipping.country || 'US')}</Country>
+        <Phone>${escapeXml(order.customer_phone || '')}</Phone>
+      </ShipTo>
     </Customer>`;
-}
-
-/**
- * Build shipping address XML element
- */
-function buildShippingAddressXML(order: ShipStationOrder): string {
-  const shipping = order.shipping_address || {};
-  
-  return `
-    <ShippingAddress>
-      <Name>${escapeXml(shipping.first_name || '')} ${escapeXml(shipping.last_name || '')}</Name>
-      <Company>${escapeXml(shipping.company || '')}</Company>
-      <Address1>${escapeXml(shipping.address1 || '')}</Address1>
-      <Address2>${escapeXml(shipping.address2 || '')}</Address2>
-      <City>${escapeXml(shipping.city || '')}</City>
-      <State>${escapeXml(shipping.state || '')}</State>
-      <PostalCode>${escapeXml(shipping.postal_code || '')}</PostalCode>
-      <Country>${escapeXml(shipping.country || 'US')}</Country>
-      <Phone>${escapeXml(order.customer_phone || '')}</Phone>
-    </ShippingAddress>`;
 }
 
 /**
@@ -137,16 +146,16 @@ function buildShippingAddressXML(order: ShipStationOrder): string {
 function buildItemsXML(items: ShipStationOrderItem[]): string {
   const itemsXML = items.map(item => `
     <Item>
+      <LineItemID>${item.id}</LineItemID>
       <SKU>${escapeXml(item.product_sku)}</SKU>
       <Name>${escapeXml(item.product_name)}</Name>
-      <ImageUrl></ImageUrl>
+      <ImageUrl>${item.product_image ? escapeXml(item.product_image) : ''}</ImageUrl>
       <Weight>0</Weight>
       <WeightUnits>pounds</WeightUnits>
       <Quantity>${item.quantity}</Quantity>
       <UnitPrice>${item.unit_price.toFixed(2)}</UnitPrice>
       <Location></Location>
       <Options></Options>
-      <ProductID>${item.id}</ProductID>
     </Item>`).join('');
 
   return `<Items>${itemsXML}</Items>`;
@@ -164,7 +173,7 @@ function buildOrderXML(order: ShipStationOrder): string {
     <OrderNumber>${escapeXml(order.order_number)}</OrderNumber>
     <OrderDate>${formatDateForXML(order.created_at)}</OrderDate>
     <OrderStatus>${orderStatus}</OrderStatus>
-    <LastModifiedDate>${formatDateForXML(order.created_at)}</LastModifiedDate>
+    <LastModified>${formatDateForXML(order.created_at)}</LastModified>
     <ShippingMethod>${escapeXml(order.shipping_method || 'Standard Shipping')}</ShippingMethod>
     <PaymentMethod>${escapeXml(order.payment_method || 'PayPal')}</PaymentMethod>
     <OrderTotal>${order.total_amount.toFixed(2)}</OrderTotal>
@@ -175,7 +184,6 @@ function buildOrderXML(order: ShipStationOrder): string {
     <Gift>false</Gift>
     <GiftMessage></GiftMessage>
     ${buildCustomerXML(order)}
-    ${buildShippingAddressXML(order)}
     ${buildItemsXML(order.items)}
   </Order>`;
 }
