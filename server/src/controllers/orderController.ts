@@ -6,14 +6,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { OrderService } from '../services/OrderService';
+import { EmailService } from '../services/EmailService';
 import { CreateOrderData } from '../types/cart';
 import { successResponse, paginatedResponse } from '../utils/response';
 
 export class OrderController {
   private orderService: OrderService;
+  private emailService: EmailService;
 
   constructor(pool: Pool) {
     this.orderService = new OrderService(pool);
+    this.emailService = new EmailService(pool);
+    this.emailService.initialize();
   }
 
   /**
@@ -30,6 +34,27 @@ export class OrderController {
       console.log('Order data received:', JSON.stringify(orderData, null, 2));
 
       const order = await this.orderService.createOrder(sessionId, userId, orderData);
+
+      // Send email notification to admin
+      try {
+        await this.emailService.sendEmail({
+          templateType: 'new_order_admin',
+          recipientEmail: 'info@simfab.com',
+          recipientName: 'SimFab Admin',
+          variables: {
+            order_number: order.order_number,
+            customer_name: order.customer_email,
+            order_total: `$${order.total_amount.toFixed(2)}`,
+            order_date: new Date(order.created_at).toLocaleDateString(),
+            subtotal: `$${order.subtotal.toFixed(2)}`,
+            tax_amount: `$${order.tax_amount.toFixed(2)}`,
+            shipping_amount: `$${order.shipping_amount.toFixed(2)}`,
+            discount_amount: `$${order.discount_amount.toFixed(2)}`
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send admin order email:', emailError);
+      }
 
       res.status(201).json(successResponse({
         order,

@@ -11,6 +11,7 @@ import { createAdminOrderRoutes } from './routes/admin/orders';
 import { createAdminDashboardRoutes } from './routes/admin/dashboard';
 import { createAdminRBACRoutes } from './routes/admin/rbac';
 import { createAdminCouponRoutes } from './routes/admin/coupons';
+import { createEmailTemplateRoutes } from './routes/admin/email-templates';
 import { createCartRoutes } from './routes/cart';
 import { createOrderRoutes } from './routes/orders';
 import { createPaymentRoutes } from './routes/payments';
@@ -26,6 +27,7 @@ import { pool } from './config/database';
 import { errorHandler } from './middleware/errorHandler';
 import { CleanupService } from './services/CleanupService';
 import { CronService } from './services/CronService';
+import { EmailService } from './services/EmailService';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -79,6 +81,12 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 const cronService = new CronService(pool);
 cronService.initialize();
 
+// Initialize email service
+const emailService = new EmailService(pool);
+emailService.initialize().catch(err => {
+  console.error('Failed to initialize email service:', err);
+});
+
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api', faqsRouter);
@@ -93,6 +101,7 @@ app.use('/api/admin/orders', createAdminOrderRoutes(pool));
 app.use('/api/admin/dashboard', createAdminDashboardRoutes(pool));
 app.use('/api/admin/rbac', createAdminRBACRoutes(pool));
 app.use('/api/admin/coupons', createAdminCouponRoutes(pool));
+app.use('/api/admin', createEmailTemplateRoutes(pool));
 app.use('/api/admin/cleanup', createCleanupRoutes(pool));
 app.use('/api/admin/cron', createCronRoutes(pool, cronService));
 app.use('/api/admin/webhook-test', createWebhookTestRoutes(pool));

@@ -6,14 +6,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { OrderService } from '../services/OrderService';
+import { EmailService } from '../services/EmailService';
 import { OrderStatus } from '../types/cart';
 import { successResponse, paginatedResponse } from '../utils/response';
 
 export class AdminOrderController {
   private orderService: OrderService;
+  private emailService: EmailService;
 
   constructor(pool: Pool) {
     this.orderService = new OrderService(pool);
+    this.emailService = new EmailService(pool);
+    this.emailService.initialize();
   }
 
   /**
@@ -173,6 +177,38 @@ export class AdminOrderController {
           success: false,
           error: { code: 'ORDER_NOT_FOUND', message: 'Order not found' }
         });
+      }
+
+      const order = result.rows[0];
+
+      // Send appropriate email based on status change
+      try {
+        let templateType = '';
+        if (status === 'processing') {
+          templateType = 'order_processing';
+        } else if (status === 'completed' || status === 'delivered') {
+          templateType = 'order_completed';
+        } else if (status === 'cancelled') {
+          templateType = 'order_cancelled_customer';
+        }
+
+        if (templateType) {
+          await this.emailService.sendEmail({
+            templateType,
+            recipientEmail: order.customer_email,
+            recipientName: order.customer_email,
+            variables: {
+              order_number: order.order_number,
+              customer_name: order.customer_email,
+              order_total: `$${order.total_amount.toFixed(2)}`,
+              order_date: new Date(order.created_at).toLocaleDateString(),
+              tracking_number: trackingNumber || '',
+              carrier: carrier || ''
+            }
+          });
+        }
+      } catch (emailError) {
+        console.error('Failed to send order status email:', emailError);
       }
 
       res.json(successResponse({
