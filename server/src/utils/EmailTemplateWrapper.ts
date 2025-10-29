@@ -6,12 +6,12 @@
 export class EmailTemplateWrapper {
   private static readonly LOGO_URL = '/SimFab-logo-red-black-min-crop.svg';
   private static readonly BRAND_COLOR = '#c5303b'; // SimFab Red
-  private static readonly DARK_BG = '#0b0b0b'; // Dark background
-  private static readonly CARD_BG = '#1a1a1a'; // Card background
-  private static readonly BORDER_COLOR = '#2b2b2b'; // Border color
+  private static readonly BG_BLACK = '#000000'; // Pure black background
+  private static readonly CARD_BG = '#0a0a0a'; // Very dark card background
+  private static readonly BORDER_COLOR = '#1a1a1a'; // Subtle border
   private static readonly TEXT_PRIMARY = '#ffffff'; // White text
-  private static readonly TEXT_SECONDARY = '#e5e5e5'; // Light gray
-  private static readonly TEXT_MUTED = '#999999'; // Muted gray
+  private static readonly TEXT_SECONDARY = '#cccccc'; // Light gray
+  private static readonly TEXT_MUTED = '#888888'; // Muted gray
 
   /**
    * Wrap email content with SimFab branded template
@@ -50,32 +50,32 @@ export class EmailTemplateWrapper {
   </style>
   <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; background-color: ${this.DARK_BG}; font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${this.DARK_BG};">
+<body style="margin: 0; padding: 0; background-color: ${this.BG_BLACK}; font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${this.BG_BLACK};">
     <tr>
-      <td align="center" style="padding: 40px 20px;">
+      <td align="center" style="padding: 50px 20px;">
         <!-- Main Container -->
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; background-color: ${this.CARD_BG}; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);">
-          <!-- Header -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; background-color: ${this.CARD_BG}; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);">
+          <!-- Logo Header -->
           <tr>
-            <td style="background: linear-gradient(135deg, ${this.BRAND_COLOR} 0%, #d42a37 100%); padding: 30px 40px; text-align: center;">
-              <img src="${logoUrl}" alt="SimFab" style="max-width: 180px; height: auto; display: block; margin: 0 auto;" />
+            <td style="padding: 40px 40px 20px 40px; text-align: center; border-bottom: 1px solid ${this.BORDER_COLOR};">
+              <img src="${logoUrl}" alt="SimFab" style="max-width: 160px; height: auto; display: block; margin: 0 auto;" />
             </td>
           </tr>
           <!-- Content -->
           <tr>
-            <td style="padding: 40px; background-color: ${this.CARD_BG}; color: ${this.TEXT_PRIMARY};">
+            <td style="padding: 50px 40px; background-color: ${this.CARD_BG}; color: ${this.TEXT_PRIMARY};">
               ${content}
             </td>
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="background-color: ${this.BORDER_COLOR}; padding: 30px 40px; text-align: center; border-top: 1px solid ${this.BORDER_COLOR};">
-              <p style="margin: 0 0 10px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
+            <td style="background-color: ${this.BG_BLACK}; padding: 40px; text-align: center; border-top: 1px solid ${this.BORDER_COLOR};">
+              <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
                 &copy; ${new Date().getFullYear()} SimFab. All rights reserved.
               </p>
-              <p style="margin: 0 0 10px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
-                Questions? Contact us at <a href="mailto:info@simfab.com" style="color: ${this.BRAND_COLOR}; text-decoration: none;">info@simfab.com</a>
+              <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
+                Questions? <a href="mailto:info@simfab.com" style="color: ${this.BRAND_COLOR}; text-decoration: none;">info@simfab.com</a>
               </p>
               <p style="margin: 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
                 <a href="${process.env.FRONTEND_URL || 'https://www.simfab.com'}" style="color: ${this.BRAND_COLOR}; text-decoration: none; font-weight: 500;">Visit SimFab.com</a>
@@ -109,6 +109,11 @@ export class EmailTemplateWrapper {
           font-weight: 700;
           margin-top: 0;
         }
+        .email-content h1 {
+          font-size: 28px;
+          margin-bottom: 8px;
+          letter-spacing: -0.5px;
+        }
         .email-content h2 {
           font-size: 24px;
           margin-bottom: 20px;
@@ -129,7 +134,7 @@ export class EmailTemplateWrapper {
           width: 100%;
           border-collapse: collapse;
           margin: 24px 0;
-          background-color: ${this.DARK_BG};
+          background-color: #1a1a1a;
         }
         .email-content th {
           background-color: ${this.BORDER_COLOR};
@@ -146,24 +151,25 @@ export class EmailTemplateWrapper {
         }
         .email-content .button {
           display: inline-block;
-          padding: 14px 28px;
+          padding: 16px 32px;
           background-color: ${this.BRAND_COLOR};
           color: ${this.TEXT_PRIMARY};
           text-decoration: none;
-          border-radius: 6px;
+          border-radius: 8px;
           font-weight: 600;
           margin: 20px 0;
           text-align: center;
+          font-size: 16px;
         }
         .email-content .button:hover {
           background-color: #d42a37;
         }
         .email-content .info-box {
           background-color: ${this.BORDER_COLOR};
-          border-left: 4px solid ${this.BRAND_COLOR};
-          padding: 16px;
-          margin: 20px 0;
-          border-radius: 4px;
+          border-left: 3px solid ${this.BRAND_COLOR};
+          padding: 24px;
+          margin: 24px 0;
+          border-radius: 8px;
         }
         .email-content .highlight {
           color: ${this.BRAND_COLOR};

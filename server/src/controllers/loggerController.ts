@@ -335,5 +335,76 @@ export class LoggerController {
       next(error);
     }
   };
+
+  /**
+   * Test endpoint to generate a 500 error for testing logging
+   * POST /api/admin/logs/test
+   */
+  testErrorLogging = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Intentionally throw an error to test logging
+      throw new Error('Test error for logging system - This is intentional');
+    } catch (error) {
+      // Pass error to next middleware (errorHandler) which will log it
+      next(error);
+    }
+  };
+
+  /**
+   * Get logging system status and table info
+   * GET /api/admin/logs/status
+   */
+  getLoggingStatus = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Check if table exists
+      const tableCheck = await this.pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'server_error_logs'
+        ) as table_exists
+      `);
+
+      const tableExists = tableCheck.rows[0]?.table_exists || false;
+
+      if (!tableExists) {
+        return res.json(successResponse({
+          message: 'Error logs table does not exist. Please run migrations.',
+          data: {
+            tableExists: false,
+            migrationNeeded: true
+          }
+        }));
+      }
+
+      // Get table info
+      const tableInfo = await this.pool.query(`
+        SELECT 
+          COUNT(*) as total_logs,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours') as logs_last_24h,
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') as logs_last_7d,
+          MIN(created_at) as earliest_log,
+          MAX(created_at) as latest_log
+        FROM server_error_logs
+      `);
+
+      const info = tableInfo.rows[0];
+
+      res.json(successResponse({
+        message: 'Logging system is operational',
+        data: {
+          tableExists: true,
+          totalLogs: parseInt(info.total_logs, 10),
+          logsLast24h: parseInt(info.logs_last_24h, 10),
+          logsLast7d: parseInt(info.logs_last_7d, 10),
+          earliestLog: info.earliest_log,
+          latestLog: info.latest_log,
+          migrationNeeded: false
+        }
+      }));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 

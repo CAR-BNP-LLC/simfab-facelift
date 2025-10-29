@@ -48,6 +48,10 @@ async function seedRBAC() {
       // User management authorities
       { resource: 'users', action: 'view', description: 'View users' },
       { resource: 'users', action: 'manage', description: 'Manage user accounts' },
+      
+      // Email management authorities
+      { resource: 'emails', action: 'view', description: 'View email templates and logs' },
+      { resource: 'emails', action: 'manage', description: 'Create, edit, and manage email templates' },
     ];
 
     console.log('📋 Creating authorities...');
@@ -79,7 +83,7 @@ async function seedRBAC() {
 
     // Create staff role with limited authorities
     const staffAuthorities = createdAuthorities.filter(auth => 
-      ['products:view', 'orders:view', 'orders:manage', 'dashboard:view'].includes(`${auth.resource}:${auth.action}`)
+      ['products:view', 'orders:view', 'orders:manage', 'dashboard:view', 'emails:view'].includes(`${auth.resource}:${auth.action}`)
     );
     
     const staffRole = await rbacModel.createRole({

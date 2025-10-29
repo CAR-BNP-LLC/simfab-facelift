@@ -35,7 +35,8 @@ import {
   Info,
   Ticket,
   ExternalLink,
-  Mail
+  Mail,
+  FileText
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -61,6 +62,7 @@ import CouponList from '@/components/admin/CouponList';
 import CouponForm from '@/components/admin/CouponForm';
 import PermittedFor from '@/components/auth/PermittedFor';
 import EmailTemplatesTab from '@/components/admin/EmailTemplatesTab';
+import ErrorLogsTab from '@/components/admin/ErrorLogsTab';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -151,7 +153,7 @@ const Admin = () => {
 
   // Load data based on active tab
   useEffect(() => {
-    if (activeTab === 'dashboard') {
+    if (activeTab === 'dashboard' || activeTab === 'analytics') {
       fetchDashboardStats();
     } else if (activeTab === 'products') {
       fetchProducts();
@@ -732,10 +734,14 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-10">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Analytics</span>
             </TabsTrigger>
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4" />
@@ -753,6 +759,10 @@ const Admin = () => {
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Emails</span>
             </TabsTrigger>
+            <TabsTrigger value="error-logs" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Error Logs</span>
+            </TabsTrigger>
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Create Product</span>
@@ -767,8 +777,141 @@ const Admin = () => {
             </TabsTrigger>
           </TabsList>
 
-          {/* Dashboard Tab */}
+          {/* Dashboard Tab - Navigation Squares */}
           <TabsContent value="dashboard" className="space-y-6">
+            <PermittedFor authority="dashboard:view">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Analytics Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('analytics')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <TrendingUp className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Analytics</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      View sales stats, revenue, and top products
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Orders Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('orders')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <ShoppingBag className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Orders</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Manage and track customer orders
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Products Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('products')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Package className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Products</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      View, edit, and manage your products
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Coupons Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('coupons')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Ticket className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Coupons</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Create and manage discount coupons
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Email Templates Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('email-templates')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Mail className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Emails</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Manage email templates and settings
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Error Logs Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('error-logs')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <FileText className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Error Logs</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      View and monitor system error logs
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Create Product Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('create')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Plus className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Create Product</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Add a new product to your catalog
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Permissions Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('rbac')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Shield className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Permissions</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Manage roles and access control
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Settings Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('settings')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Settings className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Settings</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      System configuration and preferences
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            </PermittedFor>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6">
             <PermittedFor authority="dashboard:view">
             {loading ? (
               <div className="flex justify-center py-12">
@@ -1574,8 +1717,13 @@ const Admin = () => {
           </TabsContent>
 
           {/* Email Templates Tab */}
-          <TabsContent value="email-templates" className="space-y-6">
+          <TabsContent value="email-templates" className="space-y-6 pb-24">
             <EmailTemplatesTab />
+          </TabsContent>
+
+          {/* Error Logs Tab */}
+          <TabsContent value="error-logs" className="space-y-6">
+            <ErrorLogsTab />
           </TabsContent>
 
           {/* Settings Tab */}

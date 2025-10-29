@@ -24,6 +24,7 @@ import { createWebhookTestRoutes } from './routes/admin/webhookTest';
 import { createProductionRoutes } from './routes/admin/production';
 import { createTestingRoutes } from './routes/admin/testing';
 import { createPhase4Routes } from './routes/admin/phase4';
+import { createLogsRoutes } from './routes/admin/logs';
 import { createShipStationRoutes } from './routes/shipstation';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
@@ -118,6 +119,7 @@ app.use('/api/admin/webhook-test', createWebhookTestRoutes(pool));
 app.use('/api/admin/production', createProductionRoutes(pool));
 app.use('/api/admin/testing', createTestingRoutes(pool));
 app.use('/api/admin/phase4', createPhase4Routes(pool));
+app.use('/api/admin/logs', createLogsRoutes(pool));
 app.use('/api/shipstation', createShipStationRoutes(pool));
 
 // Health check endpoint

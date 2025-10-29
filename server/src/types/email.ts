@@ -12,10 +12,12 @@ export interface EmailTemplate {
   html_body: string;
   text_body?: string;
   default_recipients: string[];
-  recipient_type: 'admin' | 'customer' | 'both';
+  recipient_type: 'admin' | 'customer' | 'both' | 'custom';
   is_active: boolean;
   header_image?: string;
   header_title?: string;
+  trigger_event?: string;
+  custom_recipient_email?: string;
   created_at: Date;
   updated_at: Date;
   created_by?: number;

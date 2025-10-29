@@ -31,6 +31,13 @@ export const createLogsRoutes = (pool: Pool): Router => {
   router.get('/stats', controller.getErrorLogStats);
 
   /**
+   * @route   GET /api/admin/logs/status
+   * @desc    Get logging system status and table info
+   * @access  Admin
+   */
+  router.get('/status', controller.getLoggingStatus);
+
+  /**
    * @route   GET /api/admin/logs/:id
    * @desc    Get a single error log by ID
    * @access  Admin
@@ -50,6 +57,13 @@ export const createLogsRoutes = (pool: Pool): Router => {
    * @access  Admin
    */
   router.delete('/', controller.deleteErrorLogs);
+
+  /**
+   * @route   POST /api/admin/logs/test
+   * @desc    Test endpoint to generate a 500 error for testing logging
+   * @access  Admin
+   */
+  router.post('/test', controller.testErrorLogging);
 
   return router;
 };

@@ -62,13 +62,70 @@ export class AdminEmailController {
   }
 
   /**
+   * Create new email template
+   * POST /api/admin/email-templates
+   */
+  async createTemplate(req: Request, res: Response): Promise<void> {
+    try {
+      const { type, name, description, subject, html_body, text_body, recipient_type, trigger_event, custom_recipient_email, is_active, header_image, header_title } = req.body;
+      
+      // Validate
+      if (!type || !name || !subject || !html_body) {
+        res.status(400).json({ error: 'Type, name, subject and HTML body are required' });
+        return;
+      }
+
+      // Check if type already exists
+      const existing = await this.pool.query(
+        'SELECT id FROM email_templates WHERE type = $1',
+        [type]
+      );
+      if (existing.rows.length > 0) {
+        res.status(400).json({ error: 'Template type already exists' });
+        return;
+      }
+      
+      const userId = (req as any).user?.id;
+      
+      const result = await this.pool.query(
+        `INSERT INTO email_templates 
+         (type, name, description, subject, html_body, text_body, recipient_type, 
+          trigger_event, custom_recipient_email, is_active, header_image, header_title, 
+          created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
+         RETURNING *`,
+        [
+          type,
+          name,
+          description || '',
+          subject,
+          html_body,
+          text_body || null,
+          recipient_type || 'customer',
+          trigger_event || null,
+          custom_recipient_email || null,
+          is_active !== false,
+          header_image || null,
+          header_title || null,
+          userId
+        ]
+      );
+      
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Error creating template:', error);
+      res.status(500).json({ error: 'Failed to create template', details: error.message });
+    }
+  }
+
+  /**
    * Update email template
    * PUT /api/admin/email-templates/:type
    */
   async updateTemplate(req: Request, res: Response): Promise<void> {
     try {
       const { type } = req.params;
-      const { subject, html_body, text_body, is_active } = req.body;
+      const { subject, html_body, text_body, is_active, recipient_type, trigger_event, custom_recipient_email, header_image, header_title } = req.body;
       
       // Validate
       if (!subject || !html_body) {
@@ -81,10 +138,24 @@ export class AdminEmailController {
       const result = await this.pool.query(
         `UPDATE email_templates 
          SET subject = $1, html_body = $2, text_body = $3, is_active = $4, 
-             updated_by = $5, updated_at = NOW()
-         WHERE type = $6
+             recipient_type = $5, trigger_event = $6, custom_recipient_email = $7,
+             header_image = $8, header_title = $9,
+             updated_by = $10, updated_at = NOW()
+         WHERE type = $11
          RETURNING *`,
-        [subject, html_body, text_body || null, is_active !== false, userId, type]
+        [
+          subject, 
+          html_body, 
+          text_body || null, 
+          is_active !== false,
+          recipient_type || 'customer',
+          trigger_event || null,
+          custom_recipient_email || null,
+          header_image || null,
+          header_title || null,
+          userId, 
+          type
+        ]
       );
       
       if (result.rows.length === 0) {

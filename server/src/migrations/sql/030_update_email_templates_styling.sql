@@ -14,13 +14,28 @@ UPDATE email_templates SET
 WHERE header_image IS NULL OR header_title IS NULL;
 UPDATE email_templates SET html_body = '
 <div class="email-content">
-  <h2 style="color: #c5303b; font-size: 24px; margin-bottom: 20px; font-weight: 700;">New Order Received!</h2>
-  <p style="color: #e5e5e5; font-size: 16px; line-height: 1.6; margin-bottom: 12px;">A new order has been placed:</p>
-  <div style="background-color: #2b2b2b; border-left: 4px solid #c5303b; padding: 16px; margin: 20px 0; border-radius: 4px;">
-    <p style="margin: 8px 0; color: #e5e5e5;"><strong style="color: #ffffff;">Order Number:</strong> <span style="color: #c5303b; font-weight: 600;">{{order_number}}</span></p>
-    <p style="margin: 8px 0; color: #e5e5e5;"><strong style="color: #ffffff;">Customer:</strong> {{customer_name}} ({{customer_email}})</p>
-    <p style="margin: 8px 0; color: #e5e5e5;"><strong style="color: #ffffff;">Total:</strong> <span style="color: #c5303b; font-weight: 600;">{{order_total}}</span></p>
-    <p style="margin: 8px 0; color: #e5e5e5;"><strong style="color: #ffffff;">Date:</strong> {{order_date}}</p>
+  <h1 style="color: #ffffff; font-size: 28px; margin: 0 0 8px 0; font-weight: 700; letter-spacing: -0.5px;">New Order Received</h1>
+  <p style="color: #888888; font-size: 14px; margin: 0 0 32px 0; text-transform: uppercase; letter-spacing: 1px;">Order Notification</p>
+  
+  <div style="background-color: #1a1a1a; border: 1px solid #1a1a1a; border-left: 3px solid #c5303b; padding: 24px; margin: 24px 0; border-radius: 8px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="font-size: 15px; line-height: 1.8;">
+      <tr>
+        <td style="padding: 8px 0; color: #cccccc; width: 140px;"><strong style="color: #ffffff;">Order Number</strong></td>
+        <td style="padding: 8px 0; color: #c5303b; font-weight: 600; font-size: 16px;">{{order_number}}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #cccccc; border-top: 1px solid #1a1a1a;"><strong style="color: #ffffff;">Customer</strong></td>
+        <td style="padding: 8px 0; color: #cccccc; border-top: 1px solid #1a1a1a;">{{customer_name}}<br><span style="color: #888888; font-size: 13px;">{{customer_email}}</span></td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #cccccc; border-top: 1px solid #1a1a1a;"><strong style="color: #ffffff;">Order Total</strong></td>
+        <td style="padding: 8px 0; color: #c5303b; font-weight: 600; font-size: 18px; border-top: 1px solid #1a1a1a;">{{order_total}}</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #cccccc; border-top: 1px solid #1a1a1a;"><strong style="color: #ffffff;">Order Date</strong></td>
+        <td style="padding: 8px 0; color: #cccccc; border-top: 1px solid #1a1a1a;">{{order_date}}</td>
+      </tr>
+    </table>
   </div>
 </div>
 ' WHERE type = 'new_order_admin';

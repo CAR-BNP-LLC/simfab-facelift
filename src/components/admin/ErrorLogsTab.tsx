@@ -135,8 +135,16 @@ export default function ErrorLogsTab() {
 
       if (res.ok) {
         const data = await res.json();
-        if (data.success) {
-          setStats(data.data);
+        if (data.success && data.data) {
+          setStats({
+            total: data.data.total || 0,
+            recent: data.data.recent || 0,
+            byStatusCode: data.data.byStatusCode || [],
+            byErrorCode: data.data.byErrorCode || [],
+            byPath: data.data.byPath || [],
+            timeSeries: data.data.timeSeries || [],
+            days: data.data.days || 7
+          });
         }
       }
     } catch (error) {
@@ -250,12 +258,12 @@ export default function ErrorLogsTab() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Status Code</label>
-              <Select value={statusCode} onValueChange={setStatusCode}>
+              <Select value={statusCode || undefined} onValueChange={(value) => setStatusCode(value === 'all' ? '' : value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All status codes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   <SelectItem value="500">500 - Internal Server Error</SelectItem>
                   <SelectItem value="501">501 - Not Implemented</SelectItem>
                   <SelectItem value="502">502 - Bad Gateway</SelectItem>
@@ -554,7 +562,7 @@ export default function ErrorLogsTab() {
                 </Card>
               </div>
 
-              {stats.byErrorCode.length > 0 && (
+              {stats.byErrorCode && stats.byErrorCode.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2">Top Error Codes</h4>
                   <div className="space-y-2">
@@ -568,7 +576,7 @@ export default function ErrorLogsTab() {
                 </div>
               )}
 
-              {stats.byPath.length > 0 && (
+              {stats.byPath && stats.byPath.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium mb-2">Top Error Paths</h4>
                   <div className="space-y-2">
