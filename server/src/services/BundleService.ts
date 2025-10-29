@@ -55,7 +55,7 @@ export class BundleService {
     try {
       await client.query('BEGIN');
 
-      // Verify bundle product exists and is a bundle
+      // Verify bundle product exists
       const bundleCheck = await client.query(
         'SELECT id, is_bundle FROM products WHERE id = $1',
         [bundleProductId]
@@ -65,8 +65,12 @@ export class BundleService {
         throw new NotFoundError('Product', { productId: bundleProductId });
       }
 
+      // Automatically mark product as bundle if it's not already
       if (!bundleCheck.rows[0].is_bundle) {
-        throw new ValidationError('Product is not a bundle');
+        await client.query(
+          'UPDATE products SET is_bundle = true WHERE id = $1',
+          [bundleProductId]
+        );
       }
 
       // Verify item product exists

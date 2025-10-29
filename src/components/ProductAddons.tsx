@@ -9,7 +9,7 @@ interface AddonOption {
 }
 
 interface Addon {
-  id: string;
+  id: string | number;
   name: string;
   price?: number;
   priceRange?: { min: number; max: number };
@@ -19,10 +19,10 @@ interface Addon {
 
 interface ProductAddonsProps {
   addons: Addon[];
-  selectedAddons?: Set<string>;
-  selectedAddonOptions?: Record<string, string>;
-  onAddonToggle?: (addonId: string) => void;
-  onAddonOptionChange?: (addonId: string, optionId: string) => void;
+  selectedAddons?: Set<string | number>;
+  selectedAddonOptions?: Record<string | number, string | number>;
+  onAddonToggle?: (addonId: string | number) => void;
+  onAddonOptionChange?: (addonId: string | number, optionId: string | number) => void;
 }
 
 const ProductAddons = ({
@@ -32,9 +32,9 @@ const ProductAddons = ({
   onAddonToggle,
   onAddonOptionChange
 }: ProductAddonsProps) => {
-  const [expandedAddons, setExpandedAddons] = useState<Set<string>>(new Set());
+  const [expandedAddons, setExpandedAddons] = useState<Set<string | number>>(new Set());
 
-  const toggleAddonExpansion = (addonId: string) => {
+  const toggleAddonExpansion = (addonId: string | number) => {
     const newExpanded = new Set(expandedAddons);
     if (newExpanded.has(addonId)) {
       newExpanded.delete(addonId);

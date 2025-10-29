@@ -1,42 +1,27 @@
-/**
- * Product Controller
- * Handles public product endpoints
- */
-
 import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { ProductService } from '../services/ProductService';
 import { PriceCalculatorService } from '../services/PriceCalculatorService';
-import { ProductQueryBuilder } from '../services/ProductQueryBuilder';
-import { ProductQueryOptions, ProductConfiguration } from '../types/product';
 import { successResponse, paginatedResponse } from '../utils/response';
+import { calculatePriceSchema } from '../validators/product';
+import { ProductConfiguration } from '../types/product';
 
 export class ProductController {
   private productService: ProductService;
   private priceCalculator: PriceCalculatorService;
-  private pool: Pool;
 
-  constructor(pool: Pool) {
-    this.pool = pool;
+  constructor(private pool: Pool) {
     this.productService = new ProductService(pool);
     this.priceCalculator = new PriceCalculatorService(pool);
   }
 
   /**
-   * List products with filters
+   * List products (with filtering, pagination, sorting)
    * GET /api/products
-   * VERSION: 2.0 - FIXED FILTERING AND IMAGES
    */
   listProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('\n\n' + '█'.repeat(80));
-      console.log('█ 🔥🔥🔥 NEW CODE RUNNING - VERSION 2.0 🔥🔥🔥');
-      console.log('█ ProductController.listProducts v2.0 ACTIVE');
-      console.log('█ Timestamp:', new Date().toISOString());
-      console.log('█'.repeat(80));
-      console.log('📥 Query params received:', JSON.stringify(req.query, null, 2));
-
-      const options: ProductQueryOptions = {
+      const options = {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 20,
         category: req.query.category as string,
@@ -49,57 +34,68 @@ export class ProductController {
         sortOrder: req.query.sortOrder as any
       };
 
-      console.log('🔧 Parsed options:', JSON.stringify(options, null, 2));
-      console.log('🎯 Category filter:', options.category || 'NONE');
-
       const result = await this.productService.getProducts(options);
-
-      console.log('Products returned:', result.products.length);
-      if (result.products.length > 0) {
-        const firstProduct = result.products[0];
-        console.log('📦 First product sample:');
-        console.log('   - ID:', firstProduct.id);
-        console.log('   - Name:', firstProduct.name);
-        console.log('   - Images field type:', typeof firstProduct.images);
-        console.log('   - Images value:', JSON.stringify(firstProduct.images));
-        console.log('   - Has categories:', firstProduct.categories);
-      }
-      console.log('█'.repeat(80) + '\n\n');
-
-      res.json(paginatedResponse(
-        result.products,
-        result.pagination,
-        result.filters
-      ));
+      res.json(paginatedResponse(result.products, result.pagination, result.filters));
     } catch (error) {
-      console.error('ERROR in listProducts v2.0:', error);
       next(error);
     }
   };
 
   /**
-   * Get single product by ID
+   * Get all products (with filtering, pagination, sorting) - alias for listProducts
+   * GET /api/products
+   */
+  getProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {
+        page = '1',
+        limit = '20',
+        sort = 'created_at',
+        order = 'desc',
+        category,
+        search,
+        minPrice,
+        maxPrice,
+        inStock,
+        featured
+      } = req.query;
+
+      const products = await this.productService.getProducts({
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        sortBy: sort as 'name' | 'price' | 'created_at' | 'featured' | 'rating' | undefined,
+        sortOrder: order as 'asc' | 'desc',
+        category: category as string | undefined,
+        search: search as string | undefined,
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        inStock: inStock === 'true',
+        featured: featured === 'true'
+      });
+
+      res.json(successResponse(products, 'Products retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get product by ID
    * GET /api/products/:id
    */
   getProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = parseInt(req.params.id);
-      
-      // Simplified query
-      const sql = 'SELECT * FROM products WHERE id = $1';
-      const result = await this.pool.query(sql, [productId]);
-      
-      if (result.rows.length === 0) {
+      const product = await this.productService.getProductById(productId);
+
+      if (!product) {
         return res.status(404).json({
           success: false,
-          error: {
-            code: 'NOT_FOUND',
-            message: 'Product not found'
-          }
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found' }
         });
       }
 
-      res.json(successResponse(result.rows[0], 'Product retrieved successfully'));
+      res.json(successResponse(product, 'Product retrieved'));
     } catch (error) {
       next(error);
     }
@@ -113,212 +109,15 @@ export class ProductController {
     try {
       const slug = req.params.slug;
       const product = await this.productService.getProductBySlug(slug);
-      res.json(successResponse(product, 'Product retrieved successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
 
-  /**
-   * Search products
-   * GET /api/products/search
-   */
-  searchProducts = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const query = req.query.q as string;
-
-      if (!query || query.trim().length < 2) {
-        return res.status(400).json({
+      if (!product) {
+        return res.status(404).json({
           success: false,
-          error: {
-            code: 'INVALID_SEARCH_QUERY',
-            message: 'Search query must be at least 2 characters'
-          }
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found' }
         });
       }
 
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const offset = (page - 1) * limit;
-
-      // Simple search query
-      const searchPattern = `%${query}%`;
-      const sql = `
-        SELECT * FROM products
-        WHERE name ILIKE $1 OR description ILIKE $1 OR sku ILIKE $1
-        ORDER BY name ASC
-        LIMIT $2 OFFSET $3
-      `;
-
-      const countSql = `
-        SELECT COUNT(*)::int as total FROM products
-        WHERE name ILIKE $1 OR description ILIKE $1 OR sku ILIKE $1
-      `;
-
-      const [productsResult, countResult] = await Promise.all([
-        this.pool.query(sql, [searchPattern, limit, offset]),
-        this.pool.query(countSql, [searchPattern])
-      ]);
-
-      const total = countResult.rows[0]?.total || 0;
-      const totalPages = Math.ceil(total / limit);
-
-      res.json(paginatedResponse(
-        productsResult.rows,
-        {
-          page,
-          limit,
-          total,
-          totalPages,
-          hasNext: page < totalPages,
-          hasPrevious: page > 1
-        }
-      ));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Calculate product price with configuration
-   * POST /api/products/:id/calculate-price
-   */
-  calculatePrice = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const productId = parseInt(req.params.id);
-      const configuration: ProductConfiguration = req.body;
-      const quantity = req.body.quantity || 1;
-
-      const calculation = await this.priceCalculator.calculatePrice(
-        productId,
-        configuration,
-        quantity
-      );
-
-      res.json(successResponse(calculation, 'Price calculated successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Get featured products
-   * GET /api/products/featured
-   */
-  getFeaturedProducts = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 6;
-      
-      const products = await this.productService.getFeaturedProducts(limit);
-
-      res.json(successResponse(products, 'Featured products retrieved'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Get product categories
-   * GET /api/products/categories
-   */
-  getCategories = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      // Get category counts from database
-      const queryBuilder = new ProductQueryBuilder(this.pool);
-      const { sql, params } = queryBuilder.buildCategoriesQuery();
-      const countResult = await this.pool.query(sql, params);
-
-      // Create a map of category counts
-      const countMap = new Map<string, number>();
-      countResult.rows.forEach((row: any) => {
-        countMap.set(row.category, row.count);
-      });
-
-      // Build categories with counts
-      const categories = [
-        {
-          id: 'flight-sim',
-          name: 'Flight Simulation',
-          slug: 'flight-sim',
-          description: 'Professional flight simulator cockpits and accessories',
-          image: '/images/categories/flight-sim.jpg',
-          count: countMap.get('flight-sim') || 0
-        },
-        {
-          id: 'sim-racing',
-          name: 'Sim Racing',
-          slug: 'sim-racing',
-          description: 'High-performance racing simulator setups',
-          image: '/images/categories/sim-racing.jpg',
-          count: countMap.get('sim-racing') || 0
-        },
-        {
-          id: 'cockpits',
-          name: 'Cockpits',
-          slug: 'cockpits',
-          description: 'Complete cockpit solutions for simulators',
-          image: '/images/categories/cockpits.jpg',
-          count: countMap.get('cockpits') || 0
-        },
-        {
-          id: 'monitor-stands',
-          name: 'Monitor Stands',
-          slug: 'monitor-stands',
-          description: 'Adjustable monitor mounting solutions',
-          image: '/images/categories/monitor-stands.jpg',
-          count: countMap.get('monitor-stands') || 0
-        },
-        {
-          id: 'accessories',
-          name: 'Accessories',
-          slug: 'accessories',
-          description: 'Add-ons and upgrades for your simulator setup',
-          image: '/images/categories/accessories.jpg',
-          count: countMap.get('accessories') || 0
-        }
-      ];
-
-      res.json(successResponse(categories, 'Categories retrieved'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Get featured products by category (for mega menu)
-   * GET /api/products/categories/:category/featured
-   */
-  getFeaturedProductsByCategory = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { category } = req.params;
-      const limit = parseInt(req.query.limit as string) || 6;
-
-      // Map category names to database category IDs
-      const categoryMap: Record<string, string> = {
-        'flight-sim': 'flight-sim',
-        'sim-racing': 'sim-racing',
-        'cockpits': 'cockpits',
-        'monitor-stands': 'monitor-stands',
-        'accessories': 'accessories'
-      };
-
-      const dbCategory = categoryMap[category];
-      
-      if (!dbCategory) {
-        return res.json(successResponse([], 'No products found for this category'));
-      }
-
-      const queryBuilder = new ProductQueryBuilder(this.pool);
-      const { sql, params } = queryBuilder.buildFeaturedQuery(limit);
-      
-      // Modify the query to include category filter
-      const categoryFilter = `AND p.categories LIKE $${params.length + 1}`;
-      const finalSql = sql.replace('ORDER BY p.created_at DESC', `${categoryFilter}\n      ORDER BY p.created_at DESC`);
-      const finalParams = [...params, `%${dbCategory}%`];
-
-      const result = await this.pool.query(finalSql, finalParams);
-
-      res.json(successResponse(result.rows, `Featured products for ${category} retrieved`));
+      res.json(successResponse(product, 'Product retrieved'));
     } catch (error) {
       next(error);
     }
@@ -330,36 +129,163 @@ export class ProductController {
    */
   getProductsByCategory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const categorySlug = req.params.slug;
+      const categorySlug = req.params.slug || req.params.categorySlug;
+      const {
+        page = '1',
+        limit = '20',
+        sort = 'created_at',
+        order = 'desc',
+        minPrice,
+        maxPrice,
+        inStock
+      } = req.query;
 
-      const options: ProductQueryOptions = {
-        page: parseInt(req.query.page as string) || 1,
-        limit: parseInt(req.query.limit as string) || 20,
+      const result = await this.productService.getProducts({
+        page: parseInt(page as string),
+        limit: parseInt(limit as string),
+        sortBy: sort as 'name' | 'price' | 'created_at' | 'featured' | 'rating' | undefined,
+        sortOrder: order as 'asc' | 'desc',
         category: categorySlug,
-        sortBy: req.query.sortBy as any,
-        sortOrder: req.query.sortOrder as any
-      };
+        minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
+        maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
+        inStock: inStock === 'true'
+      });
 
-      const result = await this.productService.getProducts(options);
-
-      res.json(paginatedResponse(
-        result.products,
-        result.pagination,
-        result.filters
-      ));
+      res.json(paginatedResponse(result.products, result.pagination, result.filters));
     } catch (error) {
       next(error);
     }
   };
 
   /**
-   * Get product price range
+   * Get featured products
+   * GET /api/products/featured
+   */
+  getFeaturedProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { limit = '8' } = req.query;
+      const products = await this.productService.getFeaturedProducts(parseInt(limit as string));
+
+      res.json(successResponse(products, 'Featured products retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get featured products by category
+   * GET /api/products/categories/:category/featured
+   */
+  getFeaturedProductsByCategory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const category = req.params.category;
+      const { limit = '6' } = req.query;
+      
+      const result = await this.productService.getProducts({
+        page: 1,
+        limit: parseInt(limit as string),
+        category,
+        featured: true
+      });
+
+      res.json(successResponse(result.products, 'Featured products by category retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get product categories
+   * GET /api/products/categories
+   */
+  getCategories = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Access queryBuilder through service
+      const queryBuilder = (this.productService as any).queryBuilder;
+      const categoriesQuery = queryBuilder.buildCategoriesQuery();
+      const result = await this.pool.query(categoriesQuery.sql, categoriesQuery.params);
+      
+      // Format category names
+      const formatCategoryName = (category: string): string => {
+        return category
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+      };
+      
+      const categories = result.rows.map((row: any) => ({
+        id: row.category,
+        name: formatCategoryName(row.category),
+        count: row.count
+      }));
+
+      res.json(successResponse(categories, 'Categories retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Search products
+   * GET /api/products/search
+   */
+  searchProducts = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = req.query.q as string || req.query.query as string || '';
+      const options = {
+        page: parseInt(req.query.page as string) || 1,
+        limit: parseInt(req.query.limit as string) || 10,
+        category: req.query.category as string,
+        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice as string) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice as string) : undefined,
+        inStock: req.query.inStock === 'true' ? true : undefined,
+        sortBy: req.query.sortBy as any,
+        sortOrder: req.query.sortOrder as any
+      };
+
+      const result = await this.productService.searchProducts(query, options);
+      res.json(paginatedResponse(result.products, result.pagination));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Calculate price for configured product
+   * POST /api/products/:id/calculate-price
+   */
+  calculatePrice = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const configuration: ProductConfiguration = req.body;
+      const quantity = (req.body.quantity as number) || 1;
+
+      const priceCalculation = await this.priceCalculator.calculatePrice(
+        productId,
+        configuration,
+        quantity
+      );
+
+      res.json(successResponse(priceCalculation, 'Price calculated'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get price range for product (min/max based on variations)
    * GET /api/products/:id/price-range
    */
   getPriceRange = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = parseInt(req.params.id);
-      const priceRange = await this.priceCalculator.getProductPriceRange(productId);
+      // Get product to return its price range
+      const product = await this.productService.getProductById(productId);
+      
+      const priceRange = {
+        min: product.price_min || product.regular_price || 0,
+        max: product.price_max || product.regular_price || 0
+      };
 
       res.json(successResponse(priceRange, 'Price range retrieved'));
     } catch (error) {
@@ -376,9 +302,22 @@ export class ProductController {
       const productId = parseInt(req.params.id);
       const configuration: ProductConfiguration = req.body;
 
-      const validation = await this.priceCalculator.validateConfiguration(productId, configuration);
-
-      res.json(successResponse(validation, 'Configuration validated'));
+      // Basic validation - check if product exists and try to calculate price
+      // If price calculation succeeds, configuration is valid
+      try {
+        await this.priceCalculator.calculatePrice(productId, configuration, 1);
+        
+        res.json(successResponse({ valid: true, errors: [] }, 'Configuration valid'));
+      } catch (error: any) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_CONFIGURATION',
+            message: error.message || 'Product configuration is invalid',
+            details: []
+          }
+        });
+      }
     } catch (error) {
       next(error);
     }
@@ -419,5 +358,59 @@ export class ProductController {
       next(error);
     }
   };
-}
 
+  /**
+   * Check bundle item stock availability
+   * POST /api/products/:id/bundle-items/check-stock
+   */
+  checkBundleItemStock = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const { bundleItems } = req.body; // { selectedOptional: [], configurations: {} }
+      
+      if (!productId) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_REQUEST', message: 'Product ID is required' }
+        });
+      }
+
+      // Import BundleService
+      const { BundleService } = await import('../services/BundleService');
+      const bundleService = new BundleService(this.pool);
+      
+      // Convert frontend format to BundleService format
+      const allBundleItems = await bundleService.getBundleItems(productId);
+      const requiredBundleItemIds = allBundleItems.filter((item: any) => item.item_type === 'required').map((item: any) => item.id);
+      
+      const requiredItemsConfig: Record<number, any> = {};
+      for (const bundleItemId of requiredBundleItemIds) {
+        if (bundleItems?.configurations?.[bundleItemId]) {
+          requiredItemsConfig[bundleItemId] = {
+            variations: bundleItems.configurations[bundleItemId]
+          };
+        }
+      }
+      
+      // Include optional items configs too
+      for (const bundleItemId of (bundleItems?.selectedOptional || [])) {
+        if (bundleItems?.configurations?.[bundleItemId]) {
+          requiredItemsConfig[bundleItemId] = {
+            variations: bundleItems.configurations[bundleItemId]
+          };
+        }
+      }
+      
+      const bundleConfig = {
+        requiredItems: requiredItemsConfig,
+        optionalItems: bundleItems?.selectedOptional || []
+      };
+      
+      const availability = await bundleService.checkBundleAvailability(productId, bundleConfig);
+      
+      res.json(successResponse(availability, 'Bundle stock checked'));
+    } catch (error) {
+      next(error);
+    }
+  };
+}

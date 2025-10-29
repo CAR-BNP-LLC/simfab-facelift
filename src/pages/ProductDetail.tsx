@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Heart, ShoppingCart, Truck, Shield, Clock, Headphones, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductImageGallery from "@/components/ProductImageGallery";
@@ -13,6 +15,8 @@ import ProductDescriptionBuilder from "@/components/ProductDescriptionBuilder";
 import { productsAPI, ProductWithDetails, ProductConfiguration } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
+import { calculateTotalPrice } from "@/utils/priceCalculator";
+import { Badge } from "@/components/ui/badge";
 
 const ProductDetail = () => {
   const params = useParams();
@@ -35,30 +39,48 @@ const ProductDetail = () => {
   const [selectedImageValues, setSelectedImageValues] = useState<Record<string, string>>({});
   const [selectedBooleanValues, setSelectedBooleanValues] = useState<Record<string, boolean>>({});
   
+  // Bundle items state
+  const [bundleItems, setBundleItems] = useState<any>(null);
+  const [bundleItemsLoading, setBundleItemsLoading] = useState(false);
+  const [bundleConfigurations, setBundleConfigurations] = useState<Record<number, any>>({});
+  const [selectedOptionalItems, setSelectedOptionalItems] = useState<Set<number>>(new Set());
+  const [bundleItemStock, setBundleItemStock] = useState<Record<number, { available: number; productId: number }>>({});
+  
   const { toast } = useToast();
   const { addToCart } = useCart();
 
   // Fetch product on mount
   useEffect(() => {
-    console.log('ProductDetail mounted. Product identifier:', productSlug);
     
     if (productSlug) {
-      console.log('Calling fetchProduct with:', productSlug);
       fetchProduct(productSlug);
     } else {
-      console.error('No product identifier provided!');
       setError('No product identifier provided');
       setLoading(false);
     }
   }, [productSlug]);
 
+  // Fetch bundle items if product is a bundle
+  useEffect(() => {
+    if (product && (product as any).is_bundle) {
+      fetchBundleItems(product.id);
+    }
+  }, [product]);
+
   // Calculate price when configuration changes (but NOT when product first loads)
   useEffect(() => {
     if (product) {
-      console.log('Configuration changed, calculating price...');
       calculatePrice();
     }
-  }, [selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions, selectedTextValues, selectedImageValues, selectedBooleanValues]);
+  }, [selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions, selectedTextValues, selectedImageValues, selectedBooleanValues, selectedOptionalItems, bundleConfigurations]);
+
+  // Check bundle item stock when configuration changes
+  useEffect(() => {
+    if (product && (product as any).is_bundle && bundleItems) {
+      checkBundleItemStock(product.id, bundleItems);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedOptionalItems, bundleConfigurations]);
 
   // Set default selections when product loads
   useEffect(() => {
@@ -93,7 +115,6 @@ const ProductDetail = () => {
           setSelectedDropdownVariations(defaults);
         }
       } catch (error) {
-        console.error('Error setting default selections:', error);
       }
     }
   }, [product]);
@@ -103,10 +124,8 @@ const ProductDetail = () => {
       setLoading(true);
       setError(null);
       
-      console.log('Fetching product by slug:', productSlug);
       
       const response = await productsAPI.getBySlug(productSlug);
-      console.log('Product response:', response);
       
       if (response.data) {
         setProduct(response.data);
@@ -114,7 +133,6 @@ const ProductDetail = () => {
         throw new Error('Invalid product data');
       }
     } catch (err) {
-      console.error('Error fetching product:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load product';
       setError(errorMessage);
       toast({
@@ -127,6 +145,84 @@ const ProductDetail = () => {
     }
   };
 
+  const fetchBundleItems = async (productId: number) => {
+    try {
+      setBundleItemsLoading(true);
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/products/${productId}/bundle-items`, {
+        credentials: 'include'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setBundleItems(data.data);
+        // Check stock for bundle items after loading
+        await checkBundleItemStock(productId, data.data);
+      }
+    } catch (err) {
+      // Error handled silently
+    } finally {
+      setBundleItemsLoading(false);
+    }
+  };
+
+  // Check stock availability for bundle items
+  const checkBundleItemStock = async (productId: number, bundleItemsData: any) => {
+    try {
+      if (!bundleItemsData || !productId) return;
+      
+      // Build current configuration for stock check
+      const config = {
+        bundleItems: {
+          selectedOptional: Array.from(selectedOptionalItems),
+          configurations: bundleConfigurations
+        }
+      };
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/products/${productId}/bundle-items/check-stock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ bundleItems: config.bundleItems })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.data?.variationStock) {
+        // Map stock availability by bundle item ID
+        const stockMap: Record<number, { available: number; productId: number; required?: boolean }> = {};
+        
+        // Map by productId to bundle item ID
+        bundleItemsData.required?.forEach((item: any) => {
+          const stockInfo = data.data.variationStock.find((s: any) => s.productId === item.item_product_id && s.required);
+          if (stockInfo) {
+            stockMap[item.id] = {
+              available: stockInfo.available || 0,
+              productId: item.item_product_id,
+              required: true
+            };
+          }
+        });
+        
+        bundleItemsData.optional?.forEach((item: any) => {
+          const stockInfo = data.data.variationStock.find((s: any) => s.productId === item.item_product_id && !s.required);
+          if (stockInfo) {
+            stockMap[item.id] = {
+              available: stockInfo.available || 0,
+              productId: item.item_product_id,
+              required: false
+            };
+          }
+        });
+        
+        setBundleItemStock(stockMap);
+      }
+    } catch (err) {
+      console.error('Failed to check bundle item stock:', err);
+    }
+  };
+
   const calculatePrice = async () => {
     if (!product) return;
 
@@ -134,23 +230,18 @@ const ProductDetail = () => {
       setCalculating(true);
 
       const configuration: ProductConfiguration = {
+        modelVariationId: selectedModelVariation, // Image/model variations go here
         variations: {
-          // Legacy dropdown variations (using old system)
-          ...(selectedModelVariation && { [selectedModelVariation]: selectedModelVariation }),
+          // Dropdown variations: variationId -> optionId
           ...selectedDropdownVariations,
-          // New variation system
-          ...Object.fromEntries(
-            Object.entries(selectedTextValues).map(([variationId, value]) => [
-              parseInt(variationId), 
-              value // For text variations, we might need to map to option IDs
-            ])
-          ),
+          // Image variations: variationId -> optionId  
           ...Object.fromEntries(
             Object.entries(selectedImageValues).map(([variationId, optionId]) => [
               parseInt(variationId), 
               parseInt(optionId)
             ])
           ),
+          // Boolean variations: variationId -> optionId (convert boolean to option ID)
           ...Object.fromEntries(
             Object.entries(selectedBooleanValues).map(([variationId, value]) => {
               // Find the boolean variation to get the correct option IDs
@@ -164,6 +255,7 @@ const ProductDetail = () => {
               return [parseInt(variationId), value ? 1 : 0]; // Fallback
             })
           )
+          // Note: Text variations don't affect price, so they're not included
         },
         addons: Array.from(selectedAddons).map(addonId => ({
           addonId,
@@ -171,15 +263,101 @@ const ProductDetail = () => {
         }))
       };
 
-      console.log('Calculating price for configuration:', configuration);
-      console.log('Selected boolean values:', selectedBooleanValues);
       
       const response = await productsAPI.calculatePrice(product.id, configuration, 1);
-      console.log('Price calculation response:', response);
       
-      setCalculatedPrice(response.data.pricing.total);
+      // Calculate required bundle items variation price adjustments only (no base price)
+      let requiredItemsVariationAdjustments = 0;
+      if (bundleItems && bundleItems.required) {
+        bundleItems.required.forEach((item: any) => {
+          if (item.is_configurable && bundleConfigurations[item.id]) {
+            const config = bundleConfigurations[item.id];
+            
+            // Check dropdown variations
+            if (item.variations?.dropdown) {
+              item.variations.dropdown.forEach((variation: any) => {
+                const selectedOptionId = config[variation.id];
+                if (selectedOptionId && variation.options) {
+                  const selectedOption = variation.options.find((opt: any) => opt.id === selectedOptionId);
+                  if (selectedOption && selectedOption.price_adjustment) {
+                    requiredItemsVariationAdjustments += selectedOption.price_adjustment;
+                  }
+                }
+              });
+            }
+            
+            // Check boolean variations
+            if (item.variations?.boolean) {
+              item.variations.boolean.forEach((variation: any) => {
+                const isYes = config[variation.id] === true;
+                if (isYes && variation.options) {
+                  const yesOption = variation.options.find((opt: any) => opt.option_name === 'Yes');
+                  if (yesOption && yesOption.price_adjustment) {
+                    requiredItemsVariationAdjustments += yesOption.price_adjustment;
+                  }
+                }
+              });
+            }
+          }
+        });
+      }
+      
+      // Calculate optional bundle items (base price + variations) - separate into components
+      const optionalBundleItems: Array<{ basePrice: number; variationAdjustments: number }> = [];
+      if (bundleItems && bundleItems.optional) {
+        bundleItems.optional.forEach((item: any) => {
+          if (selectedOptionalItems.has(item.id)) {
+            const basePrice = item.item_product_price || item.regular_price || 0;
+            let variationAdjustments = 0;
+            
+            // Add variation price adjustments
+            if (item.is_configurable && bundleConfigurations[item.id]) {
+              const config = bundleConfigurations[item.id];
+              
+              // Check dropdown variations
+              if (item.variations?.dropdown) {
+                item.variations.dropdown.forEach((variation: any) => {
+                  const selectedOptionId = config[variation.id];
+                  if (selectedOptionId && variation.options) {
+                    const selectedOption = variation.options.find((opt: any) => opt.id === selectedOptionId);
+                    if (selectedOption && selectedOption.price_adjustment) {
+                      variationAdjustments += selectedOption.price_adjustment;
+                    }
+                  }
+                });
+              }
+              
+              // Check boolean variations
+              if (item.variations?.boolean) {
+                item.variations.boolean.forEach((variation: any) => {
+                  const isYes = config[variation.id] === true;
+                  if (isYes && variation.options) {
+                    const yesOption = variation.options.find((opt: any) => opt.option_name === 'Yes');
+                    if (yesOption && yesOption.price_adjustment) {
+                      variationAdjustments += yesOption.price_adjustment;
+                    }
+                  }
+                });
+              }
+            }
+            
+            optionalBundleItems.push({ basePrice, variationAdjustments });
+          }
+        });
+      }
+      
+      // Use centralized price calculator
+      const finalPrice = calculateTotalPrice({
+        basePrice: response.data.pricing.basePrice,
+        variationAdjustments: response.data.pricing.variationAdjustments.reduce((sum: number, adj: any) => sum + adj.amount, 0),
+        requiredBundleAdjustments: requiredItemsVariationAdjustments,
+        optionalBundleItems,
+        addonsTotal: response.data.breakdown.addons || 0,
+        quantity: 1
+      });
+      
+      setCalculatedPrice(finalPrice.total);
     } catch (err) {
-      console.error('Price calculation error:', err);
       // Fallback to base price if calculation fails
       const fallbackPrice = (product as any).price_min 
         || (product as any).regular_price 
@@ -202,27 +380,12 @@ const ProductDetail = () => {
       setAddingToCart(true);
 
       // Build configuration
-      console.log('handleAddToCart - Current state values:');
-      console.log('- selectedModelVariation:', selectedModelVariation);
-      console.log('- selectedDropdownVariations:', selectedDropdownVariations);
-      console.log('- selectedTextValues:', selectedTextValues);
-      console.log('- selectedImageValues:', selectedImageValues);
-      console.log('- selectedBooleanValues:', selectedBooleanValues);
-      console.log('- selectedAddons:', selectedAddons);
-      console.log('- selectedAddonOptions:', selectedAddonOptions);
+      
       
       const configuration: ProductConfiguration = {
+        modelVariationId: selectedModelVariation,
         variations: {
-          // Legacy dropdown variations (using old system)
-          ...(selectedModelVariation && { [selectedModelVariation]: selectedModelVariation }),
           ...selectedDropdownVariations,
-          // New variation system
-          ...Object.fromEntries(
-            Object.entries(selectedTextValues).map(([variationId, value]) => [
-              parseInt(variationId), 
-              value // For text variations, we might need to map to option IDs
-            ])
-          ),
           ...Object.fromEntries(
             Object.entries(selectedImageValues).map(([variationId, optionId]) => [
               parseInt(variationId), 
@@ -231,7 +394,6 @@ const ProductDetail = () => {
           ),
           ...Object.fromEntries(
             Object.entries(selectedBooleanValues).map(([variationId, value]) => {
-              // Find the boolean variation to get the correct option IDs
               const booleanVariation = product.variations?.boolean?.find((v: any) => v.id.toString() === variationId);
               if (booleanVariation?.options) {
                 const yesOption = booleanVariation.options.find((opt: any) => opt.option_name === 'Yes');
@@ -239,29 +401,27 @@ const ProductDetail = () => {
                 const optionId = value ? (yesOption?.id || 1) : (noOption?.id || 0);
                 return [parseInt(variationId), optionId];
               }
-              return [parseInt(variationId), value ? 1 : 0]; // Fallback
+              return [parseInt(variationId), value ? 1 : 0];
             })
           )
         },
         addons: Array.from(selectedAddons).map(addonId => ({
           addonId,
           optionId: selectedAddonOptions[addonId]
-        }))
+        })),
+        bundleItems: {
+          selectedOptional: Array.from(selectedOptionalItems),
+          configurations: bundleConfigurations
+        }
       };
 
-      console.log('handleAddToCart - Final configuration:', configuration);
-
-      console.log('Adding to cart:', {
-        productId: product.id,
-        configuration,
-        quantity: 1
-      });
 
       await addToCart(product.id, configuration, 1);
+      
+      // Log what was stored in cart
 
       // Success is handled by CartContext (shows toast)
     } catch (error) {
-      console.error('Failed to add to cart:', error);
       // Error is handled by CartContext (shows error toast)
     } finally {
       setAddingToCart(false);
@@ -276,6 +436,7 @@ const ProductDetail = () => {
   };
 
   const handleAddonToggle = (addonId: number) => {
+    
     const newSelected = new Set(selectedAddons);
     if (newSelected.has(addonId)) {
       newSelected.delete(addonId);
@@ -342,7 +503,6 @@ const ProductDetail = () => {
       
       return { price: 0, original: null, onSale: false };
     } catch (error) {
-      console.error('Error displaying price:', error);
       return { price: 0, original: null, onSale: false };
     }
   };
@@ -419,19 +579,69 @@ const ProductDetail = () => {
         .filter(img => img.url) // Remove images without URLs
     : [];
 
-  // Transform variations for the new ProductVariations component
-  const textVariations = product.variations?.text && Array.isArray(product.variations.text)
-    ? product.variations.text.map((v: any) => ({
-        id: v.id.toString(),
-        name: v.name,
-        description: v.description || '',
-        isRequired: v.is_required || false
-      }))
-    : [];
+  // Collect variations from bundle items
+  const bundleVariations = {
+    text: [] as any[],
+    dropdown: [] as any[],
+    image: [] as any[],
+    boolean: [] as any[]
+  };
 
-  const dropdownVariations = product.variations?.dropdown && Array.isArray(product.variations.dropdown)
-    ? product.variations.dropdown.map((v: any) => ({
-        id: v.id.toString(),
+  if (bundleItems && bundleItems.required) {
+    bundleItems.required.forEach((item: any) => {
+      if (item.is_configurable && item.variations) {
+        // Add variations from this bundle item
+        if (item.variations.text) bundleVariations.text.push(...item.variations.text);
+        if (item.variations.dropdown) bundleVariations.dropdown.push(...item.variations.dropdown);
+        if (item.variations.image) bundleVariations.image.push(...item.variations.image);
+        if (item.variations.boolean) bundleVariations.boolean.push(...item.variations.boolean);
+      }
+    });
+  }
+
+  // Transform variations for the new ProductVariations component
+  // Merge main product variations with bundle item variations
+  const textVariations = [
+    ...(product.variations?.text && Array.isArray(product.variations.text)
+      ? product.variations.text.map((v: any) => ({
+          id: v.id.toString(),
+          name: v.name,
+          description: v.description || '',
+          isRequired: v.is_required || false
+        }))
+      : []),
+    ...bundleVariations.text.map((v: any) => ({
+      id: `bundle-${v.id}`,
+      name: v.name,
+      description: v.description || '',
+      isRequired: v.is_required || false
+    }))
+  ];
+
+  const dropdownVariations = [
+    ...(product.variations?.dropdown && Array.isArray(product.variations.dropdown)
+      ? product.variations.dropdown.map((v: any) => ({
+          id: v.id.toString(),
+          name: v.name,
+          description: v.description || '',
+          isRequired: v.is_required || false,
+          options: Array.isArray(v.options) ? v.options.map((o: any) => ({
+            id: o.id.toString(),
+            name: o.option_name || o.name,
+            price: o.price_adjustment || 0
+          })) : []
+        }))
+      : []),
+    ...bundleVariations.dropdown.map((v: any) => {
+      // Find which bundle item this variation belongs to
+      const bundleItem = bundleItems?.required?.find((item: any) => {
+        if (!item.is_configurable || !item.variations) return false;
+        const dropVariations = item.variations.dropdown || [];
+        return dropVariations.some((v2: any) => v2.id === v.id);
+      });
+      
+      return {
+        id: `bundle-${v.id}`,
         name: v.name,
         description: v.description || '',
         isRequired: v.is_required || false,
@@ -439,52 +649,85 @@ const ProductDetail = () => {
           id: o.id.toString(),
           name: o.option_name || o.name,
           price: o.price_adjustment || 0
-        })) : []
-      }))
-    : [];
+        })) : [],
+        bundleVariationId: v.id, // Store original ID for bundle configuration
+        bundleItemId: bundleItem?.id
+      };
+    })
+  ];
 
-  const imageVariations = product.variations?.image && Array.isArray(product.variations.image)
-    ? product.variations.image.map((v: any) => ({
-        id: v.id.toString(),
-        name: v.name,
-        description: v.description || '',
-        isRequired: v.is_required || false,
-        options: Array.isArray(v.options) ? v.options.map((o: any) => ({
-          id: o.id.toString(),
-          name: o.option_name || o.name,
-          price: o.price_adjustment || 0,
-          image: o.image_url || '/api/placeholder/80/80'
-        })) : []
-      }))
-    : [];
-
-  const booleanVariations = product.variations?.boolean && Array.isArray(product.variations.boolean)
-    ? product.variations.boolean.map((v: any) => {
-        // Extract yes price from options
-        const yesOption = v.options?.find((opt: any) => opt.option_name === 'Yes');
-        const yesPrice = yesOption?.price_adjustment || 0;
-        
-        return {
+  const imageVariations = [
+    ...(product.variations?.image && Array.isArray(product.variations.image)
+      ? product.variations.image.map((v: any) => ({
           id: v.id.toString(),
           name: v.name,
           description: v.description || '',
           isRequired: v.is_required || false,
-          yesPrice: yesPrice
-        };
-      })
-    : [];
+          options: Array.isArray(v.options) ? v.options.map((o: any) => ({
+            id: o.id.toString(),
+            name: o.option_name || o.name,
+            price: o.price_adjustment || 0,
+            image: o.image_url || '/api/placeholder/80/80'
+          })) : []
+        }))
+      : []),
+    ...bundleVariations.image.map((v: any) => ({
+      id: `bundle-${v.id}`,
+      name: v.name,
+      description: v.description || '',
+      isRequired: v.is_required || false,
+      options: Array.isArray(v.options) ? v.options.map((o: any) => ({
+        id: o.id.toString(),
+        name: o.option_name || o.name,
+        price: o.price_adjustment || 0,
+        image: o.image_url || '/api/placeholder/80/80'
+      })) : [],
+      bundleVariationId: v.id,
+      bundleItemId: bundleItems?.required?.find((item: any) => 
+        item.variations?.image?.some((v2: any) => v2.id === v.id)
+      )?.id
+    }))
+  ];
+
+  const booleanVariations = [
+    ...(product.variations?.boolean && Array.isArray(product.variations.boolean)
+      ? product.variations.boolean.map((v: any) => {
+          // Extract yes price from options
+          const yesOption = v.options?.find((opt: any) => opt.option_name === 'Yes');
+          const yesPrice = yesOption?.price_adjustment || 0;
+          
+          return {
+            id: v.id.toString(),
+            name: v.name,
+            description: v.description || '',
+            isRequired: v.is_required || false,
+            yesPrice: yesPrice
+          };
+        })
+      : []),
+    ...bundleVariations.boolean.map((v: any) => {
+      const yesOption = v.options?.find((opt: any) => opt.option_name === 'Yes');
+      const yesPrice = yesOption?.price_adjustment || 0;
+      
+      return {
+        id: `bundle-${v.id}`,
+        name: v.name,
+        description: v.description || '',
+        isRequired: v.is_required || false,
+        yesPrice: yesPrice,
+        bundleVariationId: v.id,
+        bundleItemId: bundleItems?.required?.find((item: any) => 
+          item.variations?.boolean?.some((v2: any) => v2.id === v.id)
+        )?.id
+      };
+    })
+  ];
 
   // Debug logging
-  console.log('Product variations:', product.variations);
-  console.log('Text variations:', textVariations);
-  console.log('Dropdown variations:', dropdownVariations);
-  console.log('Image variations:', imageVariations);
-  console.log('Boolean variations:', booleanVariations);
-  console.log('Selected boolean values:', selectedBooleanValues);
 
   const addons = Array.isArray(product.addons)
     ? product.addons.map((a: any) => ({
-        id: a.id.toString(),
+        id: a.id, // Keep as number, don't convert to string
         name: a.name,
         price: a.base_price || a.price?.min,
         priceRange: a.price_range_min && a.price_range_max && a.price_range_min !== a.price_range_max ? {
@@ -492,13 +735,14 @@ const ProductDetail = () => {
           max: a.price_range_max
         } : undefined,
         options: Array.isArray(a.options) && a.has_options ? a.options.map((o: any) => ({
-          id: o.id.toString(),
+          id: o.id, // Keep as number, don't convert to string
           name: o.name,
           image: o.image_url || o.imageUrl || '/api/placeholder/200/150',
           price: o.price
         })) : undefined
       }))
     : [];
+  
 
   const additionalDescriptions = Array.isArray(product.additionalInfo)
     ? product.additionalInfo.map((info: any) => ({
@@ -590,12 +834,6 @@ const ProductDetail = () => {
                   </div>
                 );
               })()}
-              
-              {calculatedPrice !== null && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Price updates based on your selections
-                </p>
-              )}
             </div>
 
             {/* Product Variations */}
@@ -607,29 +845,336 @@ const ProductDetail = () => {
                   imageVariations={imageVariations}
                   booleanVariations={booleanVariations}
                   selectedTextValues={selectedTextValues}
-                  selectedDropdownValues={Object.fromEntries(
-                    Object.entries(selectedDropdownVariations).map(([k, v]) => [k, v.toString()])
-                  )}
+                  selectedDropdownValues={(() => {
+                    // Map native variations: convert numeric keys to string keys to match variation IDs
+                    const mainVariations: Record<string, string> = {};
+                    Object.entries(selectedDropdownVariations).forEach(([varId, optId]) => {
+                      // Variation IDs in dropdownVariations are strings, so ensure key is string
+                      mainVariations[varId.toString()] = optId.toString();
+                    });
+                    
+                    // Add bundle variations
+                    const bundleSelections: Record<string, string> = {};
+                    Object.entries(bundleConfigurations).forEach(([bundleItemId, config]: [string, any]) => {
+                      Object.entries(config || {}).forEach(([variationId, optionId]: [string, any]) => {
+                        // Find the variation with this bundleVariationId to get its display ID
+                        const variation = dropdownVariations.find(v => 
+                          (v as any).bundleItemId?.toString() === bundleItemId.toString() && 
+                          (v as any).bundleVariationId?.toString() === variationId.toString()
+                        );
+                        if (variation && optionId) {
+                          bundleSelections[variation.id] = optionId.toString();
+                        }
+                      });
+                    });
+                    
+                    return { ...mainVariations, ...bundleSelections };
+                  })()}
                   selectedImageValues={selectedImageValues}
                   selectedBooleanValues={selectedBooleanValues}
                   onTextChange={(variationId, value) => {
                     setSelectedTextValues(prev => ({ ...prev, [variationId]: value }));
                   }}
-                  onDropdownChange={(varId, optId) => 
-                    handleDropdownVariationChange(parseInt(varId), parseInt(optId))
-                  }
+                  onDropdownChange={(varId, optId) => {
+                    // Check if this is a bundle variation (starts with "bundle-")
+                    if (varId.startsWith('bundle-')) {
+                      const variation = dropdownVariations.find(v => v.id === varId);
+                      if (variation && (variation as any).bundleItemId && (variation as any).bundleVariationId) {
+                        // Store in bundle configurations
+                        setBundleConfigurations(prev => ({
+                          ...prev,
+                          [(variation as any).bundleItemId]: {
+                            ...prev[(variation as any).bundleItemId] || {},
+                            [(variation as any).bundleVariationId]: parseInt(optId)
+                          }
+                        }));
+                      }
+                    } else {
+                      // Regular product variation
+                      handleDropdownVariationChange(parseInt(varId), parseInt(optId));
+                    }
+                  }}
                   onImageChange={(variationId, optionId) => {
                     setSelectedImageValues(prev => ({ ...prev, [variationId]: optionId }));
                   }}
                   onBooleanChange={(variationId, value) => {
-                    console.log('Boolean variation changed:', variationId, 'to', value);
                     setSelectedBooleanValues(prev => {
                       const newValues = { ...prev, [variationId]: value };
-                      console.log('Updated boolean values:', newValues);
                       return newValues;
                     });
                   }}
                 />
+              </div>
+            )}
+
+            {/* Required Bundle Items Stock Warning */}
+            {bundleItems && bundleItems.required && bundleItems.required.length > 0 && (() => {
+              const outOfStockRequired = bundleItems.required.filter((item: any) => {
+                const stockInfo = bundleItemStock[item.id];
+                return stockInfo && stockInfo.required && stockInfo.available <= 0;
+              });
+              
+              if (outOfStockRequired.length > 0) {
+                return (
+                  <div className="space-y-3 pt-6">
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-destructive mb-1">Product Unavailable</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Required items are out of stock: {outOfStockRequired.map((item: any) => item.display_name || item.item_product_name).join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            {/* Optional Bundle Items */}
+            {bundleItems && bundleItems.optional && bundleItems.optional.length > 0 && (
+              <div className="space-y-3 pt-6">
+                <h3 className="text-lg font-semibold">Optional Add-ons</h3>
+                {bundleItems.optional.map((item: any) => {
+                  const isSelected = selectedOptionalItems.has(item.id);
+                  const itemVariations = item.is_configurable && item.variations ? {
+                    text: item.variations.text || [],
+                    dropdown: item.variations.dropdown || [],
+                    image: item.variations.image || [],
+                    boolean: item.variations.boolean || []
+                  } : null;
+                  
+                  // Calculate base price
+                  const basePrice = item.item_product_price || item.regular_price || 0;
+                  
+                  // Calculate variation price adjustments
+                  const variationPriceAdjustment = (() => {
+                    if (!isSelected || !itemVariations || !bundleConfigurations[item.id]) return 0;
+                    
+                    let adjustment = 0;
+                    const config = bundleConfigurations[item.id];
+                    
+                    // Check dropdown variations
+                    if (itemVariations.dropdown) {
+                      itemVariations.dropdown.forEach((variation: any) => {
+                        const selectedOptionId = config[variation.id];
+                        if (selectedOptionId && variation.options) {
+                          const selectedOption = variation.options.find((opt: any) => opt.id === selectedOptionId);
+                          if (selectedOption && selectedOption.price_adjustment) {
+                            adjustment += selectedOption.price_adjustment;
+                          }
+                        }
+                      });
+                    }
+                    
+                    // Check boolean variations (add yes price if selected)
+                    if (itemVariations.boolean) {
+                      itemVariations.boolean.forEach((variation: any) => {
+                        const isYes = config[variation.id] === true;
+                        if (isYes && variation.options) {
+                          const yesOption = variation.options.find((opt: any) => opt.option_name === 'Yes');
+                          if (yesOption && yesOption.price_adjustment) {
+                            adjustment += yesOption.price_adjustment;
+                          }
+                        }
+                      });
+                    }
+                    
+                    return adjustment;
+                  })();
+                  
+                  const totalPrice = basePrice + variationPriceAdjustment;
+                  
+                  // Check stock availability
+                  const stockInfo = bundleItemStock[item.id];
+                  const isAvailable = stockInfo ? stockInfo.available > 0 : true; // Default to available if not checked yet
+                  const stockLabel = stockInfo ? (stockInfo.available > 0 ? `${stockInfo.available} available` : 'Out of Stock') : '';
+                  
+                  return (
+                    <div key={item.id} className="space-y-2">
+                      <div className="flex items-center space-x-3">
+                        <Checkbox
+                          checked={isSelected}
+                          disabled={!isAvailable}
+                          onCheckedChange={(checked) => {
+                            if (!isAvailable && checked) return; // Don't allow selecting unavailable items
+                            
+                            if (checked) {
+                              setSelectedOptionalItems(prev => new Set(prev).add(item.id));
+                            } else {
+                              const newSet = new Set(selectedOptionalItems);
+                              newSet.delete(item.id);
+                              setSelectedOptionalItems(newSet);
+                              // Clear configurations for this item
+                              setBundleConfigurations(prev => {
+                                const newConfigs = { ...prev };
+                                delete newConfigs[item.id];
+                                return newConfigs;
+                              });
+                            }
+                          }}
+                        />
+                        <div className="flex-1 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <h4 className={`text-lg font-medium ${!isAvailable ? 'text-muted-foreground line-through' : ''}`}>
+                              {item.display_name || item.item_product_name}
+                            </h4>
+                            <span className="text-sm text-muted-foreground">
+                              (${basePrice.toFixed(2)})
+                            </span>
+                            {!isAvailable && (
+                              <Badge variant="destructive" className="ml-2">Out of Stock</Badge>
+                            )}
+                            {isAvailable && stockInfo && stockInfo.available > 0 && (
+                              <Badge variant="outline" className="ml-2 text-xs">
+                                {stockInfo.available} available
+                              </Badge>
+                            )}
+                          </div>
+                          {isSelected && variationPriceAdjustment !== 0 && (
+                            <div className="text-right">
+                              <div className="font-semibold">
+                                ${totalPrice.toFixed(2)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                ${basePrice.toFixed(2)} base
+                                {variationPriceAdjustment > 0 ? ` + $${variationPriceAdjustment.toFixed(2)}` : ` - $${Math.abs(variationPriceAdjustment).toFixed(2)}`}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground ml-8">{item.description}</p>
+                      )}
+
+                      {/* Show variations when checked */}
+                      {isSelected && itemVariations && (
+                        <div className="ml-8 space-y-3 pt-2">
+                          {(() => {
+                            // Flatten all variations
+                            const allVariations: any[] = [];
+                            if (itemVariations.dropdown) allVariations.push(...itemVariations.dropdown);
+                            if (itemVariations.text) allVariations.push(...itemVariations.text);
+                            if (itemVariations.image) allVariations.push(...itemVariations.image);
+                            if (itemVariations.boolean) allVariations.push(...itemVariations.boolean);
+
+                            if (allVariations.length === 0) {
+                              return null;
+                            }
+
+                            return allVariations.map((variation: any) => {
+                              // Handle dropdown variations
+                              if (variation.variation_type === 'dropdown' && variation.options && Array.isArray(variation.options) && variation.options.length > 0) {
+                                const selectedValue = bundleConfigurations[item.id]?.[variation.id];
+                                
+                                return (
+                                  <div key={variation.id} className="space-y-2">
+                                    <label className="text-sm font-medium">{variation.name}</label>
+                                    <select
+                                      className="w-full p-2 border rounded-md bg-background"
+                                      value={selectedValue || ''}
+                                      onChange={(e) => {
+                                        setBundleConfigurations(prev => ({
+                                          ...prev,
+                                          [item.id]: {
+                                            ...prev[item.id] || {},
+                                            [variation.id]: parseInt(e.target.value)
+                                          }
+                                        }));
+                                      }}
+                                    >
+                                      <option value="">Select {variation.name}</option>
+                                      {variation.options.map((option: any) => {
+                                        const priceAdj = option.price_adjustment ?? 0;
+                                        const hasPrice = priceAdj !== 0 && priceAdj !== null && priceAdj !== undefined;
+                                        return (
+                                          <option key={option.id} value={option.id}>
+                                            {option.option_name}{hasPrice ? ` (${priceAdj > 0 ? '+' : ''}$${Math.abs(priceAdj).toFixed(2)})` : ''}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  </div>
+                                );
+                              }
+                              
+                              // Handle text variations
+                              if (variation.variation_type === 'text') {
+                                const selectedValue = bundleConfigurations[item.id]?.[variation.id] || '';
+                                return (
+                                  <div key={variation.id} className="space-y-2">
+                                    <label className="text-sm font-medium">
+                                      {variation.name}
+                                      {variation.is_required && <span className="text-primary ml-1">*</span>}
+                                    </label>
+                                    <Input
+                                      placeholder={`Enter ${variation.name.toLowerCase()}...`}
+                                      value={selectedValue}
+                                      onChange={(e) => {
+                                        setBundleConfigurations(prev => ({
+                                          ...prev,
+                                          [item.id]: {
+                                            ...prev[item.id] || {},
+                                            [variation.id]: e.target.value
+                                          }
+                                        }));
+                                      }}
+                                      required={variation.is_required}
+                                    />
+                                  </div>
+                                );
+                              }
+                              
+                              // Handle boolean variations
+                              if (variation.variation_type === 'boolean' && variation.options) {
+                                const yesOption = variation.options.find((opt: any) => opt.option_name === 'Yes');
+                                const yesPrice = yesOption?.price_adjustment || 0;
+                                const isChecked = bundleConfigurations[item.id]?.[variation.id] === true;
+                                
+                                return (
+                                  <div key={variation.id} className="space-y-2">
+                                    <div className="flex items-center space-x-2">
+                                      <Checkbox
+                                        checked={isChecked}
+                                        onCheckedChange={(checked) => {
+                                          setBundleConfigurations(prev => ({
+                                            ...prev,
+                                            [item.id]: {
+                                              ...prev[item.id] || {},
+                                              [variation.id]: checked
+                                            }
+                                          }));
+                                        }}
+                                      />
+                                      <label className="text-sm font-medium cursor-pointer">
+                                        {variation.name}
+                                        {variation.is_required && <span className="text-primary ml-1">*</span>}
+                                        {yesPrice > 0 && (
+                                          <span className="text-primary ml-2 font-normal">
+                                            (+${yesPrice.toFixed(2)})
+                                          </span>
+                                        )}
+                                      </label>
+                                    </div>
+                                    {variation.description && (
+                                      <p className="text-sm text-muted-foreground ml-8">{variation.description}</p>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              
+                              return null;
+                            });
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -641,7 +1186,9 @@ const ProductDetail = () => {
                 selectedAddonOptions={Object.fromEntries(
                   Object.entries(selectedAddonOptions).map(([k, v]) => [k, v.toString()])
                 )}
-                onAddonToggle={(id) => handleAddonToggle(parseInt(id))}
+                onAddonToggle={(id) => {
+                  handleAddonToggle(parseInt(id.toString()));
+                }}
                 onAddonOptionChange={(addonId, optId) => 
                   handleAddonOptionChange(parseInt(addonId), parseInt(optId))
                 }
@@ -657,7 +1204,15 @@ const ProductDetail = () => {
             <div className="space-y-4">
               <Button 
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 text-lg"
-                disabled={!((product as any).stock > 0 || (product as any).in_stock === '1') || addingToCart}
+                disabled={
+                  !((product as any).stock > 0 || (product as any).in_stock === '1') || 
+                  addingToCart ||
+                  // Disable if any required bundle items are out of stock
+                  (bundleItems?.required?.some((item: any) => {
+                    const stockInfo = bundleItemStock[item.id];
+                    return stockInfo && stockInfo.required && stockInfo.available <= 0;
+                  }))
+                }
                 onClick={handleAddToCart}
               >
                 {addingToCart ? (
@@ -672,6 +1227,16 @@ const ProductDetail = () => {
                   </>
                 )}
               </Button>
+              
+              {/* Show message if disabled due to bundle stock */}
+              {bundleItems?.required?.some((item: any) => {
+                const stockInfo = bundleItemStock[item.id];
+                return stockInfo && stockInfo.required && stockInfo.available <= 0;
+              }) && (
+                <p className="text-sm text-destructive text-center font-medium">
+                  Cannot add to cart: Required items are out of stock
+                </p>
+              )}
               
               <div className="text-sm text-muted-foreground text-center">
                 As low as $32.27/mo with <span className="font-bold">PayPal</span>. 

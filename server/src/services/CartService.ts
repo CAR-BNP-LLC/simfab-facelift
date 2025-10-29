@@ -16,15 +16,18 @@ import {
 } from '../types/cart';
 import { PriceCalculatorService } from './PriceCalculatorService';
 import { StockReservationService } from './StockReservationService';
+import { BundleService } from './BundleService';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class CartService {
   private priceCalculator: PriceCalculatorService;
   private stockReservationService: StockReservationService;
+  private bundleService: BundleService;
 
   constructor(private pool: Pool) {
     this.priceCalculator = new PriceCalculatorService(pool);
     this.stockReservationService = new StockReservationService(pool);
+    this.bundleService = new BundleService(pool);
   }
 
   /**
@@ -177,7 +180,7 @@ export class CartService {
       // Validate product exists and is in stock
       const productSql = `
         SELECT 
-          p.id, p.name, p.sku, p.slug, p.stock, p.status,
+          p.id, p.name, p.sku, p.slug, p.stock, p.status, p.is_bundle,
           COALESCE(
             (SELECT json_agg(row_to_json(pi))
              FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -199,10 +202,13 @@ export class CartService {
         throw new ValidationError('Product is not available for purchase');
       }
 
+      // Normalize configuration first
+      const normalizedConfig = this.normalizeConfigurationForComparison(data.configuration);
+      
       // Check available stock (considering reservations and variation stock)
       const availableStock = await this.stockReservationService.getAvailableStock(
         product.id, 
-        data.configuration
+        normalizedConfig
       );
       
       if (data.quantity > availableStock) {
@@ -212,31 +218,180 @@ export class CartService {
         });
       }
 
-      // Calculate price with configuration
-      console.log('CartService: Calculating price for product', data.productId, 'with configuration:', data.configuration);
+      // Track optional items that get removed due to stock
+      let removedOptionalItems: string[] = [];
+      
+      // Check bundle items stock if this is a bundle product
+      if (product.is_bundle && normalizedConfig.bundleItems) {
+        console.log('========== BUNDLE STOCK VALIDATION ==========');
+        
+        // Get bundle items to identify required vs optional
+        const allBundleItems = await this.bundleService.getBundleItems(product.id);
+        const requiredBundleItemIds = allBundleItems.filter((item: any) => item.item_type === 'required').map((item: any) => item.id);
+        const optionalBundleItemIds = allBundleItems.filter((item: any) => item.item_type === 'optional').map((item: any) => item.id);
+        
+        // Track original optional items before stock check
+        const originalOptionalIds = [...(normalizedConfig.bundleItems.selectedOptional || [])];
+        
+        console.log('Required bundle item IDs:', requiredBundleItemIds);
+        console.log('Optional bundle item IDs:', optionalBundleItemIds);
+        
+        // Convert configuration format for BundleService
+        // BundleService expects: requiredItems as Record<bundleItemId, ProductConfiguration>
+        // Note: BundleService also looks for optional item configs in requiredItems, so include both
+        const bundleItemsConfig: Record<number, any> = {};
+        
+        // Process required items configs
+        for (const bundleItemId of requiredBundleItemIds) {
+          if (normalizedConfig.bundleItems.configurations?.[bundleItemId]) {
+            // Convert bundle item's variation config to ProductConfiguration format
+            const bundleItemConfig = normalizedConfig.bundleItems.configurations[bundleItemId];
+            bundleItemsConfig[bundleItemId] = {
+              variations: bundleItemConfig
+            };
+          }
+        }
+        
+        // Process optional items configs (BundleService checks these from requiredItems too)
+        for (const bundleItemId of (normalizedConfig.bundleItems.selectedOptional || [])) {
+          if (normalizedConfig.bundleItems.configurations?.[bundleItemId]) {
+            const bundleItemConfig = normalizedConfig.bundleItems.configurations[bundleItemId];
+            bundleItemsConfig[bundleItemId] = {
+              variations: bundleItemConfig
+            };
+          }
+        }
+        
+        const bundleConfig = {
+          requiredItems: bundleItemsConfig,
+          optionalItems: normalizedConfig.bundleItems.selectedOptional || []
+        };
+        
+        console.log('Bundle configuration for stock check:', JSON.stringify(bundleConfig, null, 2));
+        
+        const bundleAvailability = await this.bundleService.checkBundleAvailability(
+          product.id,
+          bundleConfig
+        );
+        
+        console.log('Bundle availability result:', JSON.stringify(bundleAvailability, null, 2));
+        
+        // Check required items - if any are out of stock, block add to cart
+        const requiredItems = bundleAvailability.variationStock?.filter((item: any) => item.required) || [];
+        const outOfStockRequired = requiredItems.filter((item: any) => item.available <= 0);
+        
+        if (outOfStockRequired.length > 0) {
+          const itemNames = outOfStockRequired.map((item: any) => item.productName).join(', ');
+          throw new ValidationError(
+            `Cannot add to cart: Required bundle items are out of stock: ${itemNames}`,
+            {
+              outOfStockItems: outOfStockRequired,
+              code: 'BUNDLE_REQUIRED_ITEM_OUT_OF_STOCK'
+            }
+          );
+        }
+        
+        // Filter out unavailable optional items
+        const optionalItems = bundleAvailability.variationStock?.filter((item: any) => !item.required) || [];
+        const unavailableOptionals = optionalItems.filter((item: any) => item.available <= 0);
+        
+        if (unavailableOptionals.length > 0) {
+          console.log('⚠️  Removing unavailable optional bundle items:', unavailableOptionals.map((item: any) => item.productName));
+          
+          // Remove unavailable optional items from configuration
+          // Need to map from productId back to bundle item ID
+          const availableOptionalIds = (normalizedConfig.bundleItems.selectedOptional || []).filter((bundleItemId: number) => {
+            const bundleItem = allBundleItems.find((item: any) => item.id === bundleItemId && item.item_type === 'optional');
+            if (!bundleItem) return false;
+            
+            const item = optionalItems.find((opt: any) => opt.productId === bundleItem.item_product_id);
+            return item && item.available > 0;
+          });
+          
+          normalizedConfig.bundleItems.selectedOptional = availableOptionalIds;
+          
+          // Track which items were removed for warning message
+          const removedIds = originalOptionalIds.filter((id: number) => !availableOptionalIds.includes(id));
+          removedOptionalItems = removedIds.map((id: number) => {
+            const bundleItem = allBundleItems.find((item: any) => item.id === id);
+            if (bundleItem?.display_name) {
+              return bundleItem.display_name;
+            }
+            // Try to find from unavailableOptionals
+            const unavailableItem = unavailableOptionals.find((opt: any) => {
+              const item = allBundleItems.find((bi: any) => bi.item_product_id === opt.productId && bi.id === id);
+              return !!item;
+            });
+            if (unavailableItem) {
+              return unavailableItem.productName || `Item ${id}`;
+            }
+            return `Item ${id}`;
+          });
+          
+          console.log('Updated optional items:', availableOptionalIds);
+          console.log('Removed items:', removedOptionalItems);
+        }
+        
+        console.log('====================================================');
+      }
+
+      // Configuration already normalized above for stock checking
+      // Now use it for price calculation
+      console.log('========== CART SERVICE: PRICE CALCULATION ==========');
+      console.log('Configuration for price calculation:', JSON.stringify(normalizedConfig, null, 2));
+      console.log('Normalized Configuration:', JSON.stringify(normalizedConfig, null, 2));
+      
+      // Compare original vs normalized
+      const originalStr = JSON.stringify(data.configuration);
+      const normalizedStr = JSON.stringify(normalizedConfig);
+      if (originalStr !== normalizedStr) {
+        console.log('⚠️  Configuration was normalized (string keys converted to numbers)');
+      } else {
+        console.log('✓ Configuration was already in correct format');
+      }
+      
+      console.log('--- Calling PriceCalculatorService ---');
       const priceCalc = await this.priceCalculator.calculatePrice(
         data.productId,
-        data.configuration,
+        normalizedConfig,
         data.quantity
       );
 
       const unitPrice = priceCalc.pricing.subtotal;
       const totalPrice = priceCalc.pricing.total;
-      console.log('CartService: Calculated unit price:', unitPrice, 'total price:', totalPrice);
+      
+      console.log('--- Price Calculation Results ---');
+      console.log('Unit Price (subtotal):', unitPrice);
+      console.log('Total Price (quantity × unit):', totalPrice);
+      console.log('Price Breakdown:', JSON.stringify(priceCalc.breakdown, null, 2));
+      console.log('Full Price Calculation:', JSON.stringify(priceCalc, null, 2));
+      console.log('====================================================');
 
-      console.log('CartService: Checking for existing item with configuration:', JSON.stringify(data.configuration));
+      console.log('CartService: Checking for existing item with configuration:', JSON.stringify(normalizedConfig));
       
       // Check if same product with same configuration already in cart
+      // Normalize stored configurations for comparison
       const existingItemSql = `
         SELECT * FROM cart_items
-        WHERE cart_id = $1 AND product_id = $2 AND configuration = $3
+        WHERE cart_id = $1 AND product_id = $2
       `;
 
-      const existingResult = await client.query(existingItemSql, [
+      const existingItemsResult = await client.query(existingItemSql, [
         cart.id,
-        data.productId,
-        JSON.stringify(data.configuration)
+        data.productId
       ]);
+      
+      // Find matching configuration by comparing normalized versions
+      const normalizedConfigStr = JSON.stringify(normalizedConfig);
+      const existingResult = {
+        rows: existingItemsResult.rows.filter((item: any) => {
+          const storedConfig = typeof item.configuration === 'string' 
+            ? JSON.parse(item.configuration) 
+            : item.configuration;
+          const normalizedStored = this.normalizeConfigurationForComparison(storedConfig);
+          return JSON.stringify(normalizedStored) === normalizedConfigStr;
+        })
+      };
       
       console.log('CartService: Found existing items:', existingResult.rows.length);
 
@@ -247,10 +402,10 @@ export class CartService {
         const existing = existingResult.rows[0];
         const newQuantity = existing.quantity + data.quantity;
 
-        // Recalculate price
+        // Recalculate price with normalized configuration
         const newPriceCalc = await this.priceCalculator.calculatePrice(
           data.productId,
-          data.configuration,
+          normalizedConfig,
           newQuantity
         );
 
@@ -281,7 +436,7 @@ export class CartService {
           cart.id,
           data.productId,
           data.quantity,
-          JSON.stringify(data.configuration),
+          JSON.stringify(normalizedConfig),
           unitPrice,
           totalPrice
         ]);
@@ -292,7 +447,8 @@ export class CartService {
       await client.query('COMMIT');
 
       // Return cart item with product details
-      return {
+      // Include warning if optional items were removed
+      const result: any = {
         ...cartItem,
         product_name: product.name,
         product_sku: product.sku,
@@ -302,6 +458,17 @@ export class CartService {
         product_stock: product.stock,
         product_status: product.status
       };
+      
+      // Add warning if optional bundle items were removed
+      if (removedOptionalItems.length > 0) {
+        result.warning = {
+          message: `Some optional items were removed due to stock availability: ${removedOptionalItems.join(', ')}`,
+          removedItems: removedOptionalItems,
+          code: 'OPTIONAL_ITEMS_REMOVED'
+        };
+      }
+      
+      return result;
     } catch (error) {
       await client.query('ROLLBACK');
       if (error instanceof NotFoundError || error instanceof ValidationError) {
@@ -364,9 +531,13 @@ export class CartService {
       }
 
       // Recalculate price
+      // Configuration is parsed from JSON, so normalize it
+      const normalizedConfig = typeof item.configuration === 'string' 
+        ? JSON.parse(item.configuration) 
+        : item.configuration;
       const priceCalc = await this.priceCalculator.calculatePrice(
         item.product_id,
-        item.configuration,
+        normalizedConfig,
         quantity
       );
 
@@ -467,9 +638,13 @@ export class CartService {
           const newQuantity = existing.quantity + item.quantity;
 
           // Recalculate price
+          // Configuration is parsed from JSON, so normalize it
+          const normalizedConfig = typeof item.configuration === 'string' 
+            ? JSON.parse(item.configuration) 
+            : item.configuration;
           const priceCalc = await this.priceCalculator.calculatePrice(
             item.product_id,
-            item.configuration,
+            normalizedConfig,
             newQuantity
           );
 
@@ -500,6 +675,74 @@ export class CartService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Normalize configuration for consistent comparison
+   * This ensures variation IDs are numbers (handles JSON string keys)
+   */
+  private normalizeConfigurationForComparison(config: any): any {
+    if (!config || typeof config !== 'object') return config;
+    
+    const normalized: any = {};
+    
+    // Copy non-variation fields
+    if (config.colorId !== undefined) normalized.colorId = config.colorId;
+    if (config.modelVariationId !== undefined) normalized.modelVariationId = config.modelVariationId;
+    if (config.addons !== undefined) normalized.addons = config.addons;
+    
+    // Normalize variations object keys
+    if (config.variations) {
+      normalized.variations = {};
+      for (const [key, value] of Object.entries(config.variations)) {
+        const numKey = typeof key === 'string' ? parseInt(key, 10) : (typeof key === 'number' ? key : NaN);
+        const numValue = typeof value === 'string' ? parseInt(value, 10) : (typeof value === 'number' ? value : NaN);
+        if (!isNaN(numKey) && !isNaN(numValue) && typeof numKey === 'number' && typeof numValue === 'number') {
+          normalized.variations[numKey] = numValue;
+        }
+      }
+    }
+    
+    // Normalize dropdownSelections if present
+    if (config.dropdownSelections) {
+      normalized.dropdownSelections = {};
+      for (const [key, value] of Object.entries(config.dropdownSelections)) {
+        const numKey = typeof key === 'string' ? parseInt(key, 10) : (typeof key === 'number' ? key : NaN);
+        const numValue = typeof value === 'string' ? parseInt(value, 10) : (typeof value === 'number' ? value : NaN);
+        if (!isNaN(numKey) && !isNaN(numValue) && typeof numKey === 'number' && typeof numValue === 'number') {
+          normalized.dropdownSelections[numKey] = numValue;
+        }
+      }
+    }
+    
+    // Normalize bundle items
+    if (config.bundleItems) {
+      normalized.bundleItems = {};
+      if (config.bundleItems.selectedOptional) {
+        normalized.bundleItems.selectedOptional = config.bundleItems.selectedOptional.map((id: any) =>
+          typeof id === 'string' ? parseInt(id, 10) : id
+        );
+      }
+      if (config.bundleItems.configurations) {
+        normalized.bundleItems.configurations = {};
+        for (const [bundleItemId, bundleConfig] of Object.entries(config.bundleItems.configurations)) {
+          const numBundleItemId = typeof bundleItemId === 'string' ? parseInt(bundleItemId, 10) : bundleItemId;
+          if (!isNaN(numBundleItemId) && bundleConfig && typeof bundleConfig === 'object') {
+            const normalizedBundleVariations: Record<number, any> = {};
+            for (const [varId, value] of Object.entries(bundleConfig as any)) {
+              const numVarId = typeof varId === 'string' ? parseInt(varId, 10) : (typeof varId === 'number' ? varId : NaN);
+              if (!isNaN(numVarId) && typeof numVarId === 'number') {
+                // Preserve the original value type - can be number (optionId), string (text), or boolean
+                normalizedBundleVariations[numVarId] = value;
+              }
+            }
+            normalized.bundleItems.configurations[numBundleItemId] = normalizedBundleVariations;
+          }
+        }
+      }
+    }
+    
+    return normalized;
   }
 
   /**

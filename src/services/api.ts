@@ -365,6 +365,10 @@ export interface ProductConfiguration {
     addonId: number;
     optionId?: number;
   }>;
+  bundleItems?: {
+    selectedOptional?: number[]; // Array of optional bundle item IDs
+    configurations?: Record<number, any>; // bundleItemId -> { variationId: optionId }
+  };
 }
 
 // ==========================================

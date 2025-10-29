@@ -117,18 +117,22 @@ const ProductVariations = ({
                   <SelectValue placeholder="Select..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {variation.options.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      <div className="flex items-center justify-between w-full">
-                        <span>{option.name}</span>
-                        {option.price && option.price !== 0 && (
-                          <span className="ml-2 font-bold">
-                            {option.price > 0 ? '+' : ''}${option.price.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {variation.options.map((option) => {
+                    const price = option.price ?? 0;
+                    const hasPrice = price !== 0 && price !== null && price !== undefined;
+                    return (
+                      <SelectItem key={option.id} value={option.id}>
+                        <div className="flex items-center justify-between w-full">
+                          <span>{option.name}</span>
+                          {hasPrice && (
+                            <span className="ml-2 font-bold">
+                              {price > 0 ? '+' : ''}${Math.abs(price).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>

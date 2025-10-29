@@ -272,6 +272,10 @@ export interface ProductConfiguration {
     addonId: number;
     optionId?: number;
   }>;
+  bundleItems?: {
+    selectedOptional?: number[]; // Array of optional bundle item IDs
+    configurations?: Record<number, any>; // bundleItemId -> { variationId: optionId }
+  };
 }
 
 export interface PriceBreakdown {
@@ -293,6 +297,8 @@ export interface PriceCalculation {
   breakdown: {
     base: number;
     variations: number;
+    requiredBundleAdjustments?: number;
+    optionalBundleTotal?: number;
     addons: number;
   };
 }
@@ -455,9 +461,12 @@ export interface StockCheckResult {
   availableQuantity: number;
   message?: string;
   variationStock?: Array<{
-    variationName: string;
-    optionName: string;
+    productId?: number;
+    productName?: string;
+    variationName?: string;
+    optionName?: string;
     available: number;
+    required?: boolean;
   }>;
 }
 

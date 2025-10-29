@@ -119,7 +119,11 @@ export const createVariationSchema = Joi.object({
       option_name: Joi.string().required(),
       option_value: Joi.string().required(),
       price_adjustment: Joi.number().optional(),
-      image_url: Joi.string().uri().optional(),
+      image_url: Joi.alternatives().try(
+        Joi.string().uri(),
+        Joi.string().allow(''),
+        Joi.valid(null)
+      ).optional(),
       is_default: Joi.boolean().optional()
     })
   ).min(1).when('variation_type', {
@@ -140,7 +144,11 @@ export const updateVariationSchema = Joi.object({
       option_name: Joi.string().required(),
       option_value: Joi.string().required(),
       price_adjustment: Joi.number().optional(),
-      image_url: Joi.string().uri().optional(),
+      image_url: Joi.alternatives().try(
+        Joi.string().uri(),
+        Joi.string().allow(''),
+        Joi.valid(null)
+      ).optional(),
       is_default: Joi.boolean().optional()
     })
   ).min(1).when('variation_type', {

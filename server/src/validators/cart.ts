@@ -28,7 +28,23 @@ export const addToCartSchema = Joi.object({
         addonId: Joi.number().integer().positive().required(),
         optionId: Joi.number().integer().positive().optional()
       })
-    ).optional()
+    ).optional(),
+    bundleItems: Joi.object({
+      selectedOptional: Joi.array().items(
+        Joi.number().integer().positive()
+      ).optional(),
+      configurations: Joi.object().pattern(
+        Joi.number().integer().positive(),
+        Joi.object().pattern(
+          Joi.number().integer().positive(),
+          Joi.alternatives().try(
+            Joi.number().integer(),
+            Joi.string(),
+            Joi.boolean()
+          )
+        )
+      ).optional()
+    }).optional()
   }).optional()
 });
 

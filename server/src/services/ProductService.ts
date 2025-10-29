@@ -30,13 +30,9 @@ export class ProductService {
    */
   async getProducts(options: ProductQueryOptions = {}): Promise<PaginatedProducts> {
     try {
-      console.log('📦 ProductService.getProducts v2.0');
-      console.log('Options received:', options);
       
       const { sql, params, countSql, countParams } = this.queryBuilder.build(options);
 
-      console.log('Generated SQL (first 500 chars):', sql.substring(0, 500));
-      console.log('SQL params:', params);
 
       // Execute queries in parallel
       const [productsResult, countResult] = await Promise.all([
@@ -49,17 +45,6 @@ export class ProductService {
       const page = options.page || 1;
       const limit = options.limit || 20;
       const totalPages = Math.ceil(total / limit);
-      
-      console.log('Query returned:', products.length, 'products');
-      if (products.length > 0) {
-        console.log('Sample product structure:', {
-          id: products[0].id,
-          name: products[0].name,
-          hasImages: !!products[0].images,
-          imagesType: typeof products[0].images,
-          imagesValue: products[0].images
-        });
-      }
 
       // Get filter metadata if requested
       let filters;
@@ -285,7 +270,6 @@ export class ProductService {
 
     try {
       // Log the incoming data for debugging
-      console.log('ProductService.updateProduct - Received data:', JSON.stringify(data, null, 2));
       
       await client.query('BEGIN');
 
@@ -379,8 +363,6 @@ export class ProductService {
       values.push(id);
 
       // Log the SQL query for debugging
-      console.log('ProductService.updateProduct - SQL:', sql);
-      console.log('ProductService.updateProduct - Values:', values);
 
       const result = await client.query(sql, values);
       await client.query('COMMIT');
