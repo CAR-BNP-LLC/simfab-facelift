@@ -199,8 +199,11 @@ export class CartService {
         throw new ValidationError('Product is not available for purchase');
       }
 
-      // Check available stock (considering reservations)
-      const availableStock = await this.stockReservationService.getAvailableStock(product.id);
+      // Check available stock (considering reservations and variation stock)
+      const availableStock = await this.stockReservationService.getAvailableStock(
+        product.id, 
+        data.configuration
+      );
       
       if (data.quantity > availableStock) {
         throw new ValidationError(`Insufficient stock. Only ${availableStock} available`, {

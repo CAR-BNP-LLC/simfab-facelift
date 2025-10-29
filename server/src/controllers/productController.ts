@@ -383,5 +383,41 @@ export class ProductController {
       next(error);
     }
   };
+
+  /**
+   * Get bundle items for a product
+   * GET /api/products/:id/bundle-items
+   */
+  getBundleItems = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const bundleItems = await this.productService.getBundleItemsWithDetails(productId);
+
+      res.json(successResponse(bundleItems, 'Bundle items retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Check stock availability for a product configuration
+   * POST /api/products/:id/check-availability
+   */
+  checkAvailability = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      const configuration: ProductConfiguration = req.body;
+      
+      // Import VariationStockService here to avoid circular dependency
+      const { VariationStockService } = await import('../services/VariationStockService');
+      const variationStockService = new VariationStockService(this.pool);
+      
+      const availability = await variationStockService.checkAvailability(productId, configuration);
+
+      res.json(successResponse(availability, 'Availability checked'));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 

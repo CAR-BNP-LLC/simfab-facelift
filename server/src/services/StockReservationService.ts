@@ -1,5 +1,7 @@
 import { Pool } from 'pg';
 import { NotFoundError, ValidationError } from '../utils/errors';
+import { VariationStockService } from './VariationStockService';
+import { ProductConfiguration } from '../types/product';
 
 export interface StockReservation {
   id: number;
@@ -12,7 +14,11 @@ export interface StockReservation {
 }
 
 export class StockReservationService {
-  constructor(private pool: Pool) {}
+  private variationStockService: VariationStockService;
+
+  constructor(private pool: Pool) {
+    this.variationStockService = new VariationStockService(pool);
+  }
 
   /**
    * Reserve stock for an order
@@ -203,11 +209,27 @@ export class StockReservationService {
   /**
    * Get available stock for a product (considering reservations)
    */
-  async getAvailableStock(productId: number): Promise<number> {
+  async getAvailableStock(productId: number, configuration?: ProductConfiguration): Promise<number> {
     const client = await this.pool.connect();
     
     try {
-      // Get current stock
+      // Check if product has variation stock tracking
+      const variationCheck = await client.query(
+        `SELECT COUNT(*) as count 
+         FROM product_variations 
+         WHERE product_id = $1 AND tracks_stock = true`,
+        [productId]
+      );
+
+      const hasVariationStock = parseInt(variationCheck.rows[0].count) > 0;
+
+      // If has variation stock and configuration provided, check variation stock
+      if (hasVariationStock && configuration?.variations) {
+        const result = await this.variationStockService.checkAvailability(productId, configuration);
+        return result.availableQuantity;
+      }
+
+      // Otherwise use product-level stock
       const productResult = await client.query(
         'SELECT stock FROM products WHERE id = $1',
         [productId]
@@ -238,5 +260,42 @@ export class StockReservationService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Reserve variation stock for an order
+   */
+  async reserveVariationStock(
+    orderId: number, 
+    configuration: ProductConfiguration, 
+    quantity: number
+  ): Promise<void> {
+    // Check if configuration has variation selections
+    if (!configuration.variations || Object.keys(configuration.variations).length === 0) {
+      return; // No variations, skip
+    }
+
+    // Reserve stock for each variation option
+    for (const optionId of Object.values(configuration.variations)) {
+      await this.variationStockService.reserveVariationStock(
+        Number(optionId),
+        quantity,
+        orderId
+      );
+    }
+  }
+
+  /**
+   * Confirm variation stock reservations (on payment)
+   */
+  async confirmVariationReservations(orderId: number): Promise<void> {
+    await this.variationStockService.confirmReservation(orderId);
+  }
+
+  /**
+   * Release variation stock reservations (on order cancellation)
+   */
+  async releaseVariationReservations(orderId: number): Promise<void> {
+    await this.variationStockService.releaseVariationStock(orderId);
   }
 }

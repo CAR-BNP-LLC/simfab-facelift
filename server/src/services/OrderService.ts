@@ -151,13 +151,22 @@ export class OrderService {
 
         orderItems.push(orderItemResult.rows[0]);
 
-        // Reserve stock instead of immediately deducting
+        // Reserve stock (handles both product-level and variation-level stock)
         await this.stockReservationService.reserveStock(
           order.id,
           cartItem.product_id,
           cartItem.quantity,
           client
         );
+
+        // Reserve variation stock if configuration has variation selections
+        if (cartItem.configuration?.variations) {
+          await this.stockReservationService.reserveVariationStock(
+            order.id,
+            cartItem.configuration,
+            cartItem.quantity
+          );
+        }
       }
 
       // Preserve cart for checkout - don't clear until payment is completed
@@ -314,8 +323,11 @@ export class OrderService {
     try {
       await client.query('BEGIN');
 
-      // Confirm stock reservations
+      // Confirm stock reservations (both product-level and variation-level)
       await this.stockReservationService.confirmReservation(orderId, client);
+      
+      // Confirm variation stock reservations
+      await this.stockReservationService.confirmVariationReservations(orderId);
 
       // Update order status
       await client.query(
