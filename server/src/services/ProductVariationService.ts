@@ -75,8 +75,8 @@ export class ProductVariationService {
       // Create variation
       const variationSql = `
         INSERT INTO product_variations (
-          product_id, variation_type, name, description, is_required, sort_order
-        ) VALUES ($1, $2, $3, $4, $5, $6)
+          product_id, variation_type, name, description, is_required, sort_order, tracks_stock
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
       `;
 
@@ -86,7 +86,8 @@ export class ProductVariationService {
         data.name,
         data.description || null,
         data.is_required ?? true,
-        data.sort_order || 0
+        data.sort_order || 0,
+        data.tracks_stock || false
       ]);
 
       const variation = variationResult.rows[0];
@@ -174,6 +175,10 @@ export class ProductVariationService {
       if (data.sort_order !== undefined) {
         updates.push(`sort_order = $${paramCounter++}`);
         values.push(data.sort_order);
+      }
+      if (data.tracks_stock !== undefined) {
+        updates.push(`tracks_stock = $${paramCounter++}`);
+        values.push(data.tracks_stock);
       }
 
       if (updates.length === 0) {

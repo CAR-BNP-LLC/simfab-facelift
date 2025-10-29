@@ -54,6 +54,7 @@ interface ProductVariationsProps {
   onDropdownChange?: (variationId: string, optionId: string) => void;
   onImageChange?: (variationId: string, optionId: string) => void;
   onBooleanChange?: (variationId: string, value: boolean) => void;
+  variationStock?: Array<{ variationName: string; optionName: string; available: number }>;
 }
 
 const ProductVariations = ({
@@ -68,7 +69,8 @@ const ProductVariations = ({
   onTextChange,
   onDropdownChange,
   onImageChange,
-  onBooleanChange
+  onBooleanChange,
+  variationStock = []
 }: ProductVariationsProps) => {
   return (
     <div className="space-y-4">
@@ -194,33 +196,50 @@ const ProductVariations = ({
       {booleanVariations.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-lg font-bold text-primary">Yes/No Options</h3>
-          {booleanVariations.map((variation) => (
-            <div key={variation.id} className="space-y-3">
-              <Label className="text-lg font-medium">
-                {variation.name}
-                {variation.isRequired && <span className="text-primary ml-1">*</span>}
-                {variation.yesPrice && variation.yesPrice > 0 && (
-                  <span className="text-primary ml-2 font-normal">
-                    (+${variation.yesPrice.toFixed(2)})
-                  </span>
+          {booleanVariations.map((variation) => {
+            // Check if this variation's selected option is out of stock
+            const isYesSelected = selectedBooleanValues[variation.id] === true;
+            const stockInfo = variationStock.find(
+              (item) => item.variationName === variation.name && 
+              ((isYesSelected && item.optionName === 'Yes') || (!isYesSelected && item.optionName === 'No'))
+            );
+            const isOutOfStock = stockInfo && stockInfo.available <= 0;
+            
+            return (
+              <div key={variation.id} className="space-y-3">
+                <Label className="text-lg font-medium">
+                  {variation.name}
+                  {variation.isRequired && <span className="text-primary ml-1">*</span>}
+                  {variation.yesPrice && variation.yesPrice > 0 && (
+                    <span className="text-primary ml-2 font-normal">
+                      (+${variation.yesPrice.toFixed(2)})
+                    </span>
+                  )}
+                </Label>
+                {variation.description && (
+                  <p className="text-sm text-muted-foreground">{variation.description}</p>
                 )}
-              </Label>
-              {variation.description && (
-                <p className="text-sm text-muted-foreground">{variation.description}</p>
-              )}
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={selectedBooleanValues[variation.id] || false}
-                    onCheckedChange={(checked) => onBooleanChange?.(variation.id, checked)}
-                  />
-                  <Label className="text-base">
-                    {selectedBooleanValues[variation.id] ? 'Yes' : 'No'}
-                  </Label>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={selectedBooleanValues[variation.id] || false}
+                      onCheckedChange={(checked) => onBooleanChange?.(variation.id, checked)}
+                    />
+                    <Label className="text-base">
+                      {selectedBooleanValues[variation.id] ? 'Yes' : 'No'}
+                    </Label>
+                  </div>
                 </div>
+                {isOutOfStock && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-2">
+                    <p className="text-sm text-destructive font-medium">
+                      The selected option "{isYesSelected ? 'Yes' : 'No'}" is out of stock
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

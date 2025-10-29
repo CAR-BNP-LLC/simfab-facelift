@@ -114,6 +114,7 @@ export const createVariationSchema = Joi.object({
   description: Joi.string().allow('', null).optional(),
   is_required: Joi.boolean().optional(),
   sort_order: Joi.number().integer().min(0).optional(),
+  tracks_stock: Joi.boolean().optional(),
   options: Joi.array().items(
     Joi.object({
       option_name: Joi.string().required(),
@@ -139,6 +140,7 @@ export const updateVariationSchema = Joi.object({
   description: Joi.string().allow('', null).optional(),
   is_required: Joi.boolean().optional(),
   sort_order: Joi.number().integer().min(0).optional(),
+  tracks_stock: Joi.boolean().optional(),
   options: Joi.array().items(
     Joi.object({
       option_name: Joi.string().required(),

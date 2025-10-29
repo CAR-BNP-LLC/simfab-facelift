@@ -381,6 +381,7 @@ export interface CreateVariationDto {
   description?: string;
   is_required?: boolean;
   sort_order?: number;
+  tracks_stock?: boolean;
   options?: Array<{
     option_name: string;
     option_value: string;
@@ -396,6 +397,7 @@ export interface UpdateVariationDto {
   description?: string;
   is_required?: boolean;
   sort_order?: number;
+  tracks_stock?: boolean;
 }
 
 export interface CreateOptionDto {

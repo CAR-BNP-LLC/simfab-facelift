@@ -46,6 +46,10 @@ const ProductDetail = () => {
   const [selectedOptionalItems, setSelectedOptionalItems] = useState<Set<number>>(new Set());
   const [bundleItemStock, setBundleItemStock] = useState<Record<number, { available: number; productId: number }>>({});
   
+  // Variation stock state
+  const [variationStock, setVariationStock] = useState<{ available: boolean; availableQuantity: number; variationStock?: Array<{ variationName: string; optionName: string; available: number }> } | null>(null);
+  const [checkingStock, setCheckingStock] = useState(false);
+  
   const { toast } = useToast();
   const { addToCart } = useCart();
 
@@ -67,11 +71,13 @@ const ProductDetail = () => {
     }
   }, [product]);
 
-  // Calculate price when configuration changes (but NOT when product first loads)
+  // Calculate price and check stock when configuration changes (but NOT when product first loads)
   useEffect(() => {
     if (product) {
       calculatePrice();
+      checkVariationStock();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions, selectedTextValues, selectedImageValues, selectedBooleanValues, selectedOptionalItems, bundleConfigurations]);
 
   // Check bundle item stock when configuration changes
@@ -220,6 +226,76 @@ const ProductDetail = () => {
       }
     } catch (err) {
       console.error('Failed to check bundle item stock:', err);
+    }
+  };
+
+  // Check stock availability for selected variations
+  const checkVariationStock = async () => {
+    if (!product) return;
+
+    try {
+      setCheckingStock(true);
+
+      // Build configuration for stock check
+      const configuration: ProductConfiguration = {
+        modelVariationId: selectedModelVariation,
+        variations: {
+          ...selectedDropdownVariations,
+          ...Object.fromEntries(
+            Object.entries(selectedImageValues).map(([variationId, optionId]) => [
+              parseInt(variationId), 
+              parseInt(optionId)
+            ])
+          ),
+          ...Object.fromEntries(
+            Object.entries(selectedBooleanValues).map(([variationId, value]) => {
+              const booleanVariation = product.variations?.boolean?.find((v: any) => v.id.toString() === variationId);
+              if (booleanVariation?.options) {
+                const yesOption = booleanVariation.options.find((opt: any) => opt.option_name === 'Yes');
+                const noOption = booleanVariation.options.find((opt: any) => opt.option_name === 'No');
+                const optionId = value ? (yesOption?.id || 1) : (noOption?.id || 0);
+                return [parseInt(variationId), optionId];
+              }
+              return [parseInt(variationId), value ? 1 : 0];
+            })
+          )
+        },
+        addons: Array.from(selectedAddons).map(addonId => ({
+          addonId,
+          optionId: selectedAddonOptions[addonId]
+        }))
+      };
+
+      // Only check if we have variations selected (that might track stock)
+      const hasVariations = configuration.variations && Object.keys(configuration.variations).length > 0;
+      if (!hasVariations) {
+        setVariationStock(null);
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/products/${product.id}/check-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(configuration)
+      });
+
+      const data = await response.json();
+      
+      console.log('Variation stock check response:', data);
+      
+      if (data.success) {
+        console.log('Variation stock data:', data.data);
+        setVariationStock(data.data);
+      } else {
+        console.log('Variation stock check failed:', data);
+        setVariationStock(null);
+      }
+    } catch (err) {
+      console.error('Failed to check variation stock:', err);
+      setVariationStock(null);
+    } finally {
+      setCheckingStock(false);
     }
   };
 
@@ -845,6 +921,7 @@ const ProductDetail = () => {
                   imageVariations={imageVariations}
                   booleanVariations={booleanVariations}
                   selectedTextValues={selectedTextValues}
+                  variationStock={variationStock?.variationStock || []}
                   selectedDropdownValues={(() => {
                     // Map native variations: convert numeric keys to string keys to match variation IDs
                     const mainVariations: Record<string, string> = {};
@@ -1196,9 +1273,27 @@ const ProductDetail = () => {
             )}
 
             {/* Stock Status */}
-            <div className={(product as any).stock > 0 || (product as any).in_stock === '1' ? "text-green-400 font-medium" : "text-destructive font-medium"}>
-              {(product as any).stock > 0 || (product as any).in_stock === '1' ? 'In stock' : 'Out of stock'}
-            </div>
+            {!(variationStock && !variationStock.available) && (
+              <div className={(product as any).stock > 0 || (product as any).in_stock === '1' ? "text-green-400 font-medium" : "text-destructive font-medium"}>
+                {(product as any).stock > 0 || (product as any).in_stock === '1' ? 'In stock' : 'Out of stock'}
+              </div>
+            )}
+            
+            {/* Show Out of Stock when variations are out of stock */}
+            {variationStock && !variationStock.available && (
+              <div className="text-destructive font-medium">
+                Out of stock
+              </div>
+            )}
+
+            {/* Variation Stock Info (when in stock but low) */}
+            {variationStock && variationStock.available && variationStock.availableQuantity > 0 && variationStock.variationStock && variationStock.availableQuantity <= 5 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-sm text-yellow-800">
+                  <span className="font-medium">Low stock:</span> Only {variationStock.availableQuantity} available
+                </p>
+              </div>
+            )}
 
             {/* Add to Cart */}
             <div className="space-y-4">
@@ -1207,6 +1302,9 @@ const ProductDetail = () => {
                 disabled={
                   !((product as any).stock > 0 || (product as any).in_stock === '1') || 
                   addingToCart ||
+                  checkingStock ||
+                  // Disable if selected variations are out of stock
+                  (variationStock && !variationStock.available) ||
                   // Disable if any required bundle items are out of stock
                   (bundleItems?.required?.some((item: any) => {
                     const stockInfo = bundleItemStock[item.id];
@@ -1227,6 +1325,13 @@ const ProductDetail = () => {
                   </>
                 )}
               </Button>
+              
+              {/* Show message if disabled due to variation stock */}
+              {variationStock && !variationStock.available && (
+                <p className="text-sm text-destructive text-center font-medium">
+                  Cannot add to cart: Selected option is out of stock
+                </p>
+              )}
               
               {/* Show message if disabled due to bundle stock */}
               {bundleItems?.required?.some((item: any) => {

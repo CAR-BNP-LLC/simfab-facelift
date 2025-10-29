@@ -9,7 +9,8 @@ import {
   Star,
   StarOff,
   CalendarIcon,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +74,8 @@ const ProductEditDialog = ({
   const [variationsLoading, setVariationsLoading] = useState(false);
   const [variationDialogOpen, setVariationDialogOpen] = useState(false);
   const [editingVariation, setEditingVariation] = useState<VariationWithOptions | null>(null);
+  const [variationStockSum, setVariationStockSum] = useState<number | null>(null);
+  const [checkingStockMismatch, setCheckingStockMismatch] = useState(false);
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
@@ -114,6 +117,34 @@ const ProductEditDialog = ({
       name,
       slug
     }));
+  };
+
+  // Check stock mismatch
+  const checkStockMismatch = async () => {
+    if (!product?.id) return;
+    
+    try {
+      setCheckingStockMismatch(true);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/admin/products/${product.id}/variation-stock-summary`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // Calculate sum of all variation option stock
+        const sum = data.data.reduce((total: number, item: any) => {
+          if (item.stock_quantity !== null && item.stock_quantity !== undefined) {
+            return total + Number(item.stock_quantity);
+          }
+          return total;
+        }, 0);
+        setVariationStockSum(sum);
+      }
+    } catch (err) {
+      console.error('Failed to check stock mismatch:', err);
+    } finally {
+      setCheckingStockMismatch(false);
+    }
   };
 
   // Initialize form when product changes
@@ -179,9 +210,17 @@ const ProductEditDialog = ({
         loadFAQs(product.id);
         loadDescriptionComponents(product.id);
         fetchVariations(product.id);
+        checkStockMismatch();
       }
     }
   }, [product, open]);
+
+  // Check stock mismatch when product stock changes
+  useEffect(() => {
+    if (product?.id) {
+      checkStockMismatch();
+    }
+  }, [productForm.stock_quantity]);
 
   // Sync variations from props
   useEffect(() => {
@@ -1079,8 +1118,35 @@ const ProductEditDialog = ({
                   />
                 </div>
                 <div className="border-t pt-4">
+                  {/* Stock Mismatch Warning */}
+                  {(() => {
+                    const productStock = parseInt(productForm.stock_quantity) || 0;
+                    const hasVariationStock = variationStockSum !== null;
+                    const stockMismatch = hasVariationStock && variationStockSum !== productStock;
+                    
+                    if (stockMismatch) {
+                      return (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-yellow-800 mb-1">Stock Mismatch Warning</h4>
+                              <p className="text-sm text-yellow-700">
+                                The sum of all variation option stock ({variationStockSum}) does not match the product stock ({productStock}).
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
                   <h3 className="text-lg font-semibold mb-4">Stock Management</h3>
-                  <VariationStockManager productId={product.id} />
+                  <VariationStockManager 
+                    productId={product.id}
+                    onStockChange={() => checkStockMismatch()}
+                  />
                 </div>
               </TabsContent>
 

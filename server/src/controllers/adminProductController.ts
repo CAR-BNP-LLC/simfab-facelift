@@ -25,8 +25,10 @@ export class AdminProductController {
   private addonService: ProductAddonService;
   private imageService: ProductImageService;
   private fileUploadService: FileUploadService;
+  private pool: Pool;
 
   constructor(pool: Pool) {
+    this.pool = pool;
     this.productService = new ProductService(pool);
     this.variationService = new ProductVariationService(pool);
     this.addonService = new ProductAddonService(pool);
@@ -412,6 +414,78 @@ export class AdminProductController {
       await this.imageService.reorderImages(productId, imageIds);
 
       res.json(successResponse(null, 'Images reordered successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get stock summary for all variations in a product
+   * GET /api/admin/products/:id/variation-stock-summary
+   */
+  getVariationStockSummary = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      
+      // Get variations with stock tracking enabled, even if they have no options yet
+      const result = await this.pool.query(
+        `SELECT 
+          v.id as variation_id, v.name as variation_name, v.tracks_stock,
+          vo.id as option_id, vo.option_name,
+          vo.stock_quantity, vo.low_stock_threshold,
+          COALESCE(vo.reserved_quantity, 0) as reserved_quantity,
+          CASE 
+            WHEN vo.stock_quantity IS NULL THEN 0
+            ELSE COALESCE((vo.stock_quantity - COALESCE(vo.reserved_quantity, 0)), 0)
+          END as available,
+          CASE 
+            WHEN vo.stock_quantity IS NULL THEN 'no_track'
+            WHEN vo.stock_quantity - COALESCE(vo.reserved_quantity, 0) <= 0 THEN 'out_of_stock'
+            WHEN vo.stock_quantity <= vo.low_stock_threshold THEN 'low_stock'
+            ELSE 'in_stock'
+          END as status
+         FROM product_variations v
+         LEFT JOIN variation_options vo ON vo.variation_id = v.id
+         WHERE v.product_id = $1 AND v.tracks_stock = true
+         ORDER BY v.sort_order, COALESCE(vo.sort_order, 0)`,
+        [productId]
+      );
+
+      res.json(successResponse(result.rows));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Get stock mismatch info for products with variation stock
+   * GET /api/admin/products/stock-mismatch-check
+   */
+  checkStockMismatch = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await this.pool.query(
+        `SELECT 
+          p.id as product_id,
+          p.stock as product_stock,
+          COALESCE(SUM(vo.stock_quantity), 0) as variation_stock_sum
+         FROM products p
+         LEFT JOIN product_variations v ON v.product_id = p.id AND v.tracks_stock = true
+         LEFT JOIN variation_options vo ON vo.variation_id = v.id
+         WHERE EXISTS (
+           SELECT 1 FROM product_variations 
+           WHERE product_id = p.id AND tracks_stock = true
+         )
+         GROUP BY p.id, p.stock
+         HAVING COALESCE(SUM(vo.stock_quantity), 0) != p.stock`,
+        []
+      );
+
+      const mismatchMap: Record<number, boolean> = {};
+      result.rows.forEach((row: any) => {
+        mismatchMap[row.product_id] = true;
+      });
+
+      res.json(successResponse(mismatchMap));
     } catch (error) {
       next(error);
     }

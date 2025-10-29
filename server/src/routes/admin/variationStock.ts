@@ -43,11 +43,11 @@ export const createVariationStockRoutes = (pool: Pool): Router => {
     validate(Joi.object({
       options: Joi.array().items(
         Joi.object({
-          optionId: Joi.number().required(),
-          stock_quantity: Joi.number().allow(null),
-          low_stock_threshold: Joi.number().allow(null)
+          optionId: Joi.number().integer().positive().required(),
+          stock_quantity: Joi.number().integer().min(0).allow(null).empty('').default(null),
+          low_stock_threshold: Joi.number().integer().min(0).allow(null).empty('').default(null)
         })
-      ).required()
+      ).min(1).required()
     })),
     controller.updateVariationStock
   );

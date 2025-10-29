@@ -234,11 +234,23 @@ export class VariationStockService {
         };
       }
 
-      // Check each variation option's stock
+      // Check each variation option's stock (only for variations that track stock)
       const variationStock: any[] = [];
       let minAvailable = Infinity;
 
+      // Get which variations track stock
+      const tracksStockResult = await client.query(
+        `SELECT id FROM product_variations WHERE product_id = $1 AND tracks_stock = true`,
+        [productId]
+      );
+      const tracksStockVariationIds = new Set(tracksStockResult.rows.map((r: any) => r.id.toString()));
+
       for (const [variationId, optionId] of Object.entries(configuration.variations)) {
+        // Only check stock for variations that have tracks_stock = true
+        if (!tracksStockVariationIds.has(variationId.toString())) {
+          continue; // Skip this variation, it doesn't track stock
+        }
+
         const available = await this.getVariationOptionStock(Number(optionId));
         minAvailable = Math.min(minAvailable, available);
 
@@ -258,6 +270,15 @@ export class VariationStockService {
             available
           });
         }
+      }
+
+      // If no stock-tracked variations were checked, fall back to product-level stock
+      if (minAvailable === Infinity) {
+        return {
+          available: productStock > 0,
+          availableQuantity: productStock,
+          variationStock: []
+        };
       }
 
       return {

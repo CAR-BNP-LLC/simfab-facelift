@@ -48,6 +48,16 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   GET /api/admin/products/stock-mismatch-check
+   * @desc    Get list of product IDs with stock mismatches
+   * @access  Admin
+   */
+  router.get(
+    '/stock-mismatch-check',
+    controller.checkStockMismatch
+  );
+
+  /**
    * @route   GET /api/admin/products/:id
    * @desc    Get product details
    * @access  Admin with products:view authority
@@ -137,6 +147,16 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   router.delete(
     '/:id/variations/:variationId',
     controller.deleteVariation
+  );
+
+  /**
+   * @route   GET /api/admin/products/:id/variation-stock-summary
+   * @desc    Get stock summary for all variations in a product
+   * @access  Admin
+   */
+  router.get(
+    '/:id/variation-stock-summary',
+    controller.getVariationStockSummary
   );
 
   // ============================================================================
