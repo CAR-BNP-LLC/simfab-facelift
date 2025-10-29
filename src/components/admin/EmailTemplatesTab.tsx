@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Send, Save, FileText } from 'lucide-react';
+import { Loader2, Mail, Send, Save, FileText, Eye } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -25,6 +25,8 @@ interface EmailTemplate {
   text_body?: string;
   recipient_type: 'admin' | 'customer' | 'both';
   is_active: boolean;
+  header_image?: string;
+  header_title?: string;
 }
 
 export default function EmailTemplatesTab() {
@@ -84,7 +86,9 @@ export default function EmailTemplatesTab() {
             subject: selectedTemplate.subject,
             html_body: selectedTemplate.html_body,
             text_body: selectedTemplate.text_body,
-            is_active: selectedTemplate.is_active
+            is_active: selectedTemplate.is_active,
+            header_image: selectedTemplate.header_image,
+            header_title: selectedTemplate.header_title
           })
         }
       );
@@ -224,15 +228,16 @@ export default function EmailTemplatesTab() {
 
       {/* Template Editor */}
       {selectedTemplate && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Edit Template
-            </CardTitle>
-            <CardDescription>{selectedTemplate.name}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5" />
+                Edit Template
+              </CardTitle>
+              <CardDescription>{selectedTemplate.name}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
             <div>
               <Label htmlFor="subject">Subject Line</Label>
               <Input
@@ -246,6 +251,104 @@ export default function EmailTemplatesTab() {
               />
               <p className="text-xs text-gray-500 mt-1">
                 Use &#123;&#123;variable&#125;&#125; for dynamic content
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="header_title">Email Header Title</Label>
+                <Input
+                  id="header_title"
+                  value={selectedTemplate.header_title || ''}
+                  onChange={(e) => setSelectedTemplate({
+                    ...selectedTemplate,
+                    header_title: e.target.value
+                  })}
+                  placeholder="e.g., SimFab, Your Store, etc."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Title shown at top of email
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="header_image">Header Image URL</Label>
+                <Input
+                  id="header_image"
+                  value={selectedTemplate.header_image || ''}
+                  onChange={(e) => setSelectedTemplate({
+                    ...selectedTemplate,
+                    header_image: e.target.value
+                  })}
+                  placeholder="https://example.com/logo.png"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  URL to header image or logo
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <Label>Quick Formatting Options</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newBody = selectedTemplate.html_body + '<h2>Heading</h2><p>Your text here</p>';
+                    setSelectedTemplate({ ...selectedTemplate, html_body: newBody });
+                  }}
+                >
+                  Add Heading
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newBody = selectedTemplate.html_body + '<p><strong>Bold text</strong></p>';
+                    setSelectedTemplate({ ...selectedTemplate, html_body: newBody });
+                  }}
+                >
+                  Add Bold
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newBody = selectedTemplate.html_body + '<p><a href="#">Link text</a></p>';
+                    setSelectedTemplate({ ...selectedTemplate, html_body: newBody });
+                  }}
+                >
+                  Add Link
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newBody = selectedTemplate.html_body + '<table border="1"><tr><th>Header</th></tr><tr><td>Data</td></tr></table>';
+                    setSelectedTemplate({ ...selectedTemplate, html_body: newBody });
+                  }}
+                >
+                  Add Table
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newBody = selectedTemplate.html_body + '<ul><li>Item 1</li><li>Item 2</li></ul>';
+                    setSelectedTemplate({ ...selectedTemplate, html_body: newBody });
+                  }}
+                >
+                  Add List
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500">
+                Quick insert common HTML elements. Edit the content as needed.
               </p>
             </div>
             
@@ -346,7 +449,127 @@ export default function EmailTemplatesTab() {
               </div>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+
+          {/* Email Preview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Email Preview
+              </CardTitle>
+              <CardDescription>
+                Preview of how the email will look
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="border-2 border-gray-300 rounded-lg overflow-hidden bg-white">
+                <div className="bg-gray-100 p-2 border-b flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <div className="ml-auto text-xs text-gray-600">
+                    Preview
+                  </div>
+                </div>
+                <div className="p-6 max-h-[500px] overflow-y-auto bg-white" style={{ fontFamily: 'Arial, sans-serif' }}>
+                  <style>{`
+                    .email-preview h1, .email-preview h2, .email-preview h3 {
+                      color: #dc2626;
+                      margin: 16px 0;
+                    }
+                    .email-preview p {
+                      line-height: 1.6;
+                      margin: 12px 0;
+                      color: #1f2937;
+                    }
+                    .email-preview strong {
+                      font-weight: bold;
+                      color: #111827;
+                    }
+                    .email-preview ul, .email-preview ol {
+                      margin: 12px 0;
+                      padding-left: 24px;
+                    }
+                    .email-preview table {
+                      width: 100%;
+                      border-collapse: collapse;
+                      margin: 16px 0;
+                    }
+                    .email-preview th, .email-preview td {
+                      padding: 8px 12px;
+                      text-align: left;
+                      border-bottom: 1px solid #e5e7eb;
+                    }
+                    .email-preview th {
+                      background-color: #f9fafb;
+                      font-weight: 600;
+                      color: #111827;
+                    }
+                    .email-preview a {
+                      color: #dc2626;
+                      text-decoration: none;
+                    }
+                    .email-preview .order-info {
+                      background: #f9fafb;
+                      padding: 16px;
+                      border-radius: 4px;
+                      margin: 16px 0;
+                    }
+                    .email-preview .highlight {
+                      color: #dc2626;
+                      font-weight: bold;
+                    }
+                  `}</style>
+                  
+                  {selectedTemplate.header_image && (
+                    <div className="mb-4 border-b pb-4">
+                      <img 
+                        src={selectedTemplate.header_image} 
+                        alt="Header" 
+                        className="max-w-full h-auto max-h-32 mx-auto"
+                      />
+                    </div>
+                  )}
+                  {(selectedTemplate.header_title || selectedTemplate.header_image) && (
+                    <div className="text-center mb-4 pb-4 border-b" style={{ backgroundColor: '#dc2626', padding: '20px', margin: '-24px -24px 24px -24px' }}>
+                      <h2 className="text-2xl font-bold" style={{ color: 'white' }}>
+                        {selectedTemplate.header_title || 'SimFab'}
+                      </h2>
+                    </div>
+                  )}
+                  <div 
+                    className="email-preview"
+                    dangerouslySetInnerHTML={{ 
+                      __html: selectedTemplate.html_body
+                        .replace(/\{\{order_number\}\}/g, '<span class="highlight">SF-20240101-00001</span>')
+                        .replace(/\{\{customer_name\}\}/g, 'John Doe')
+                        .replace(/\{\{customer_email\}\}/g, 'customer@example.com')
+                        .replace(/\{\{order_total\}\}/g, '<strong style="color: #dc2626;">$199.99</strong>')
+                        .replace(/\{\{order_date\}\}/g, new Date().toLocaleDateString())
+                        .replace(/\{\{subtotal\}\}/g, '$179.99')
+                        .replace(/\{\{tax_amount\}\}/g, '$14.40')
+                        .replace(/\{\{shipping_amount\}\}/g, '$5.60')
+                        .replace(/\{\{discount_amount\}\}/g, '$0.00')
+                        .replace(/\{\{tracking_number\}\}/g, '<code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">1Z999AA10123456784</code>')
+                        .replace(/\{\{carrier\}\}/g, 'UPS')
+                        .replace(/\{\{reset_url\}\}/g, 'https://simfab.com/reset-password?token=xxx')
+                        .replace(/\{\{login_url\}\}/g, 'https://simfab.com/login')
+                        .replace(/\{\{note\}\}/g, 'This is a sample note from the admin.')
+                        .replace(/\{\{refund_amount\}\}/g, '<strong style="color: #dc2626;">$199.99</strong>')
+                        .replace(/\{\{error_message\}\}/g, 'Payment declined')
+                        .replace(/\{\{cancellation_reason\}\}/g, 'Customer request')
+                        .replace(/\{\{expire_hours\}\}/g, '15 minutes')
+                    }} 
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                This preview shows sample data. Variables will be replaced with actual values when sent.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
