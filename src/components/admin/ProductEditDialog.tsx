@@ -23,10 +23,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import VariationsList from './VariationsList';
 import FAQsList from './FAQsList';
 import DescriptionComponentsList from './DescriptionComponentsList';
+import VariationStockManager from './VariationStockManager';
+import BundleComposer from './BundleComposer';
 import PermittedFor from '@/components/auth/PermittedFor';
 import { format } from 'date-fns';
 import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI, ProductDescriptionComponent, productDescriptionsAPI } from '@/services/api';
@@ -941,28 +944,50 @@ const ProductEditDialog = ({
 
           </form>
 
-          {/* Description Components */}
+          {/* Additional Content in Tabs */}
           {product && (
-            <DescriptionComponentsList
-              productId={product.id}
-              components={descriptionComponents}
-              onComponentCreate={handleCreateDescriptionComponent}
-              onComponentUpdate={handleUpdateDescriptionComponent}
-              onComponentDelete={handleDeleteDescriptionComponent}
-              onComponentReorder={handleReorderDescriptionComponents}
-            />
-          )}
+            <Tabs defaultValue="variations" className="mt-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="variations">Variations & Stock</TabsTrigger>
+                <TabsTrigger value="bundle">Bundle Items</TabsTrigger>
+                <TabsTrigger value="descriptions">Description Components</TabsTrigger>
+                <TabsTrigger value="faqs">FAQs</TabsTrigger>
+              </TabsList>
 
-          {/* FAQs - Inside scrollable area to prevent nested scrollbars */}
-          {product && (
-            <FAQsList
-              productId={product.id}
-              faqs={faqs}
-              onFAQCreate={handleCreateFAQ}
-              onFAQUpdate={handleUpdateFAQ}
-              onFAQDelete={handleDeleteFAQ}
-              onFAQReorder={handleReorderFAQs}
-            />
+              {/* Variations & Stock Tab */}
+              <TabsContent value="variations" className="mt-4">
+                <VariationStockManager productId={product.id} />
+              </TabsContent>
+
+              {/* Bundle Items Tab */}
+              <TabsContent value="bundle" className="mt-4">
+                <BundleComposer productId={product.id} />
+              </TabsContent>
+
+              {/* Description Components Tab */}
+              <TabsContent value="descriptions" className="mt-4">
+                <DescriptionComponentsList
+                  productId={product.id}
+                  components={descriptionComponents}
+                  onComponentCreate={handleCreateDescriptionComponent}
+                  onComponentUpdate={handleUpdateDescriptionComponent}
+                  onComponentDelete={handleDeleteDescriptionComponent}
+                  onComponentReorder={handleReorderDescriptionComponents}
+                />
+              </TabsContent>
+
+              {/* FAQs Tab */}
+              <TabsContent value="faqs" className="mt-4">
+                <FAQsList
+                  productId={product.id}
+                  faqs={faqs}
+                  onFAQCreate={handleCreateFAQ}
+                  onFAQUpdate={handleUpdateFAQ}
+                  onFAQDelete={handleDeleteFAQ}
+                  onFAQReorder={handleReorderFAQs}
+                />
+              </TabsContent>
+            </Tabs>
           )}
         </div>
 
