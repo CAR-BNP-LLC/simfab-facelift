@@ -94,7 +94,9 @@ export class ProductQueryBuilder {
     this.reset();
     
     // Add search condition with full-text search
-    const searchParam = this.addParam(`%${query}%`);
+    // Reuse the same parameter for all ILIKE conditions
+    const searchPattern = `%${query}%`;
+    const searchParam = this.addParam(searchPattern);
     this.whereConditions.push(`(
       p.name ILIKE $${searchParam} OR
       p.description ILIKE $${searchParam} OR
@@ -110,25 +112,26 @@ export class ProductQueryBuilder {
     // Apply additional filters
     this.applyAdditionalFilters(options);
 
-    // Sort by relevance for search
-    this.orderBy = `
-      CASE 
-        WHEN p.name ILIKE $${this.addParam(`%${query}%`)} THEN 1
-        WHEN p.sku ILIKE $${this.addParam(`%${query}%`)} THEN 2
-        ELSE 3
-      END,
-      p.featured DESC,
-      p.name ASC
-    `;
-
     const baseQuery = `
       FROM products p
       WHERE ${this.whereConditions.join(' AND ')}
     `;
 
-    // Save params for count query BEFORE adding limit/offset
+    // Save params for count query BEFORE building ORDER BY
+    // Reuse the searchParam for ORDER BY instead of creating new params
     const countParams = [...this.params];
     const countSql = `SELECT COUNT(*)::int as total ${baseQuery}`;
+
+    // Sort by relevance for search - reuse existing searchParam instead of adding new params
+    this.orderBy = `
+      CASE 
+        WHEN p.name ILIKE $${searchParam} THEN 1
+        WHEN p.sku ILIKE $${searchParam} THEN 2
+        ELSE 3
+      END,
+      p.featured DESC,
+      p.name ASC
+    `;
 
     const page = options.page || 1;
     const limit = options.limit || 10;

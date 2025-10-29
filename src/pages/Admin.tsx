@@ -36,7 +36,8 @@ import {
   Ticket,
   ExternalLink,
   Mail,
-  FileText
+  FileText,
+  LayoutGrid
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -63,6 +64,7 @@ import CouponForm from '@/components/admin/CouponForm';
 import PermittedFor from '@/components/auth/PermittedFor';
 import EmailTemplatesTab from '@/components/admin/EmailTemplatesTab';
 import ErrorLogsTab from '@/components/admin/ErrorLogsTab';
+import PageProductsTab from '@/components/admin/PageProductsTab';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -734,7 +736,7 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-10">
+          <TabsList className="grid w-full grid-cols-11">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -762,6 +764,10 @@ const Admin = () => {
             <TabsTrigger value="error-logs" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Error Logs</span>
+            </TabsTrigger>
+            <TabsTrigger value="page-products" className="flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              <span className="hidden sm:inline">Page Products</span>
             </TabsTrigger>
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -903,6 +909,20 @@ const Admin = () => {
                     <CardTitle className="text-xl font-bold mb-2">Settings</CardTitle>
                     <p className="text-sm text-muted-foreground text-center">
                       System configuration and preferences
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Page Products Card */}
+                <Card 
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('page-products')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <LayoutGrid className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Page Products</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Manage featured products on pages
                     </p>
                   </CardContent>
                 </Card>
@@ -1724,6 +1744,11 @@ const Admin = () => {
           {/* Error Logs Tab */}
           <TabsContent value="error-logs" className="space-y-6">
             <ErrorLogsTab />
+          </TabsContent>
+
+          {/* Page Products Tab */}
+          <TabsContent value="page-products" className="space-y-6 pb-24">
+            <PageProductsTab />
           </TabsContent>
 
           {/* Settings Tab */}

@@ -1,8 +1,10 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { usePageProducts } from '@/hooks/usePageProducts';
 import flightSimImage from '@/assets/flight-sim-cockpit.jpg';
 import heroCockpitImage from '@/assets/hero-cockpit.jpg';
 import trainerStationImage from '@/assets/trainer-station.jpg';
@@ -90,36 +92,38 @@ const ModularCockpitsCarousel = () => {
 };
 
 const FlightSim = () => {
-  const baseModels = [
-    {
-      name: 'DCS Flight Sim Modular Cockpit',
-      description: 'Dedicated combat cockpit purposed for mostly DCS world modules',
-      price: '$599',
-      image: flightSimImage,
-      cta: 'BUY NOW'
-    },
-    {
-      name: 'MSFS Flight Sim Modular Cockpit',
-      description: 'Dedicated to civil, general and commercial aviation sim',
-      price: '$599',
-      image: flightSimImage,
-      cta: 'BUY NOW'
-    },
-    {
-      name: 'Hybrid Flight Sim Modular Cockpit',
-      description: 'Ready for a combination of combat, civil aviation, and space sim gaming',
-      price: '$499',
-      image: flightSimImage,
-      cta: 'BUY NOW'
-    },
-    {
-      name: 'Rotorcraft Flight Sim Modular Cockpit',
-      description: 'Coming soon!',
-      price: 'from $589',
-      image: flightSimImage,
-      cta: 'SEE MORE'
-    }
-  ];
+  // Fetch products from API
+  const { products: apiProducts, loading, error } = usePageProducts('/flight-sim', 'base-models');
+
+  // Map API products to component format
+  const baseModels = apiProducts.map((pageProduct) => {
+    const product = pageProduct.product;
+    if (!product) return null;
+
+    const productImage = product.images?.find((img: any) => img.is_primary) || 
+                        product.images?.[0] || 
+                        null;
+
+    const imageUrl = productImage?.image_url || flightSimImage;
+
+    const price = product.sale_price 
+      ? `$${product.sale_price}` 
+      : product.regular_price 
+        ? `$${product.regular_price}` 
+        : product.price_min 
+          ? `$${product.price_min}` 
+          : 'from $0';
+
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.short_description || '',
+      price,
+      image: imageUrl,
+      cta: product.status === 'active' ? 'BUY NOW' : 'SEE MORE',
+      slug: product.slug,
+    };
+  }).filter(Boolean);
 
   return (
     <div className="min-h-screen bg-background">
@@ -368,33 +372,54 @@ const FlightSim = () => {
               FLIGHT SIM BASE MODELS
             </h2>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-              {baseModels.map((model, index) => (
-                <div key={index} className="product-card text-center">
-                  <div className="aspect-square bg-card rounded-lg mb-4 overflow-hidden">
-                    <img 
-                      src={model.image}
-                      alt={model.name}
-                      className="w-full h-full object-cover"
-                    />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>Unable to load products. Please try again later.</p>
+              </div>
+            ) : baseModels.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>No products available at this time.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+                {baseModels.map((model) => (
+                  <div key={model.id} className="product-card text-center">
+                    <div className="aspect-square bg-card rounded-lg mb-4 overflow-hidden">
+                      <img 
+                        src={model.image}
+                        alt={model.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = flightSimImage;
+                        }}
+                      />
+                    </div>
+                    <h3 className="font-semibold text-card-foreground mb-3 leading-tight text-lg">
+                      {model.name}
+                    </h3>
+                    {model.description && (
+                      <p className="text-sm text-foreground/70 mb-4 leading-relaxed">
+                        {model.description}
+                      </p>
+                    )}
+                    <div className="text-2xl font-bold text-primary mb-4">
+                      {model.price}
+                    </div>
+                    <Link to={model.slug ? `/product/${model.slug}` : '#'}>
+                      <Button 
+                        className={model.cta === 'BUY NOW' ? 'btn-primary w-full' : 'btn-outline w-full'}
+                      >
+                        {model.cta}
+                      </Button>
+                    </Link>
                   </div>
-                  <h3 className="font-semibold text-card-foreground mb-3 leading-tight text-lg">
-                    {model.name}
-                  </h3>
-                  <p className="text-sm text-foreground/70 mb-4 leading-relaxed">
-                    {model.description}
-                  </p>
-                  <div className="text-2xl font-bold text-primary mb-4">
-                    {model.price}
-                  </div>
-                  <Button 
-                    className={model.cta === 'BUY NOW' ? 'btn-primary w-full' : 'btn-outline w-full'}
-                  >
-                    {model.cta}
-                  </Button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </section>
 

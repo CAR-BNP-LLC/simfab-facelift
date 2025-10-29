@@ -28,6 +28,7 @@ import { createPhase4Routes } from './routes/admin/phase4';
 import { createLogsRoutes } from './routes/admin/logs';
 import { createWishlistNotificationRoutes } from './routes/admin/wishlist-notifications';
 import { createShipStationRoutes } from './routes/shipstation';
+import { createPageProductRoutes, createPublicPageProductRoutes } from './routes/pageProducts';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
 import { CleanupService } from './services/CleanupService';
@@ -180,6 +181,8 @@ app.use('/api/admin/testing', createTestingRoutes(pool));
 app.use('/api/admin/phase4', createPhase4Routes(pool));
 app.use('/api/admin/logs', createLogsRoutes(pool));
 app.use('/api/admin/wishlist-notifications', createWishlistNotificationRoutes(pool));
+app.use('/api/admin/page-products', createPageProductRoutes(pool));
+app.use('/api/page-products', createPublicPageProductRoutes(pool));
 app.use('/api/shipstation', createShipStationRoutes(pool));
 
 // Health check endpoint

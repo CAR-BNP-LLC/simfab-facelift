@@ -1,9 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { usePageProducts } from '@/hooks/usePageProducts';
 
 const MonitorMountSystemsCarousel = () => {
   const [currentImage, setCurrentImage] = useState(0);
@@ -85,68 +87,63 @@ const MonitorMountSystemsCarousel = () => {
 };
 
 const MonitorStands = () => {
-  const products = [
-    {
-      id: 1,
-      name: "Single Monitor Mount Stand",
-      description: "Monitor Mount Floor Stand for Racing and Flight Simulators",
-      price: "$219",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 2,
-      name: "Triple Monitor Mount Stand", 
-      description: "Triple Monitor Mount Floor Stand for Racing and Flight Simulators",
-      price: "$599",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 3,
-      name: "Overhead or Sub-mount Monitor Mount Bracket Kit",
-      description: "Versatile mounting solution for various monitor configurations",
-      price: "$129", 
-      image: "/placeholder.svg"
-    }
-  ];
+  // Fetch products from API
+  const { products: mainProducts, loading: loadingMain, error: errorMain } = 
+    usePageProducts('/monitor-stands', 'main-products');
+  const { products: addOnsProducts, loading: loadingAddOns, error: errorAddOns } = 
+    usePageProducts('/monitor-stands', 'add-ons');
 
-  const addOns = [
-    {
-      id: 1,
-      name: "VESA Bracket Kit For Single Monitor 7",
-      price: "$69.00",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 2,
-      name: "Triple Monitor Stand Long Swing Arm",
-      price: "$89.99",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 3,
-      name: "Monitor & TV Stands Height Adjustment",
-      price: "$69.00 – $129.00",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 4,
-      name: "TV Mount System Bracket Kit",
-      price: "$59.00",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 5,
-      name: "Monitor Mount System Vesa Adapter",
-      price: "$69.00",
-      image: "/placeholder.svg"
-    },
-    {
-      id: 6,
-      name: "Front Surround Speaker Tray Kit Monitor",
-      price: "$79.99",
-      image: "/placeholder.svg"
-    }
-  ];
+  // Map API products to component format
+  const products = mainProducts.map((pageProduct) => {
+    const product = pageProduct.product;
+    if (!product) return null;
+
+    const productImage = product.images?.find((img: any) => img.is_primary) || 
+                        product.images?.[0] || 
+                        { image_url: "/placeholder.svg" };
+
+    const price = product.sale_price 
+      ? `$${product.sale_price}` 
+      : product.regular_price 
+        ? `$${product.regular_price}` 
+        : product.price_min 
+          ? `$${product.price_min}` 
+          : '$0';
+
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.short_description || '',
+      price,
+      image: productImage.image_url || productImage.url || "/placeholder.svg",
+      slug: product.slug,
+    };
+  }).filter(Boolean);
+
+  const addOns = addOnsProducts.map((pageProduct) => {
+    const product = pageProduct.product;
+    if (!product) return null;
+
+    const productImage = product.images?.find((img: any) => img.is_primary) || 
+                        product.images?.[0] || 
+                        { image_url: "/placeholder.svg" };
+
+    const price = product.sale_price 
+      ? `$${product.sale_price}` 
+      : product.regular_price 
+        ? `$${product.regular_price}` 
+        : product.price_min 
+          ? `$${product.price_min}` 
+          : '$0';
+
+    return {
+      id: product.id,
+      name: product.name,
+      price,
+      image: productImage.image_url || productImage.url || "/placeholder.svg",
+      slug: product.slug,
+    };
+  }).filter(Boolean);
 
   return (
     <div className="min-h-screen bg-background">
@@ -189,31 +186,56 @@ const MonitorStands = () => {
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product) => (
-              <Card key={product.id} className="bg-background border-border hover:shadow-card transition-all duration-300">
-                <CardContent className="p-6">
-                  <div className="aspect-square bg-muted rounded-lg mb-6 flex items-center justify-center">
-                    <div className="w-32 h-32 bg-muted-foreground/20 rounded"></div>
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-3">
-                    {product.name}
-                  </h3>
-                  <p className="text-foreground/70 mb-6 leading-relaxed">
-                    {product.description}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-2xl font-bold text-primary">
-                      {product.price}
-                    </span>
-                    <Button className="btn-primary">
-                      BUY NOW
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {loadingMain ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : errorMain ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Unable to load products. Please try again later.</p>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No products available at this time.</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {products.map((product) => (
+                <Card key={product.id} className="bg-background border-border hover:shadow-card transition-all duration-300">
+                  <CardContent className="p-6">
+                    <div className="aspect-square bg-muted rounded-lg mb-6 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/placeholder.svg";
+                        }}
+                      />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-3">
+                      {product.name}
+                    </h3>
+                    {product.description && (
+                      <p className="text-foreground/70 mb-6 leading-relaxed">
+                        {product.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-2xl font-bold text-primary">
+                        {product.price}
+                      </span>
+                      <Link to={product.slug ? `/product/${product.slug}` : '#'}>
+                        <Button className="btn-primary">
+                          BUY NOW
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -253,28 +275,51 @@ const MonitorStands = () => {
             </p>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {addOns.map((addon) => (
-              <Card key={addon.id} className="bg-background border-border hover:shadow-card transition-all duration-300">
-                <CardContent className="p-4 sm:p-6">
-                  <div className="aspect-square bg-muted rounded-lg mb-3 sm:mb-4 flex items-center justify-center">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-muted-foreground/20 rounded"></div>
-                  </div>
-                  <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
-                    {addon.name}
-                  </h3>
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-                    <span className="text-lg sm:text-xl font-bold text-primary">
-                      {addon.price}
-                    </span>
-                    <Button size="sm" className="btn-primary w-full sm:w-auto">
-                      BUY NOW
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {loadingAddOns ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : errorAddOns ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Unable to load add-ons. Please try again later.</p>
+            </div>
+          ) : addOns.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No add-ons available at this time.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {addOns.map((addon) => (
+                <Card key={addon.id} className="bg-background border-border hover:shadow-card transition-all duration-300">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="aspect-square bg-muted rounded-lg mb-3 sm:mb-4 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={addon.image}
+                        alt={addon.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/placeholder.svg";
+                        }}
+                      />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
+                      {addon.name}
+                    </h3>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                      <span className="text-lg sm:text-xl font-bold text-primary">
+                        {addon.price}
+                      </span>
+                      <Link to={addon.slug ? `/product/${addon.slug}` : '#'}>
+                        <Button size="sm" className="btn-primary w-full sm:w-auto">
+                          BUY NOW
+                        </Button>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

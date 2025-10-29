@@ -42,6 +42,16 @@ export async function apiRequest<T>(
       }
       
       if (data.error?.code === 'VALIDATION_ERROR') {
+        // Check if it's a migration required error
+        if (data.error?.details?.code === 'MIGRATION_REQUIRED') {
+          const error = new Error(
+            data.error?.message || 
+            `Database migration required. Please run migration ${data.error?.details?.migration || '036'} to create the required table.`
+          );
+          (error as any).code = 'MIGRATION_REQUIRED';
+          (error as any).migration = data.error?.details?.migration;
+          throw error;
+        }
         const error = new Error(data.error?.message || 'Validation failed');
         (error as any).code = 'VALIDATION_ERROR';
         (error as any).details = data.error?.details;
@@ -1415,6 +1425,180 @@ export const rbacAPI = {
   },
 };
 
+// ==========================================
+// PAGE PRODUCTS API
+// ==========================================
+
+export interface PageProduct {
+  id: number;
+  page_route: string;
+  page_section: string;
+  product_id: number | null;
+  category_id: string | null;
+  display_order: number;
+  is_active: boolean;
+  display_type: 'products' | 'category';
+  max_items: number;
+  created_at: string;
+  updated_at: string;
+  product?: {
+    id: number;
+    name: string;
+    slug: string;
+    price_min: number | null;
+    price_max: number | null;
+    regular_price: number | null;
+    sale_price: number | null;
+    images: ProductImage[];
+    status: string;
+    short_description?: string | null;
+  };
+}
+
+export interface PageConfiguration {
+  pageRoute: string;
+  pageName: string;
+  sections: Array<{
+    sectionKey: string;
+    sectionName: string;
+    productCount: number;
+    displayType: 'products' | 'category';
+    categoryId?: string | null;
+    maxItems?: number;
+  }>;
+}
+
+export interface PageSectionProducts {
+  pageRoute: string;
+  section: string;
+  products: PageProduct[];
+  displayType: 'products' | 'category';
+  categoryId?: string | null;
+  maxItems?: number;
+}
+
+export interface CreatePageProductDto {
+  page_route: string;
+  page_section: string;
+  product_id: number;
+  display_order?: number;
+  is_active?: boolean;
+}
+
+export interface BulkPageProductDto {
+  page_route: string;
+  page_section: string;
+  products: Array<{
+    product_id: number;
+    display_order: number;
+    is_active: boolean;
+  }>;
+}
+
+export interface SetCategoryDto {
+  page_route: string;
+  page_section: string;
+  category_id: string;
+  max_items?: number;
+}
+
+export const pageProductsAPI = {
+  /**
+   * Get all page configurations
+   */
+  async getAllPagesConfig() {
+    return apiRequest<{
+      success: boolean;
+      data: PageConfiguration[];
+    }>('/api/admin/page-products');
+  },
+
+  /**
+   * Get products for a specific page section (Admin - includes inactive)
+   */
+  async getPageSectionProducts(pageRoute: string, section: string, includeInactive: boolean = false) {
+    const query = includeInactive ? '?includeInactive=true' : '';
+    return apiRequest<{
+      success: boolean;
+      data: PageSectionProducts;
+    }>(`/api/admin/page-products/${encodeURIComponent(pageRoute)}/${encodeURIComponent(section)}${query}`);
+  },
+
+  /**
+   * Add product to page section
+   */
+  async addProductToSection(dto: CreatePageProductDto) {
+    return apiRequest<{
+      success: boolean;
+      data: PageProduct;
+    }>('/api/admin/page-products', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  /**
+   * Update page product
+   */
+  async updatePageProduct(id: number, updates: { display_order?: number; is_active?: boolean }) {
+    return apiRequest<{
+      success: boolean;
+      data: PageProduct;
+    }>(`/api/admin/page-products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  },
+
+  /**
+   * Remove product from page section
+   */
+  async removeProductFromSection(id: number) {
+    return apiRequest<{
+      success: boolean;
+      data: { message: string };
+    }>(`/api/admin/page-products/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Bulk update page products
+   */
+  async bulkUpdatePageProducts(dto: BulkPageProductDto) {
+    return apiRequest<{
+      success: boolean;
+      data: PageProduct[];
+    }>('/api/admin/page-products/bulk', {
+      method: 'PUT',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  /**
+   * Set category for page section
+   */
+  async setCategoryForSection(dto: SetCategoryDto) {
+    return apiRequest<{
+      success: boolean;
+      data: PageProduct;
+    }>('/api/admin/page-products/category', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  /**
+   * Get public page products (for frontend)
+   */
+  async getPublicPageProducts(pageRoute: string, section: string) {
+    return apiRequest<{
+      success: boolean;
+      data: PageSectionProducts;
+    }>(`/api/page-products/${encodeURIComponent(pageRoute)}/${encodeURIComponent(section)}`);
+  },
+};
+
 export default {
   auth: authAPI,
   products: productsAPI,
@@ -1426,6 +1610,7 @@ export default {
   faqs: faqsAPI,
   productDescriptions: productDescriptionsAPI,
   rbac: rbacAPI,
+  pageProducts: pageProductsAPI,
 };
 
 // ==========================================

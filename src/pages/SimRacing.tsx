@@ -1,28 +1,46 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { usePageProducts } from '@/hooks/usePageProducts';
+import { Loader2 } from 'lucide-react';
 import simRacingHero from '@/assets/sim-racing-hero.png';
 import racingImage from '@/assets/sim-racing-cockpit.jpg';
 
 const SimRacing = () => {
-  const baseModels = [
-    {
-      name: "GEN3 Modular Racing Sim Cockpit",
-      description: "Modular and versatile ecosystem complimented by various add-on accessories",
-      originalPrice: "$499",
-      currentPrice: "$399",
-      image: racingImage
-    },
-    {
-      name: "DD Modular Racing Sim Cockpit",
-      description: "Full-size ergonomic seat with sliders and recliner mechanism",
-      originalPrice: "$699",
-      currentPrice: "$598",
-      image: racingImage
-    }
-  ];
+  // Fetch products from API
+  const { products: apiProducts, loading, error } = usePageProducts('/sim-racing', 'base-models');
+
+  // Fallback to empty array if loading/error
+  const baseModels = apiProducts.map((pageProduct) => {
+    const product = pageProduct.product;
+    if (!product) return null;
+
+    // Get primary image or first image
+    const productImage = product.images?.find((img: any) => img.is_primary) || 
+                        product.images?.[0] || 
+                        null;
+
+    const imageUrl = productImage?.image_url || racingImage;
+
+    return {
+      id: product.id,
+      name: product.name,
+      description: '', // Product might have short_description
+      originalPrice: product.regular_price ? `$${product.regular_price}` : null,
+      currentPrice: product.sale_price 
+        ? `$${product.sale_price}` 
+        : product.regular_price 
+          ? `$${product.regular_price}` 
+          : product.price_min 
+            ? `$${product.price_min}` 
+            : '$0',
+      image: imageUrl,
+      slug: product.slug,
+    };
+  }).filter(Boolean);
 
   const useCases = [
     "Sim racing setup, compatible with all major brands controls",
@@ -190,38 +208,61 @@ const SimRacing = () => {
             SIM RACING BASE MODELS
           </h2>
           
-          <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 max-w-4xl mx-auto">
-            {baseModels.map((model, index) => (
-              <Card key={index} className="bg-card border-border overflow-hidden group hover:shadow-lg transition-shadow">
-                <div className="aspect-video bg-muted">
-                  <img 
-                    src={model.image}
-                    alt={model.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <CardContent className="p-4 sm:p-6 text-center">
-                  <h3 className="text-lg sm:text-xl font-semibold mb-3 text-foreground">
-                    {model.name}
-                  </h3>
-                  <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
-                    {model.description}
-                  </p>
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    <span className="text-sm sm:text-base text-muted-foreground line-through">
-                      {model.originalPrice}
-                    </span>
-                    <span className="text-xl sm:text-2xl font-bold text-foreground">
-                      {model.currentPrice}
-                    </span>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>Unable to load products. Please try again later.</p>
+            </div>
+          ) : baseModels.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No products available at this time.</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 max-w-4xl mx-auto">
+              {baseModels.map((model) => (
+                <Card key={model.id} className="bg-card border-border overflow-hidden group hover:shadow-lg transition-shadow">
+                  <div className="aspect-video bg-muted overflow-hidden">
+                    <img 
+                      src={model.image}
+                      alt={model.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = racingImage;
+                      }}
+                    />
                   </div>
-                  <Button className="btn-primary w-full">
-                    BUY NOW
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <h3 className="text-lg sm:text-xl font-semibold mb-3 text-foreground">
+                      {model.name}
+                    </h3>
+                    {model.description && (
+                      <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6">
+                        {model.description}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-center gap-2 mb-4">
+                      {model.originalPrice && (
+                        <span className="text-sm sm:text-base text-muted-foreground line-through">
+                          {model.originalPrice}
+                        </span>
+                      )}
+                      <span className="text-xl sm:text-2xl font-bold text-foreground">
+                        {model.currentPrice}
+                      </span>
+                    </div>
+                    <Link to={model.slug ? `/product/${model.slug}` : '#'}>
+                      <Button className="btn-primary w-full">
+                        BUY NOW
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

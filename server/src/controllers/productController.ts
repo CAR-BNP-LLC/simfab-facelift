@@ -125,46 +125,84 @@ export class ProductController {
    */
   searchProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const query = req.query.q as string;
+      const query = (req.query.q as string) || '';
 
+      // If query is too short, return empty results instead of error
+      // Require at least 2 characters for meaningful search
       if (!query || query.trim().length < 2) {
-        return res.status(400).json({
-          success: false,
-          error: {
-            code: 'INVALID_SEARCH_QUERY',
-            message: 'Search query must be at least 2 characters'
+        return res.json({
+          success: true,
+          data: {
+            products: [],
+            pagination: {
+              page: 1,
+              limit: parseInt(req.query.limit as string) || 10,
+              total: 0,
+              totalPages: 0,
+              hasNext: false,
+              hasPrevious: false
+            }
           }
         });
       }
 
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
-      const offset = (page - 1) * limit;
 
-      // Simple search query
-      const searchPattern = `%${query}%`;
-      const sql = `
-        SELECT * FROM products
-        WHERE name ILIKE $1 OR description ILIKE $1 OR sku ILIKE $1
-        ORDER BY name ASC
-        LIMIT $2 OFFSET $3
-      `;
-
-      const countSql = `
-        SELECT COUNT(*)::int as total FROM products
-        WHERE name ILIKE $1 OR description ILIKE $1 OR sku ILIKE $1
-      `;
+      // Use ProductQueryBuilder for properly formatted products
+      const { ProductQueryBuilder } = await import('../services/ProductQueryBuilder');
+      const queryBuilder = new ProductQueryBuilder(this.pool);
+      
+      const { sql, params, countSql, countParams } = queryBuilder.buildSearch(query, {
+        page,
+        limit,
+        status: 'active' as any
+      });
 
       const [productsResult, countResult] = await Promise.all([
-        this.pool.query(sql, [searchPattern, limit, offset]),
-        this.pool.query(countSql, [searchPattern])
+        this.pool.query(sql, params),
+        this.pool.query(countSql, countParams)
       ]);
+
+      // Transform products to match frontend format
+      const products = productsResult.rows.map((row: any) => ({
+        id: row.id,
+        sku: row.sku,
+        name: row.name,
+        slug: row.slug,
+        description: row.description,
+        shortDescription: row.short_description,
+        type: row.type,
+        status: row.status,
+        featured: row.featured,
+        price: {
+          min: row.price_min,
+          max: row.price_max,
+          regular: row.regular_price,
+          sale: row.sale_price,
+          currency: 'USD'
+        },
+        images: row.images || [],
+        stock: {
+          quantity: row.stock || 0,
+          inStock: row.in_stock === '1' || row.in_stock === 1 || (row.stock && row.stock > 0),
+          manageStock: true
+        },
+        categories: typeof row.categories === 'string' ? JSON.parse(row.categories || '[]') : (row.categories || []),
+        tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : (row.tags || []),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        is_on_sale: row.is_on_sale,
+        sale_start_date: row.sale_start_date,
+        sale_end_date: row.sale_end_date,
+        sale_label: row.sale_label
+      }));
 
       const total = countResult.rows[0]?.total || 0;
       const totalPages = Math.ceil(total / limit);
 
       res.json(paginatedResponse(
-        productsResult.rows,
+        products,
         {
           page,
           limit,

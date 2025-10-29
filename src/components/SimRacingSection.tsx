@@ -1,18 +1,33 @@
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
+import { usePageProducts } from '@/hooks/usePageProducts';
 
 const SimRacingSection = () => {
-  const racingModels = [
-    {
-      name: 'Gen3 Racing Modular Cockpit',
-      price: 'from $499',
-      cta: 'BUY NOW'
-    },
-    {
-      name: 'Gen3 Racing Pro Cockpit', 
-      price: 'from $699',
-      cta: 'BUY NOW'
-    }
-  ];
+  // Fetch products from API for homepage section
+  const { products: apiProducts, loading, error } = usePageProducts('homepage', 'sim-racing-section');
+
+  // Map API products to component format
+  const racingModels = apiProducts.map((pageProduct) => {
+    const product = pageProduct.product;
+    if (!product) return null;
+
+    const price = product.sale_price 
+      ? `$${product.sale_price}` 
+      : product.regular_price 
+        ? `$${product.regular_price}` 
+        : product.price_min 
+          ? `from $${product.price_min}` 
+          : 'from $0';
+
+    return {
+      id: product.id,
+      name: product.name,
+      price,
+      cta: product.status === 'active' ? 'BUY NOW' : 'SEE MORE',
+      slug: product.slug,
+    };
+  }).filter(Boolean);
 
   return (
     <section className="py-12 sm:py-16 lg:py-20 bg-card">
@@ -52,24 +67,42 @@ const SimRacingSection = () => {
             Sim Racing Base Models
           </h3>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-2xl mx-auto">
-            {racingModels.map((model, index) => (
-              <div key={index} className="product-card text-center">
-                <div className="h-48 bg-secondary/50 rounded-lg mb-4 flex items-center justify-center">
-                  <div className="w-16 h-16 bg-muted-foreground/20 rounded"></div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">
+              Products unavailable
+            </div>
+          ) : racingModels.length === 0 ? null : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 max-w-2xl mx-auto">
+              {racingModels.map((model) => (
+                <div key={model.id} className="product-card text-center">
+                  <div className="h-48 bg-secondary/50 rounded-lg mb-4 flex items-center justify-center">
+                    <div className="w-16 h-16 bg-muted-foreground/20 rounded"></div>
+                  </div>
+                  <h4 className="font-semibold text-card-foreground mb-3 leading-tight">
+                    {model.name}
+                  </h4>
+                  <div className="text-2xl font-bold text-primary mb-4">
+                    {model.price}
+                  </div>
+                  {model.slug ? (
+                    <Link to={`/product/${model.slug}`}>
+                      <Button className="btn-primary w-full">
+                        {model.cta}
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button className="btn-primary w-full">
+                      {model.cta}
+                    </Button>
+                  )}
                 </div>
-                <h4 className="font-semibold text-card-foreground mb-3 leading-tight">
-                  {model.name}
-                </h4>
-                <div className="text-2xl font-bold text-primary mb-4">
-                  {model.price}
-                </div>
-                <Button className="btn-primary w-full">
-                  {model.cta}
-                </Button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>

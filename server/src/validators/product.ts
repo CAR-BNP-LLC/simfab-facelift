@@ -223,7 +223,7 @@ export const productQuerySchema = Joi.object({
 });
 
 export const searchQuerySchema = Joi.object({
-  q: Joi.string().min(2).required(),
+  q: Joi.string().optional().allow(''), // Allow empty/single char - controller handles validation
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(50).optional(),
   category: Joi.string().optional()
