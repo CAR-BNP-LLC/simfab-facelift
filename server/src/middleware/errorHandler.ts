@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/errors';
 import { v4 as uuidv4 } from 'uuid';
+import { LoggerService } from '../services/LoggerService';
 
 /**
  * Standard error response format
@@ -74,96 +75,167 @@ const logError = (error: Error, req: Request, requestId: string) => {
 };
 
 /**
- * Global error handling middleware
+ * Global error handling middleware factory
+ * Accepts LoggerService instance for database logging
  */
-export const errorHandler = (
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
-  const requestId = uuidv4();
+export const createErrorHandler = (loggerService?: LoggerService) => {
+  return (
+    err: Error,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): void => {
+    const requestId = uuidv4();
+    let statusCode: number;
+    let errorCode: string | undefined;
 
-  // Log all errors
-  logError(err, req, requestId);
+    // Log all errors
+    logError(err, req, requestId);
 
-  // Handle known operational errors
-  if (err instanceof AppError) {
-    const response = formatErrorResponse(err, requestId);
-    res.status(err.statusCode).json(response);
-    return;
-  }
-
-  // Handle specific error types
-  if (err.name === 'ValidationError') {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: err.message,
-        requestId,
-        timestamp: new Date().toISOString()
+    // Handle known operational errors
+    if (err instanceof AppError) {
+      statusCode = err.statusCode;
+      errorCode = err.code;
+      const response = formatErrorResponse(err, requestId);
+      
+      // Log server errors (5xx) to database
+      if (loggerService) {
+        loggerService.logServerError({
+          requestId,
+          error: err,
+          req,
+          statusCode,
+          errorCode,
+          details: err.details
+        }).catch(() => {
+          // Error already handled in LoggerService, just suppress
+        });
       }
-    });
-    return;
-  }
+      
+      res.status(statusCode).json(response);
+      return;
+    }
 
-  if (err.name === 'CastError') {
-    res.status(400).json({
-      success: false,
-      error: {
-        code: 'INVALID_ID',
-        message: 'Invalid ID format',
-        requestId,
-        timestamp: new Date().toISOString()
+    // Handle specific error types
+    if (err.name === 'ValidationError') {
+      statusCode = 400;
+      errorCode = 'VALIDATION_ERROR';
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: errorCode,
+          message: err.message,
+          requestId,
+          timestamp: new Date().toISOString()
+        }
+      });
+      // Don't log 4xx errors
+      return;
+    }
+
+    if (err.name === 'CastError') {
+      statusCode = 400;
+      errorCode = 'INVALID_ID';
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: errorCode,
+          message: 'Invalid ID format',
+          requestId,
+          timestamp: new Date().toISOString()
+        }
+      });
+      // Don't log 4xx errors
+      return;
+    }
+
+    // Handle Multer file upload errors
+    if (err.message === 'File too large' || (err as any).code === 'LIMIT_FILE_SIZE') {
+      statusCode = 413;
+      errorCode = 'FILE_TOO_LARGE';
+      res.status(statusCode).json({
+        success: false,
+        error: {
+          code: errorCode,
+          message: 'File size exceeds maximum allowed limit',
+          requestId,
+          timestamp: new Date().toISOString()
+        }
+      });
+      // Don't log 4xx errors
+      return;
+    }
+
+    // Handle database errors
+    if (err.name === 'QueryFailedError' || err.message.includes('database')) {
+      statusCode = 500;
+      errorCode = 'DATABASE_ERROR';
+      const response = {
+        success: false,
+        error: {
+          code: errorCode,
+          message: process.env.NODE_ENV === 'production' 
+            ? 'Database operation failed' 
+            : err.message,
+          requestId,
+          timestamp: new Date().toISOString()
+        }
+      };
+      
+      // Log server errors (5xx) to database
+      if (loggerService) {
+        loggerService.logServerError({
+          requestId,
+          error: err,
+          req,
+          statusCode,
+          errorCode
+        }).catch(() => {
+          // Error already handled in LoggerService, just suppress
+        });
       }
-    });
-    return;
-  }
+      
+      res.status(statusCode).json(response);
+      return;
+    }
 
-  // Handle Multer file upload errors
-  if (err.message === 'File too large' || (err as any).code === 'LIMIT_FILE_SIZE') {
-    res.status(413).json({
+    // Handle unexpected errors (500)
+    statusCode = 500;
+    errorCode = 'SERVER_ERROR';
+    const response = {
       success: false,
       error: {
-        code: 'FILE_TOO_LARGE',
-        message: 'File size exceeds maximum allowed limit',
-        requestId,
-        timestamp: new Date().toISOString()
-      }
-    });
-    return;
-  }
-
-  // Handle database errors
-  if (err.name === 'QueryFailedError' || err.message.includes('database')) {
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'DATABASE_ERROR',
+        code: errorCode,
         message: process.env.NODE_ENV === 'production' 
-          ? 'Database operation failed' 
+          ? 'An unexpected error occurred' 
           : err.message,
         requestId,
         timestamp: new Date().toISOString()
       }
-    });
-    return;
-  }
-
-  // Handle unexpected errors (500)
-  res.status(500).json({
-    success: false,
-    error: {
-      code: 'SERVER_ERROR',
-      message: process.env.NODE_ENV === 'production' 
-        ? 'An unexpected error occurred' 
-        : err.message,
-      requestId,
-      timestamp: new Date().toISOString()
+    };
+    
+    // Log server errors (5xx) to database
+    if (loggerService) {
+      loggerService.logServerError({
+        requestId,
+        error: err,
+        req,
+        statusCode,
+        errorCode
+      }).catch(() => {
+        // Error already handled in LoggerService, just suppress
+      });
     }
-  });
+    
+    res.status(statusCode).json(response);
+  };
 };
+
+/**
+ * Default error handler (backwards compatibility)
+ * Uses no logger service - logs only to console
+ */
+export const errorHandler = createErrorHandler();
 
 /**
  * Async handler wrapper to catch errors in async route handlers

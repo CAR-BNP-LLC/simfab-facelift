@@ -14,6 +14,8 @@ export interface EmailTemplate {
   default_recipients: string[];
   recipient_type: 'admin' | 'customer' | 'both';
   is_active: boolean;
+  header_image?: string;
+  header_title?: string;
   created_at: Date;
   updated_at: Date;
   created_by?: number;

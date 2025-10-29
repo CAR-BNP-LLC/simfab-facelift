@@ -13,6 +13,10 @@ export class AdminEmailController {
 
   constructor(private pool: Pool) {
     this.emailService = new EmailService(pool);
+    // Initialize email service to ensure transporter is set up
+    this.emailService.initialize().catch(err => {
+      console.error('Failed to initialize email service in AdminEmailController:', err);
+    });
   }
 
   /**

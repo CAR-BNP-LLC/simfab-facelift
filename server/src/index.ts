@@ -24,10 +24,11 @@ import { createTestingRoutes } from './routes/admin/testing';
 import { createPhase4Routes } from './routes/admin/phase4';
 import { createShipStationRoutes } from './routes/shipstation';
 import { pool } from './config/database';
-import { errorHandler } from './middleware/errorHandler';
+import { createErrorHandler } from './middleware/errorHandler';
 import { CleanupService } from './services/CleanupService';
 import { CronService } from './services/CronService';
 import { EmailService } from './services/EmailService';
+import { LoggerService } from './services/LoggerService';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -76,6 +77,8 @@ app.use(session({
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve static files from public directory (for email logos, etc.)
+app.use('/public', express.static(path.join(__dirname, '../../public')));
 
 // Initialize cron service before setting up routes
 const cronService = new CronService(pool);
@@ -86,6 +89,9 @@ const emailService = new EmailService(pool);
 emailService.initialize().catch(err => {
   console.error('Failed to initialize email service:', err);
 });
+
+// Initialize logger service
+const loggerService = new LoggerService(pool);
 
 // Routes
 app.use('/api/auth', authRouter);
@@ -170,7 +176,8 @@ app.use('*', (req, res) => {
 });
 
 // Error handling middleware (must be last)
-app.use(errorHandler);
+// Pass LoggerService instance to enable database logging of server errors
+app.use(createErrorHandler(loggerService));
 
 // Start server
 // Always bind to 0.0.0.0 in Docker to be accessible from outside the container
