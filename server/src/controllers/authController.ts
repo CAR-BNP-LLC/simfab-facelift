@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import UserModel, { User, NewsletterSubscription } from '../models/user';
 import RBACModel from '../models/rbac';
 import { Pool } from 'pg';
+import { EmailService } from '../services/EmailService';
 
 // Use crypto for generating UUIDs instead of uuid package
 import { randomUUID } from 'crypto';
@@ -25,6 +26,8 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 const rbacModel = new RBACModel(pool);
+const emailService = new EmailService(pool);
+emailService.initialize();
 
 export class AuthController {
   // Helper method to load user authorities and roles
@@ -144,6 +147,21 @@ export class AuthController {
       if (subscribeToNewsletter) {
         const subscribedAt = new Date().toISOString();
         await userModel.subscribeToNewsletter(email, subscribedAt);
+      }
+
+      // Send welcome email
+      try {
+        await emailService.sendEmail({
+          templateType: 'new_account',
+          recipientEmail: email,
+          recipientName: userFirstName || email,
+          variables: {
+            customer_name: userFirstName || email,
+            login_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send welcome email:', emailError);
       }
 
       // Set session
@@ -301,6 +319,23 @@ export class AuthController {
 
       // Store reset code
       await userModel.createPasswordReset(user.id!, resetCode, expiresAt);
+
+      // Send password reset email
+      try {
+        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetCode}`;
+        await emailService.sendEmail({
+          templateType: 'reset_password',
+          recipientEmail: email,
+          recipientName: user.first_name || email,
+          variables: {
+            reset_url: resetUrl,
+            expire_hours: '15 minutes',
+            customer_name: user.first_name || email
+          }
+        });
+      } catch (emailError) {
+        console.error('Failed to send password reset email:', emailError);
+      }
 
       // Log the reset code (as requested)
       console.log(`Password reset code for ${email}: ${resetCode}`);

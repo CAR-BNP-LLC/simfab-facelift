@@ -34,7 +34,8 @@ import {
   Trash,
   Info,
   Ticket,
-  ExternalLink
+  ExternalLink,
+  Mail
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -59,6 +60,7 @@ import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
 import CouponList from '@/components/admin/CouponList';
 import CouponForm from '@/components/admin/CouponForm';
 import PermittedFor from '@/components/auth/PermittedFor';
+import EmailTemplatesTab from '@/components/admin/EmailTemplatesTab';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -730,7 +732,7 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -746,6 +748,10 @@ const Admin = () => {
             <TabsTrigger value="coupons" className="flex items-center gap-2">
               <Ticket className="h-4 w-4" />
               <span className="hidden sm:inline">Coupons</span>
+            </TabsTrigger>
+            <TabsTrigger value="email-templates" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              <span className="hidden sm:inline">Emails</span>
             </TabsTrigger>
             <TabsTrigger value="create" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
@@ -1565,6 +1571,11 @@ const Admin = () => {
           {/* RBAC Management Tab */}
           <TabsContent value="rbac" className="space-y-6">
             <RbacManagement />
+          </TabsContent>
+
+          {/* Email Templates Tab */}
+          <TabsContent value="email-templates" className="space-y-6">
+            <EmailTemplatesTab />
           </TabsContent>
 
           {/* Settings Tab */}
