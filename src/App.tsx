@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CheckoutProvider } from "@/contexts/CheckoutContext";
+import { WishlistProvider } from "@/contexts/WishlistContext";
 import PayPalProvider from "@/components/PayPalProvider";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
@@ -32,6 +33,7 @@ import FAQ from "./pages/FAQ";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
+import Wishlist from "./pages/Wishlist";
 import CookieNotice from "./components/CookieNotice";
 
 const queryClient = new QueryClient();
@@ -40,8 +42,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <CartProvider>
-        <CheckoutProvider>
-          <PayPalProvider>
+        <WishlistProvider>
+          <CheckoutProvider>
+            <PayPalProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -56,6 +59,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/wishlist" element={<Wishlist />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
@@ -79,6 +83,7 @@ const App = () => (
           </TooltipProvider>
         </PayPalProvider>
         </CheckoutProvider>
+        </WishlistProvider>
       </CartProvider>
     </AuthProvider>
   </QueryClientProvider>

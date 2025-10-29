@@ -4,6 +4,7 @@ import { Heart, ShoppingCart, Truck, Shield, Clock, Headphones, Loader2, AlertCi
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { WishlistButton } from "@/components/WishlistButton";
 import ProductImageGallery from "@/components/ProductImageGallery";
 import ProductVariations from "@/components/ProductVariations";
 import ProductAddons from "@/components/ProductAddons";
@@ -678,10 +679,12 @@ const ProductDetail = () => {
                 <button className="underline ml-1">Learn more</button>
               </div>
 
-              <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground">
-                <Heart className="w-5 h-5 mr-2" />
-                Add to Wishlist
-              </Button>
+              <WishlistButton
+                productId={product.id}
+                variant="ghost"
+                showLabel={true}
+                className="w-full"
+              />
             </div>
 
             {/* Shipping Info */}

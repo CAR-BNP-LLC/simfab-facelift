@@ -1428,3 +1428,122 @@ export default {
   rbac: rbacAPI,
 };
 
+// ==========================================
+// WISHLIST API
+// ==========================================
+
+export interface WishlistItem {
+  id: number;
+  product_id: number;
+  notify_on_sale: boolean;
+  notify_on_stock: boolean;
+  created_at: string;
+  product: any; // Product type from your types
+}
+
+export const wishlistAPI = {
+  /**
+   * Get user's wishlist
+   */
+  async getWishlist() {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        items: WishlistItem[];
+        count: number;
+      };
+    }>('/api/wishlist');
+  },
+
+  /**
+   * Add product to wishlist
+   */
+  async addToWishlist(
+    productId: number,
+    preferences?: {
+      notifyOnSale?: boolean;
+      notifyOnStock?: boolean;
+    }
+  ) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        wishlist: WishlistItem;
+        message: string;
+      };
+    }>('/api/wishlist', {
+      method: 'POST',
+      body: JSON.stringify({
+        productId,
+        notifyOnSale: preferences?.notifyOnSale,
+        notifyOnStock: preferences?.notifyOnStock,
+      }),
+    });
+  },
+
+  /**
+   * Remove product from wishlist
+   */
+  async removeFromWishlist(productId: number) {
+    return apiRequest<{
+      success: boolean;
+      message: string;
+    }>(`/api/wishlist/${productId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Update notification preferences
+   */
+  async updatePreferences(
+    productId: number,
+    preferences: { notifyOnSale?: boolean; notifyOnStock?: boolean }
+  ) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        wishlist: WishlistItem;
+      };
+    }>(`/api/wishlist/${productId}/preferences`, {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    });
+  },
+
+  /**
+   * Get wishlist count
+   */
+  async getCount() {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        count: number;
+      };
+    }>('/api/wishlist/count');
+  },
+
+  /**
+   * Check if product is wishlisted
+   */
+  async checkWishlist(productId: number) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        isWishlisted: boolean;
+        wishlistId?: number;
+      };
+    }>(`/api/wishlist/${productId}/check`);
+  },
+
+  /**
+   * Bulk check wishlist status for multiple products
+   */
+  async bulkCheck(productIds: number[]) {
+    return apiRequest<{
+      success: boolean;
+      data: Record<string, boolean>;
+    }>(`/api/wishlist/bulk-check?productIds=${productIds.join(',')}`);
+  },
+};
+

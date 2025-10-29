@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { productsAPI, Product } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { WishlistButton } from '@/components/WishlistButton';
 
 const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -289,6 +290,11 @@ const Shop = () => {
               {products.map((product) => (
                 <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group">
                   <CardContent className="p-0 relative">
+                    {/* Wishlist Button - Top Right */}
+                    <div className="absolute top-2 right-2 z-10">
+                      <WishlistButton productId={product.id} variant="icon" size="sm" />
+                    </div>
+                    
                     {/* Product Image */}
                     <div className="aspect-square bg-muted rounded-t-lg overflow-hidden">
                       {getProductImage(product) ? (

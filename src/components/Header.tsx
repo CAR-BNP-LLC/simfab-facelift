@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Search, User, ShoppingCart, Menu, X } from 'lucide-react';
+import { Search, User, ShoppingCart, Heart, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CartSidebar from './CartSidebar';
 import { useCart } from '@/contexts/CartContext';
+import { useWishlist } from '@/contexts/WishlistContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { productsAPI } from '@/services/api';
@@ -16,6 +17,9 @@ const Header = () => {
   
   // Use cart from context
   const { cart, itemCount } = useCart();
+  
+  // Use wishlist from context
+  const { wishlistCount } = useWishlist();
   
   // Use auth from context
   const { isAuthenticated } = useAuth();
@@ -425,23 +429,41 @@ const Header = () => {
               >
                 <User className="w-4 h-4 lg:w-5 lg:h-5" />
               </button>
+              {isAuthenticated && (
+                <button 
+                  className="text-foreground hover:text-primary transition-colors relative pr-3"
+                  onClick={() => navigate('/wishlist')}
+                  title="My Wishlist"
+                >
+                  <div className="relative">
+                    <Heart className="w-4 h-4 lg:w-5 lg:h-5" />
+                    {wishlistCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                        {wishlistCount > 99 ? '99+' : wishlistCount}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )}
               <button 
-                className="text-foreground hover:text-primary transition-colors relative"
+                className="text-foreground hover:text-primary transition-colors relative pr-3"
                 onClick={() => setIsCartOpen(true)}
               >
-                <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5" />
-                {itemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                    {itemCount}
-                  </span>
-                )}
+                <div className="relative">
+                  <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                      {itemCount}
+                    </span>
+                  )}
+                </div>
               </button>
               
               {/* Admin Button */}
               <Button 
                 variant="outline"
                 size="sm"
-                className="hidden xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white"
+                className="hidden xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white ml-6 w-[70px]"
                 onClick={() => window.location.href = '/admin'}
                 title="Admin Dashboard"
               >
@@ -449,7 +471,9 @@ const Header = () => {
               </Button>
               
               <Button 
-                className="btn-primary hidden lg:inline-flex"
+                size="sm"
+                variant="default"
+                className="hidden lg:inline-flex w-[70px]"
                 onClick={() => window.location.href = '/shop'}
               >
                 SHOP

@@ -17,6 +17,7 @@ import { createBundleRoutes } from './routes/admin/bundles';
 import { createCartRoutes } from './routes/cart';
 import { createOrderRoutes } from './routes/orders';
 import { createPaymentRoutes } from './routes/payments';
+import { createWishlistRoutes } from './routes/wishlist';
 import { createWebhookRoutes } from './routes/webhooks';
 import { createCleanupRoutes } from './routes/admin/cleanup';
 import { createCronRoutes } from './routes/admin/cron';
@@ -25,6 +26,7 @@ import { createProductionRoutes } from './routes/admin/production';
 import { createTestingRoutes } from './routes/admin/testing';
 import { createPhase4Routes } from './routes/admin/phase4';
 import { createLogsRoutes } from './routes/admin/logs';
+import { createWishlistNotificationRoutes } from './routes/admin/wishlist-notifications';
 import { createShipStationRoutes } from './routes/shipstation';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
@@ -32,6 +34,7 @@ import { CleanupService } from './services/CleanupService';
 import { CronService } from './services/CronService';
 import { EmailService } from './services/EmailService';
 import { LoggerService } from './services/LoggerService';
+import { WishlistNotificationService } from './services/WishlistNotificationService';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -87,6 +90,61 @@ app.use('/public', express.static(path.join(__dirname, '../../public')));
 const cronService = new CronService(pool);
 cronService.initialize();
 
+// Initialize wishlist notification service
+const wishlistNotificationService = new WishlistNotificationService(pool);
+
+// Wishlist sale checker - runs every hour
+cronService.addJob(
+  'wishlist-sale-check',
+  {
+    schedule: '0 * * * *', // Every hour at minute 0
+    enabled: process.env.WISHLIST_SALE_CHECK_ENABLED !== 'false', // Enable by default
+    description: 'Check wishlist items for sales and send notifications',
+    timezone: process.env.TZ || 'America/New_York',
+  },
+  async () => {
+    try {
+      console.log('🔄 Running wishlist sale check...');
+      const result = await wishlistNotificationService.checkSales();
+      console.log(`✅ Wishlist sale check complete: ${result.notified} notifications sent`);
+      
+      // Log metrics
+      if (result.errors > 0) {
+        console.warn(`⚠️ ${result.errors} errors during wishlist sale check`);
+      }
+    } catch (error) {
+      console.error('❌ Error in wishlist sale check job:', error);
+    }
+  }
+);
+
+// Wishlist stock checker - runs every 30 minutes
+cronService.addJob(
+  'wishlist-stock-check',
+  {
+    schedule: '*/30 * * * *', // Every 30 minutes
+    enabled: process.env.WISHLIST_STOCK_CHECK_ENABLED !== 'false', // Enable by default
+    description: 'Check wishlist items for stock availability and send notifications',
+    timezone: process.env.TZ || 'America/New_York',
+  },
+  async () => {
+    try {
+      console.log('🔄 Running wishlist stock check...');
+      const result = await wishlistNotificationService.checkStock();
+      console.log(`✅ Wishlist stock check complete: ${result.notified} notifications sent`);
+      
+      // Log metrics
+      if (result.errors > 0) {
+        console.warn(`⚠️ ${result.errors} errors during wishlist stock check`);
+      }
+    } catch (error) {
+      console.error('❌ Error in wishlist stock check job:', error);
+    }
+  }
+);
+
+console.log('✅ Wishlist notification cron jobs registered');
+
 // Initialize email service
 const emailService = new EmailService(pool);
 emailService.initialize().catch(err => {
@@ -102,6 +160,7 @@ app.use('/api', faqsRouter);
 app.use('/api', productDescriptionRouter);
 app.use('/api/products', createProductRoutes(pool));
 app.use('/api/cart', createCartRoutes(pool));
+app.use('/api/wishlist', createWishlistRoutes(pool));
 app.use('/api/orders', createOrderRoutes(pool));
 app.use('/api/payments', createPaymentRoutes(pool));
 app.use('/api/webhooks', createWebhookRoutes(pool));
@@ -120,6 +179,7 @@ app.use('/api/admin/production', createProductionRoutes(pool));
 app.use('/api/admin/testing', createTestingRoutes(pool));
 app.use('/api/admin/phase4', createPhase4Routes(pool));
 app.use('/api/admin/logs', createLogsRoutes(pool));
+app.use('/api/admin/wishlist-notifications', createWishlistNotificationRoutes(pool));
 app.use('/api/shipstation', createShipStationRoutes(pool));
 
 // Health check endpoint
