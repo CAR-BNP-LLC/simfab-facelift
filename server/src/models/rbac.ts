@@ -74,13 +74,13 @@ class RBACModel {
       // Assign authorities to the role
       if (authorityIds.length > 0) {
         const values = authorityIds.map((authorityId, index) => 
-          `($${index * 2 + 3}, $${index * 2 + 4})`
+          `($${index + 1}, $${index + authorityIds.length + 1})`
         ).join(', ');
         
-        const params = [role.id, new Date(), ...authorityIds.flatMap(id => [id, new Date()])];
+        const params = [...authorityIds.map(() => role.id), ...authorityIds];
         
         await client.query(
-          `INSERT INTO role_authorities (role_id, authority_id, created_at) VALUES ${values}`,
+          `INSERT INTO role_authorities (role_id, authority_id) VALUES ${values}`,
           params
         );
       }

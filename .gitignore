@@ -32,3 +32,5 @@ server/database/
 *.sw?
 
 .cursor
+
+uploads/

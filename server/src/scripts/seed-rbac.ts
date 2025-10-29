@@ -11,14 +11,22 @@ import RBACModel from '../models/rbac';
 import UserModel from '../models/user';
 
 // Database configuration
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'simfab_db',
-  password: process.env.DB_PASSWORD || 'password',
-  port: parseInt(process.env.DB_PORT || '5432'),
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// Use DATABASE_URL for Docker/production, or individual params for local development
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      }
+    : {
+        user: process.env.DB_USER || 'postgres',
+        host: process.env.DB_HOST || 'localhost',
+        database: process.env.DB_NAME || 'simfab_dev',
+        password: process.env.DB_PASSWORD || 'postgres',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      }
+);
 
 const rbacModel = new RBACModel(pool);
 const userModel = new UserModel();
@@ -67,57 +75,76 @@ async function seedRBAC() {
       }
     }
 
+    // Get all authorities (including any that already existed)
+    const allAuthorities = await rbacModel.getAllAuthorities();
+    console.log(`  📊 Found ${allAuthorities.length} total authorities`);
+
     console.log('👥 Creating roles...');
     
-    // Create admin role with all authorities
-    const adminRole = await rbacModel.createRole({
-      name: 'admin',
-      description: 'Full administrative access',
-      authorityIds: createdAuthorities.map(auth => auth.id)
-    });
-    console.log(`  ✅ Created admin role with ${createdAuthorities.length} authorities`);
+    // Get or create admin role with all authorities
+    let adminRole = await rbacModel.getRoleByName('admin');
+    if (!adminRole) {
+      adminRole = await rbacModel.createRole({
+        name: 'admin',
+        description: 'Full administrative access',
+        authorityIds: allAuthorities.map(auth => auth.id)
+      });
+      console.log(`  ✅ Created admin role with ${allAuthorities.length} authorities`);
+    } else {
+      console.log(`  ⚠️  Admin role already exists (ID: ${adminRole.id})`);
+    }
 
     // Create staff role with limited authorities
-    const staffAuthorities = createdAuthorities.filter(auth => 
+    const staffAuthorities = allAuthorities.filter(auth => 
       ['products:view', 'orders:view', 'orders:manage', 'dashboard:view'].includes(`${auth.resource}:${auth.action}`)
     );
     
-    const staffRole = await rbacModel.createRole({
-      name: 'staff',
-      description: 'Staff access for order and product management',
-      authorityIds: staffAuthorities.map(auth => auth.id)
-    });
-    console.log(`  ✅ Created staff role with ${staffAuthorities.length} authorities`);
+    let staffRole = await rbacModel.getRoleByName('staff');
+    if (!staffRole) {
+      staffRole = await rbacModel.createRole({
+        name: 'staff',
+        description: 'Staff access for order and product management',
+        authorityIds: staffAuthorities.map(auth => auth.id)
+      });
+      console.log(`  ✅ Created staff role with ${staffAuthorities.length} authorities`);
+    } else {
+      console.log(`  ⚠️  Staff role already exists`);
+    }
 
     // Create customer role (no admin authorities)
-    const customerRole = await rbacModel.createRole({
-      name: 'customer',
-      description: 'Standard customer access',
-      authorityIds: [] // No admin authorities
-    });
-    console.log(`  ✅ Created customer role with no admin authorities`);
+    let customerRole = await rbacModel.getRoleByName('customer');
+    if (!customerRole) {
+      customerRole = await rbacModel.createRole({
+        name: 'customer',
+        description: 'Standard customer access',
+        authorityIds: [] // No admin authorities
+      });
+      console.log(`  ✅ Created customer role with no admin authorities`);
+    } else {
+      console.log(`  ⚠️  Customer role already exists`);
+    }
 
-    // Assign admin role to first user if they exist
-    console.log('🔗 Assigning roles to existing users...');
+    // Assign admin role to specific user
+    console.log('🔗 Assigning admin role to user...');
     try {
-      // TODO: Implement getAllUsers method in UserModel
-      // const users = await userModel.getAllUsers();
-      // if (users.length > 0) {
-      //   const firstUser = users[0];
-      //   await rbacModel.assignRoleToUser(firstUser.id!, adminRole.id);
-      //   console.log(`  ✅ Assigned admin role to user: ${firstUser.email}`);
-      // } else {
-        console.log('  ℹ️  User role assignment skipped - getAllUsers method not implemented');
-      // }
-    } catch (error) {
-      console.error('  ❌ Failed to assign roles to users:', error);
+      const targetEmail = 'svetoslav2806@gmail.com';
+      const user = await userModel.getUserByEmail(targetEmail);
+      
+      if (user && user.id) {
+        await rbacModel.assignRoleToUser(user.id, adminRole.id);
+        console.log(`  ✅ Assigned admin role to user: ${user.email}`);
+      } else {
+        console.log(`  ⚠️  User with email ${targetEmail} not found. Please create the user first.`);
+      }
+    } catch (error: any) {
+      console.error('  ❌ Failed to assign admin role to user:', error.message);
     }
 
     console.log('🎉 RBAC seed completed successfully!');
     console.log('\n📊 Summary:');
     console.log(`  - Created ${createdAuthorities.length} authorities`);
     console.log(`  - Created 3 roles (admin, staff, customer)`);
-    console.log('  - Assigned admin role to first user');
+    console.log('  - Attempted to assign admin role to svetoslav2806@gmail.com');
     
     console.log('\n🔑 Available Authorities:');
     authorities.forEach(auth => {
