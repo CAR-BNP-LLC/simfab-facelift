@@ -154,3 +154,4 @@ src/
     usePageProducts.tsx     # Custom hook for page-specific products
 ```
 
+

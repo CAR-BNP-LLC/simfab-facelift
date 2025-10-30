@@ -59,3 +59,4 @@ This will run migration 036 which creates the `page_products` table.
 ✅ Drag & drop reordering works  
 ✅ Products display on frontend pages  
 
+

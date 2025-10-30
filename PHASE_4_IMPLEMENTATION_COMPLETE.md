@@ -173,3 +173,4 @@ const baseModels = products.map(...).filter(Boolean);
 All pages now use dynamic API data instead of hardcoded arrays.  
 The CMS is fully functional and ready for use!
 
+

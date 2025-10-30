@@ -65,6 +65,7 @@ import PermittedFor from '@/components/auth/PermittedFor';
 import EmailTemplatesTab from '@/components/admin/EmailTemplatesTab';
 import ErrorLogsTab from '@/components/admin/ErrorLogsTab';
 import PageProductsTab from '@/components/admin/PageProductsTab';
+import { AnalyticsDashboard } from '@/components/admin/analytics/AnalyticsDashboard';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -741,10 +742,6 @@ const Admin = () => {
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Analytics</span>
-            </TabsTrigger>
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4" />
               <span className="hidden sm:inline">Orders</span>
@@ -752,6 +749,14 @@ const Admin = () => {
             <TabsTrigger value="products" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               <span className="hidden sm:inline">Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="page-products" className="flex items-center gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              <span className="hidden sm:inline">Page Products</span>
+            </TabsTrigger>
+            <TabsTrigger value="create" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Create Product</span>
             </TabsTrigger>
             <TabsTrigger value="coupons" className="flex items-center gap-2">
               <Ticket className="h-4 w-4" />
@@ -761,17 +766,13 @@ const Admin = () => {
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Emails</span>
             </TabsTrigger>
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              <span className="hidden sm:inline">Analytics</span>
+            </TabsTrigger>
             <TabsTrigger value="error-logs" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Error Logs</span>
-            </TabsTrigger>
-            <TabsTrigger value="page-products" className="flex items-center gap-2">
-              <LayoutGrid className="h-4 w-4" />
-              <span className="hidden sm:inline">Page Products</span>
-            </TabsTrigger>
-            <TabsTrigger value="create" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Create Product</span>
             </TabsTrigger>
             <TabsTrigger value="rbac" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -787,22 +788,8 @@ const Admin = () => {
           <TabsContent value="dashboard" className="space-y-6">
             <PermittedFor authority="dashboard:view">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {/* Analytics Card */}
-                <Card 
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  onClick={() => setActiveTab('analytics')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
-                    <TrendingUp className="h-12 w-12 text-primary mb-4" />
-                    <CardTitle className="text-xl font-bold mb-2">Analytics</CardTitle>
-                    <p className="text-sm text-muted-foreground text-center">
-                      View sales stats, revenue, and top products
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Orders Card */}
-                <Card 
+                {/* Orders Card - Most Important */}
+                <Card
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
                   onClick={() => setActiveTab('orders')}
                 >
@@ -815,8 +802,8 @@ const Admin = () => {
                   </CardContent>
                 </Card>
 
-                {/* Products Card */}
-                <Card 
+                {/* Products Card - Core Business */}
+                <Card
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
                   onClick={() => setActiveTab('products')}
                 >
@@ -829,50 +816,22 @@ const Admin = () => {
                   </CardContent>
                 </Card>
 
-                {/* Coupons Card */}
-                <Card 
+                {/* Page Products Card - Content Management */}
+                <Card
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  onClick={() => setActiveTab('coupons')}
+                  onClick={() => setActiveTab('page-products')}
                 >
                   <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
-                    <Ticket className="h-12 w-12 text-primary mb-4" />
-                    <CardTitle className="text-xl font-bold mb-2">Coupons</CardTitle>
+                    <LayoutGrid className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Page Products</CardTitle>
                     <p className="text-sm text-muted-foreground text-center">
-                      Create and manage discount coupons
+                      Manage featured products on pages
                     </p>
                   </CardContent>
                 </Card>
 
-                {/* Email Templates Card */}
-                <Card 
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  onClick={() => setActiveTab('email-templates')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
-                    <Mail className="h-12 w-12 text-primary mb-4" />
-                    <CardTitle className="text-xl font-bold mb-2">Emails</CardTitle>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Manage email templates and settings
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Error Logs Card */}
-                <Card 
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  onClick={() => setActiveTab('error-logs')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
-                    <FileText className="h-12 w-12 text-primary mb-4" />
-                    <CardTitle className="text-xl font-bold mb-2">Error Logs</CardTitle>
-                    <p className="text-sm text-muted-foreground text-center">
-                      View and monitor system error logs
-                    </p>
-                  </CardContent>
-                </Card>
-
-                {/* Create Product Card */}
-                <Card 
+                {/* Create Product Card - Content Creation */}
+                <Card
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
                   onClick={() => setActiveTab('create')}
                 >
@@ -885,8 +844,64 @@ const Admin = () => {
                   </CardContent>
                 </Card>
 
-                {/* Permissions Card */}
-                <Card 
+                {/* Coupons Card - Marketing */}
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('coupons')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Ticket className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Coupons</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Create and manage discount coupons
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Email Templates Card - Communication */}
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('email-templates')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <Mail className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Emails</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Manage email templates and settings
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Analytics Card - Insights */}
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('analytics')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <TrendingUp className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Analytics</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      View sales stats, revenue, and top products
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Error Logs Card - Monitoring */}
+                <Card
+                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                  onClick={() => setActiveTab('error-logs')}
+                >
+                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                    <FileText className="h-12 w-12 text-primary mb-4" />
+                    <CardTitle className="text-xl font-bold mb-2">Error Logs</CardTitle>
+                    <p className="text-sm text-muted-foreground text-center">
+                      View and monitor system error logs
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Permissions Card - Admin */}
+                <Card
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
                   onClick={() => setActiveTab('rbac')}
                 >
@@ -899,8 +914,8 @@ const Admin = () => {
                   </CardContent>
                 </Card>
 
-                {/* Settings Card */}
-                <Card 
+                {/* Settings Card - System */}
+                <Card
                   className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
                   onClick={() => setActiveTab('settings')}
                 >
@@ -912,20 +927,6 @@ const Admin = () => {
                     </p>
                   </CardContent>
                 </Card>
-
-                {/* Page Products Card */}
-                <Card 
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  onClick={() => setActiveTab('page-products')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
-                    <LayoutGrid className="h-12 w-12 text-primary mb-4" />
-                    <CardTitle className="text-xl font-bold mb-2">Page Products</CardTitle>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Manage featured products on pages
-                    </p>
-                  </CardContent>
-                </Card>
               </div>
             </PermittedFor>
           </TabsContent>
@@ -933,146 +934,10 @@ const Admin = () => {
           {/* Analytics Tab */}
           <TabsContent value="analytics" className="space-y-6">
             <PermittedFor authority="dashboard:view">
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : dashboardStats ? (
-              <>
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Today's Revenue
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${dashboardStats.today.revenue.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {dashboardStats.today.order_count} orders
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        This Month
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">${dashboardStats.month.revenue.toFixed(2)}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {dashboardStats.month.order_count} orders
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Total Products
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{dashboardStats.productStats.total}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {dashboardStats.productStats.in_stock} in stock
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        Low Stock Alert
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold text-orange-600">
-                        {dashboardStats.productStats.low_stock}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Products need restock
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Recent Orders */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Orders</CardTitle>
-                    <CardDescription>Latest 5 orders</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {dashboardStats.recentOrders.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">No orders yet</p>
-                      ) : (
-                        dashboardStats.recentOrders.map((order) => (
-                          <div key={order.id} className="flex items-center justify-between border-b border-border pb-3 last:border-0">
-                            <div>
-                              <p className="font-semibold">{order.order_number}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {order.user_email || order.customer_email}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <Badge variant={
-                                order.status === 'delivered' ? 'default' :
-                                order.status === 'shipped' ? 'secondary' :
-                                order.status === 'cancelled' ? 'destructive' :
-                                'outline'
-                              }>
-                                {order.status}
-                              </Badge>
-                              <p className="text-sm font-semibold mt-1">
-                                ${parseFloat(order.total_amount).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Top Products */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Products (Last 30 Days)</CardTitle>
-                    <CardDescription>Best sellers</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {dashboardStats.topProducts.length === 0 ? (
-                        <p className="text-center text-muted-foreground py-8">No sales data yet</p>
-                      ) : (
-                        dashboardStats.topProducts.map((product, idx) => (
-                          <div key={idx} className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{product.product_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {product.total_sold} sold
-                              </p>
-                            </div>
-                            <p className="font-semibold">${parseFloat(product.revenue).toFixed(2)}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground">No data available</p>
-                </CardContent>
-              </Card>
-            )}
+              <AnalyticsDashboard
+                dashboardStats={dashboardStats}
+                loading={loading}
+              />
             </PermittedFor>
           </TabsContent>
 

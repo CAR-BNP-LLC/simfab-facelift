@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const FinalSection = () => {
+  const navigate = useNavigate();
   return (
     <section className="py-12 sm:py-16 lg:py-20 bg-card">
       <div className="container mx-auto px-4">
@@ -61,7 +63,10 @@ const FinalSection = () => {
             </div>
             
             <div className="mb-8 sm:mb-12">
-              <Button className="btn-primary w-full sm:w-auto">
+              <Button
+                className="btn-primary w-full sm:w-auto"
+                onClick={() => navigate('/shop')}
+              >
                 Explore catalogue
               </Button>
             </div>

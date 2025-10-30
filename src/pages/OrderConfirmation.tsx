@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, Package, CreditCard, Truck, Calendar } from 'lucide-react';
+import { orderAPI } from '../services/api';
 
 interface OrderItem {
   id: number;
@@ -50,24 +51,23 @@ export default function OrderConfirmation() {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('Fetching order details for order number:', orderNumber);
-      
-      const response = await fetch(`/api/orders/${orderNumber}`);
-      const data = await response.json();
 
-      console.log('Order API response:', data);
+      const response = await orderAPI.getOrder(orderNumber!);
 
-      if (data.success) {
-        setOrder(data.data.order);
-        console.log('Order loaded successfully:', data.data.order);
+      console.log('Order API response:', response);
+
+      if (response.success && response.data?.order) {
+        setOrder(response.data.order);
+        console.log('Order loaded successfully:', response.data.order);
       } else {
-        console.error('Order API error:', data.error);
-        setError(data.error?.message || 'Failed to load order details');
+        console.error('Order API error:', response);
+        setError('Failed to load order details');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching order:', err);
-      setError('Failed to load order details');
+      setError(err.message || 'Failed to load order details');
     } finally {
       setLoading(false);
     }
