@@ -97,6 +97,41 @@ export class AdminProductController {
   };
 
   /**
+   * Create product group (both US and EU)
+   * POST /api/admin/products/group
+   */
+  createProductGroup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {
+        name, slug, description, short_description, type, status, featured,
+        regular_price, categories, tags,
+        sku,
+        stock_quantity_us, stock_quantity_eu
+      } = req.body;
+
+      const products = await this.productService.createProductGroup({
+        name,
+        slug,
+        description,
+        short_description,
+        type,
+        status,
+        featured,
+        regular_price,
+        categories,
+        tags,
+        sku,
+        stock_quantity_us,
+        stock_quantity_eu
+      });
+
+      res.status(201).json(successResponse(products, 'Product group created successfully (US & EU)'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Update product
    * PUT /api/admin/products/:id
    */
@@ -112,6 +147,21 @@ export class AdminProductController {
       const product = await this.productService.updateProduct(productId, updateData);
 
       res.json(successResponse(product, 'Product updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Break product group (unlink products)
+   * DELETE /api/admin/products/group/:groupId
+   */
+  breakProductGroup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productGroupId = req.params.groupId;
+      await this.productService.breakProductGroup(productGroupId);
+
+      res.json(successResponse(null, 'Product group broken successfully. Products are now unlinked.'));
     } catch (error) {
       next(error);
     }

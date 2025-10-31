@@ -12,21 +12,43 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Detect region from URL query params
+  const urlParams = new URLSearchParams(window.location.search);
+  const region = urlParams.get('region') || import.meta.env.VITE_DEFAULT_REGION;
+  
+  console.log('🌐 API Request:', {
+    endpoint,
+    url,
+    detectedRegion: region,
+    'window.location.search': window.location.search
+  });
+  
+  // Add region to query string if present
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const regionParam = region ? `${separator}region=${region}` : '';
+  const finalUrl = `${url}${regionParam}`;
+  
   const config: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(region ? { 'X-Region': region } : {}), // Also send as header
       ...options.headers,
     },
     credentials: 'include', // Important for cookies/sessions
   };
+
+  console.log('📤 Making request:', {
+    finalUrl,
+    headers: config.headers
+  });
 
   try {
     // Add 10-second timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(url, { ...config, signal: controller.signal });
+    const response = await fetch(finalUrl, { ...config, signal: controller.signal });
     clearTimeout(timeoutId);
     
     const data = await response.json();

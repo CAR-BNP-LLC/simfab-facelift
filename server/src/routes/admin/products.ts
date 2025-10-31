@@ -69,6 +69,30 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   POST /api/admin/products/group
+   * @desc    Create product group (both US and EU)
+   * @access  Admin with products:create authority
+   * @note    Must be before /:id routes to avoid route conflicts
+   */
+  router.post(
+    '/group',
+    requireAuthority('products:create'),
+    controller.createProductGroup
+  );
+
+  /**
+   * @route   DELETE /api/admin/products/group/:groupId
+   * @desc    Break product group (unlink products)
+   * @access  Admin with products:edit authority
+   * @note    Must be before /:id routes to avoid route conflicts
+   */
+  router.delete(
+    '/group/:groupId',
+    requireAuthority('products:edit'),
+    controller.breakProductGroup
+  );
+
+  /**
    * @route   POST /api/admin/products
    * @desc    Create new product
    * @access  Admin with products:create authority

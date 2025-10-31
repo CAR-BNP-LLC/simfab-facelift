@@ -31,7 +31,8 @@ export class ProductController {
         inStock: req.query.inStock === 'true' ? true : undefined,
         featured: req.query.featured === 'true' ? true : undefined,
         sortBy: req.query.sortBy as any,
-        sortOrder: req.query.sortOrder as any
+        sortOrder: req.query.sortOrder as any,
+        region: req.region // Add region from middleware
       };
 
       const result = await this.productService.getProducts(options);
@@ -70,7 +71,8 @@ export class ProductController {
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
         inStock: inStock === 'true',
-        featured: featured === 'true'
+        featured: featured === 'true',
+        region: req.region // Add region from middleware
       });
 
       res.json(successResponse(products, 'Products retrieved'));
@@ -86,7 +88,7 @@ export class ProductController {
   getProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = parseInt(req.params.id);
-      const product = await this.productService.getProductById(productId);
+      const product = await this.productService.getProductById(productId, req.region);
 
       if (!product) {
         return res.status(404).json({
@@ -164,7 +166,25 @@ export class ProductController {
   getFeaturedProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { limit = '8' } = req.query;
-      const products = await this.productService.getFeaturedProducts(parseInt(limit as string));
+      
+      console.log('🎯 getFeaturedProducts called:', {
+        'req.region': req.region,
+        'req.query.region': req.query.region,
+        'req.headers': {
+          'x-region': req.get('X-Region'),
+          'host': req.get('host')
+        }
+      });
+      
+      const products = await this.productService.getFeaturedProducts(
+        parseInt(limit as string),
+        req.region // Filter by detected region
+      );
+
+      console.log('📦 Featured products returned:', {
+        count: products.length,
+        regions: products.map(p => ({ id: p.id, name: p.name, region: p.region }))
+      });
 
       res.json(successResponse(products, 'Featured products retrieved'));
     } catch (error) {
@@ -185,7 +205,8 @@ export class ProductController {
         page: 1,
         limit: parseInt(limit as string),
         category,
-        featured: true
+        featured: true,
+        region: req.region // Filter by detected region
       });
 
       res.json(successResponse(result.products, 'Featured products by category retrieved'));
@@ -202,7 +223,7 @@ export class ProductController {
     try {
       // Access queryBuilder through service
       const queryBuilder = (this.productService as any).queryBuilder;
-      const categoriesQuery = queryBuilder.buildCategoriesQuery();
+      const categoriesQuery = queryBuilder.buildCategoriesQuery(req.region); // Filter by detected region
       const result = await this.pool.query(categoriesQuery.sql, categoriesQuery.params);
       
       // Format category names
