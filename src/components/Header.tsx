@@ -22,8 +22,14 @@ const Header = () => {
   const { wishlistCount } = useWishlist();
   
   // Use auth from context
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+  
+  // Check if user has a role other than "customer"
+  const isNotCustomer = isAuthenticated && user && (
+    user.roles?.some(role => role.name?.toLowerCase() !== 'customer') ||
+    (user.authorities && user.authorities.length > 0)
+  );
   
   // Handle account button click
   const handleAccountClick = () => {
@@ -269,7 +275,7 @@ const Header = () => {
       {/* Utility Bar */}
       <div className="bg-secondary text-text-muted text-xs py-2 px-4">
         <div className="container mx-auto flex items-center justify-between">
-          <span className="text-center flex-1">
+          <span className="text-center flex-1 hidden sm:block">
             Toll free for USA & Canada:{' '}
             <a href="tel:1-888-299-2746" className="text-primary hover:underline">
               1-888-299-2746
@@ -279,16 +285,30 @@ const Header = () => {
               We ship worldwide
             </a>
           </span>
-          {/* Admin Button in Utility Bar for Medium Screens */}
-          <Button 
-            variant="outline"
-            size="sm"
-            className="hidden lg:inline-flex 2xl:hidden border-destructive text-destructive hover:bg-destructive hover:text-white ml-4 w-[70px] text-xs"
-            onClick={() => window.location.href = '/admin'}
-            title="Admin Dashboard"
-          >
-            ADMIN
-          </Button>
+          {/* Buttons in Utility Bar for Medium Screens */}
+          <div className="flex items-center gap-2 ml-auto sm:ml-4">
+            {/* Admin Button - Visible in utility bar for all screens except 2xl+, only for non-customer users */}
+            {isNotCustomer && (
+              <Button 
+                variant="outline"
+                size="sm"
+                className="inline-flex 2xl:hidden border-destructive text-destructive hover:bg-destructive hover:text-white w-[70px] text-xs"
+                onClick={() => window.location.href = '/admin'}
+                title="Admin Dashboard"
+              >
+                ADMIN
+              </Button>
+            )}
+            {/* SHOP Button - Visible in utility bar for lg-xl screens to prevent overflow */}
+            <Button 
+              size="sm"
+              variant="default"
+              className="hidden lg:inline-flex 2xl:hidden w-[70px] text-xs"
+              onClick={() => window.location.href = '/shop'}
+            >
+              SHOP
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -471,21 +491,24 @@ const Header = () => {
                 </div>
               </button>
               
-              {/* Admin Button - Only on 2xl+ screens where there's more space */}
-              <Button 
-                variant="outline"
-                size="sm"
-                className="hidden 2xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white ml-6 w-[70px]"
-                onClick={() => window.location.href = '/admin'}
-                title="Admin Dashboard"
-              >
-                ADMIN
-              </Button>
+              {/* Admin Button - Only on 2xl+ screens where there's more space, and only for non-customer users */}
+              {isNotCustomer && (
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="hidden 2xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white ml-6 w-[70px]"
+                  onClick={() => window.location.href = '/admin'}
+                  title="Admin Dashboard"
+                >
+                  ADMIN
+                </Button>
+              )}
               
+              {/* SHOP Button - Only on 2xl+ screens where there's more space */}
               <Button 
                 size="sm"
                 variant="default"
-                className="hidden lg:inline-flex w-[70px]"
+                className="hidden 2xl:inline-flex w-[70px]"
                 onClick={() => window.location.href = '/shop'}
               >
                 SHOP
@@ -722,18 +745,20 @@ const Header = () => {
                 </div>
               </div>
 
-              {/* ADMIN */}
-              <div className="border-b border-gray-800 pb-6">
-                <button 
-                  className="text-white font-bold text-lg uppercase tracking-wider w-full text-left"
-                  onClick={() => {
-                    window.location.href = '/admin';
-                    setIsMenuOpen(false);
-                  }}
-                >
-                  ADMIN DASHBOARD
-                </button>
-              </div>
+              {/* ADMIN - Only show for non-customer users */}
+              {isNotCustomer && (
+                <div className="border-b border-gray-800 pb-6">
+                  <button 
+                    className="text-white font-bold text-lg uppercase tracking-wider w-full text-left"
+                    onClick={() => {
+                      window.location.href = '/admin';
+                      setIsMenuOpen(false);
+                    }}
+                  >
+                    ADMIN DASHBOARD
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
