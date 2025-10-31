@@ -288,8 +288,8 @@ const Shop = () => {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => (
-                <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group">
-                  <CardContent className="p-0 relative">
+                <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group flex flex-col">
+                  <CardContent className="p-0 relative flex flex-col flex-1">
                     {/* Wishlist Button - Top Right */}
                     <div className="absolute top-2 right-2 z-10">
                       <WishlistButton productId={product.id} variant="icon" size="sm" />
@@ -311,7 +311,7 @@ const Shop = () => {
                     </div>
                     
                     {/* Product Info */}
-                    <div className="p-4">
+                    <div className="p-4 flex flex-col flex-1 gap-2">
                       {/* Sale Badge */}
                       {isSaleActive(product) && product.sale_label && (
                         <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold z-10">
@@ -319,12 +319,12 @@ const Shop = () => {
                         </div>
                       )}
                       
-                      <h3 className="text-sm font-medium text-foreground mb-3 line-clamp-2 min-h-[2.5rem]">
+                      <h3 className="text-sm font-medium text-foreground line-clamp-2">
                         {product.name}
                       </h3>
                       
                       {/* Price */}
-                      <div className="mb-4">
+                      <div>
                         {(() => {
                           const priceData = getProductPrice(product);
                           if (typeof priceData === 'string') {
@@ -354,19 +354,21 @@ const Shop = () => {
                       
                       {/* Stock Status */}
                       {!isProductInStock(product) && (
-                        <p className="text-sm text-destructive mb-2">Out of Stock</p>
+                        <p className="text-sm text-destructive">Out of Stock</p>
                       )}
                       
-                      {/* Buy Now Button */}
-                      <Link to={`/product/${product.slug}`}>
-                        <Button 
-                          variant="outline" 
-                          className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
-                          disabled={!isProductInStock(product)}
-                        >
-                          {!isProductInStock(product) ? 'OUT OF STOCK' : 'BUY NOW'}
-                        </Button>
-                      </Link>
+                      {/* Buy Now Button - Pushed to bottom with minimal gap */}
+                      <div className="mt-auto pt-2">
+                        <Link to={`/product/${product.slug}`}>
+                          <Button 
+                            variant="outline" 
+                            className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                            disabled={!isProductInStock(product)}
+                          >
+                            {!isProductInStock(product) ? 'OUT OF STOCK' : 'BUY NOW'}
+                          </Button>
+                        </Link>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

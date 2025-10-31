@@ -44,6 +44,7 @@ interface PerformanceData {
   carts: {
     total: number;
     active: number;
+    checkout: number;
     converted: number;
     recent: number;
     conversion_rate: number;
@@ -99,7 +100,7 @@ export const PerformanceAnalytics = ({ className, initialData }: PerformanceAnal
     orders: { total: 0, paid: 0, unpaid: 0, today: 0, conversion_rate: 0 },
     revenue: { total: 0, paid: 0, avg_order_value: 0, avg_paid_order_value: 0, avg_revenue_per_order: 0 },
     customers: { total: 0, new: 0, avg_orders_per_customer: 0, avg_lifetime_value: 0 },
-    carts: { total: 0, active: 0, converted: 0, recent: 0, conversion_rate: 0 },
+    carts: { total: 0, active: 0, checkout: 0, converted: 0, recent: 0, conversion_rate: 0 },
     kpis: { conversion_rate: 0, cart_abandonment_rate: 0, customer_acquisition_rate: 0, repeat_purchase_rate: 0 }
   };
 
@@ -190,7 +191,7 @@ export const PerformanceAnalytics = ({ className, initialData }: PerformanceAnal
               {formatPercentage(data.kpis.cart_abandonment_rate)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {data.carts.total - data.carts.converted} abandoned carts
+              {((data.carts.checkout || 0) - (data.carts.converted || 0))} abandoned at checkout
             </p>
             {getStatusBadge(100 - data.kpis.cart_abandonment_rate, { good: 85, warning: 70 })}
           </CardContent>

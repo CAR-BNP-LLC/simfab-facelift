@@ -181,34 +181,58 @@ export class AdminOrderController {
 
       const order = result.rows[0];
 
-      // Send appropriate email based on status change
+      // Get customer name from billing address (handle JSONB parsing)
+      let customerName = order.customer_email;
       try {
-        let templateType = '';
+        const billingAddress = typeof order.billing_address === 'string' 
+          ? JSON.parse(order.billing_address) 
+          : order.billing_address;
+        if (billingAddress?.firstName && billingAddress?.lastName) {
+          customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+        }
+      } catch (error) {
+        // If parsing fails, use email as fallback
+        console.warn('Could not parse billing address for customer name:', error);
+      }
+
+      // Trigger appropriate event based on status change - automatically sends emails for all templates registered for the event
+      try {
+        let triggerEvent: string | null = null;
+        
         if (status === 'processing') {
-          templateType = 'order_processing';
+          triggerEvent = 'order.processing';
         } else if (status === 'completed' || status === 'delivered') {
-          templateType = 'order_completed';
+          triggerEvent = 'order.completed';
         } else if (status === 'cancelled') {
-          templateType = 'order_cancelled_customer';
+          triggerEvent = 'order.cancelled';
+        } else if (status === 'on_hold') {
+          triggerEvent = 'order.on_hold';
+        } else if (status === 'refunded') {
+          triggerEvent = 'order.refunded';
         }
 
-        if (templateType) {
-          await this.emailService.sendEmail({
-            templateType,
-            recipientEmail: order.customer_email,
-            recipientName: order.customer_email,
-            variables: {
+        if (triggerEvent) {
+          await this.emailService.triggerEvent(
+            triggerEvent,
+            {
               order_number: order.order_number,
-              customer_name: order.customer_email,
+              customer_name: customerName,
+              customer_email: order.customer_email,
               order_total: `$${order.total_amount.toFixed(2)}`,
               order_date: new Date(order.created_at).toLocaleDateString(),
               tracking_number: trackingNumber || '',
-              carrier: carrier || ''
+              carrier: carrier || '',
+              cancellation_reason: (status === 'cancelled' && notes) ? notes : ''
+            },
+            {
+              customerEmail: order.customer_email,
+              customerName: customerName,
+              adminEmail: 'info@simfab.com'
             }
-          });
+          );
         }
       } catch (emailError) {
-        console.error('Failed to send order status email:', emailError);
+        console.error(`Failed to trigger ${status} event emails:`, emailError);
       }
 
       res.json(successResponse({
@@ -1231,6 +1255,7 @@ export class AdminOrderController {
           SELECT
             COUNT(*)::int as total_carts,
             COUNT(*) FILTER (WHERE status = 'active')::int as active_carts,
+            COUNT(*) FILTER (WHERE status = 'checkout')::int as checkout_carts,
             COUNT(*) FILTER (WHERE status = 'converted')::int as converted_carts,
             COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '1 hour')::int as recent_carts
           FROM carts
@@ -1261,6 +1286,7 @@ export class AdminOrderController {
           cm.avg_customer_lifetime_value,
           cam.total_carts,
           cam.active_carts,
+          cam.checkout_carts,
           cam.converted_carts,
           cam.recent_carts,
           -- Calculated metrics
@@ -1302,13 +1328,14 @@ export class AdminOrderController {
         carts: {
           total: data.total_carts,
           active: data.active_carts,
+          checkout: data.checkout_carts,
           converted: data.converted_carts,
           recent: data.recent_carts,
           conversion_rate: data.cart_conversion_rate
         },
         kpis: {
           conversion_rate: data.conversion_rate,
-          cart_abandonment_rate: 100 - data.cart_conversion_rate,
+          cart_abandonment_rate: data.checkout_carts > 0 ? ((data.checkout_carts - data.converted_carts) / data.checkout_carts) * 100 : 0,
           customer_acquisition_rate: data.new_customers > 0 ? (data.new_customers / data.total_customers) * 100 : 0,
           repeat_purchase_rate: data.avg_orders_per_customer > 1 ? ((data.avg_orders_per_customer - 1) / data.avg_orders_per_customer) * 100 : 0
         }

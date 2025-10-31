@@ -35,25 +35,43 @@ export class OrderController {
 
       const order = await this.orderService.createOrder(sessionId, userId, orderData);
 
-      // Send email notification to admin
+      // Get customer name from billing address (handle JSONB parsing)
+      let customerName = order.customer_email;
       try {
-        await this.emailService.sendEmail({
-          templateType: 'new_order_admin',
-          recipientEmail: 'info@simfab.com',
-          recipientName: 'SimFab Admin',
-          variables: {
+        const billingAddress = typeof order.billing_address === 'string' 
+          ? JSON.parse(order.billing_address) 
+          : order.billing_address;
+        if (billingAddress?.firstName && billingAddress?.lastName) {
+          customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+        }
+      } catch (error) {
+        // If parsing fails, use email as fallback
+        console.warn('Could not parse billing address for customer name:', error);
+      }
+
+      // Trigger order.created event - automatically sends emails for all templates registered for this event
+      try {
+        await this.emailService.triggerEvent(
+          'order.created',
+          {
             order_number: order.order_number,
-            customer_name: order.customer_email,
+            customer_name: customerName,
+            customer_email: order.customer_email,
             order_total: `$${order.total_amount.toFixed(2)}`,
             order_date: new Date(order.created_at).toLocaleDateString(),
             subtotal: `$${order.subtotal.toFixed(2)}`,
             tax_amount: `$${order.tax_amount.toFixed(2)}`,
             shipping_amount: `$${order.shipping_amount.toFixed(2)}`,
             discount_amount: `$${order.discount_amount.toFixed(2)}`
+          },
+          {
+            customerEmail: order.customer_email,
+            customerName: customerName,
+            adminEmail: 'info@simfab.com'
           }
-        });
+        );
       } catch (emailError) {
-        console.error('Failed to send admin order email:', emailError);
+        console.error('Failed to trigger order.created event emails:', emailError);
       }
 
       res.status(201).json(successResponse({

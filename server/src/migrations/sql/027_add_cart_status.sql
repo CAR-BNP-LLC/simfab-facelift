@@ -7,7 +7,7 @@ ALTER TABLE carts ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
 CREATE INDEX IF NOT EXISTS idx_carts_status ON carts(status);
 
 -- Add comment for documentation
-COMMENT ON COLUMN carts.status IS 'Cart status: active, checkout, completed, expired';
+COMMENT ON COLUMN carts.status IS 'Cart status: active, checkout, converted, expired';
 
 -- Update existing carts to have 'active' status
 UPDATE carts SET status = 'active' WHERE status IS NULL;

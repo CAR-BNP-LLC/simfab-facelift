@@ -97,7 +97,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const data = await response.json();
 
       if (data.success && data.data) {
-        setCart(data.data);
+        // Check if cart is actually empty (no items)
+        if (data.data.items && data.data.items.length === 0) {
+          setCart(null);
+        } else if (data.data.cart === null) {
+          // API explicitly returned null cart
+          setCart(null);
+        } else {
+          setCart(data.data);
+        }
       } else {
         setCart(null);
       }

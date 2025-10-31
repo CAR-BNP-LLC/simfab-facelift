@@ -13,6 +13,7 @@ export interface Cart {
   id: number;
   user_id: number | null;
   session_id: string | null;
+  status?: string; // Cart status: 'active', 'checkout', 'converted', etc.
   created_at: Date;
   updated_at: Date;
   expires_at: Date;

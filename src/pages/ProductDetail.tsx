@@ -39,6 +39,19 @@ const ProductDetail = () => {
   const { toast } = useToast();
   const { addToCart } = useCart();
 
+  // Helper function to check if product is in stock
+  const isProductInStock = (product: any): boolean => {
+    if (!product) return false;
+    const stock = product.stock;
+    const inStock = product.in_stock;
+    // Primary check: if stock is defined (including 0), use it
+    if (stock !== undefined && stock !== null) {
+      return stock > 0;
+    }
+    // Fallback: if stock is not defined, check in_stock field
+    return inStock === '1' || inStock === true;
+  };
+
   // Fetch product on mount
   useEffect(() => {
     console.log('ProductDetail mounted. Product identifier:', productSlug);
@@ -650,15 +663,15 @@ const ProductDetail = () => {
             )}
 
             {/* Stock Status */}
-            <div className={(product as any).stock > 0 || (product as any).in_stock === '1' ? "text-green-400 font-medium" : "text-destructive font-medium"}>
-              {(product as any).stock > 0 || (product as any).in_stock === '1' ? 'In stock' : 'Out of stock'}
+            <div className={isProductInStock(product) ? "text-green-400 font-medium" : "text-destructive font-medium"}>
+              {isProductInStock(product) ? 'In stock' : 'Out of stock'}
             </div>
 
             {/* Add to Cart */}
             <div className="space-y-4">
               <Button 
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 text-lg"
-                disabled={!((product as any).stock > 0 || (product as any).in_stock === '1') || addingToCart}
+                disabled={!isProductInStock(product) || addingToCart}
                 onClick={handleAddToCart}
               >
                 {addingToCart ? (

@@ -35,7 +35,7 @@ import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cart, loading: cartLoading, applyCoupon } = useCart();
+  const { cart, loading: cartLoading, applyCoupon, refreshCart } = useCart();
   const { user } = useAuth();
   const { checkoutState, updateCheckoutState, clearStorage } = useCheckout();
   const { toast } = useToast();
@@ -50,24 +50,48 @@ const Checkout = () => {
     shippingAddress,
     billingAddress,
     selectedShipping,
-    orderNotes,
+    orderNotes = '',
     createdOrder,
     isBillingSameAsShipping
   } = checkoutState;
 
-  // Auto-fill from user data when available
+  // Auto-fill from user data when available (only if fields are empty, never overwrite user input)
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
+  
   useEffect(() => {
-    if (user && (!shippingAddress.firstName || !shippingAddress.email)) {
-      updateCheckoutState({
-        shippingAddress: {
-          ...shippingAddress,
-          firstName: user.firstName || shippingAddress.firstName,
-          lastName: user.lastName || shippingAddress.lastName,
-          email: user.email || shippingAddress.email
-        }
-      });
+    // Only auto-fill once when user data becomes available and we haven't auto-filled yet
+    if (user && !hasAutoFilled) {
+      // Only set fields that are actually empty - never overwrite existing values
+      const updates: Partial<typeof shippingAddress> = {};
+      
+      if (!shippingAddress.firstName && user.firstName) {
+        updates.firstName = user.firstName;
+      }
+      if (!shippingAddress.lastName && user.lastName) {
+        updates.lastName = user.lastName;
+      }
+      // Only auto-fill email if it's completely empty - never overwrite if user typed something
+      if (!shippingAddress.email && user.email) {
+        updates.email = user.email;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        updateCheckoutState({
+          shippingAddress: {
+            ...shippingAddress,
+            ...updates
+          }
+        });
+      }
+      // Mark as auto-filled to prevent re-running even if no updates were made
+      setHasAutoFilled(true);
     }
-  }, [user, shippingAddress.firstName, shippingAddress.email, updateCheckoutState]);
+    // Also mark as auto-filled if user is null (guest checkout)
+    if (!user && !hasAutoFilled) {
+      setHasAutoFilled(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, hasAutoFilled]);
 
   // Shipping options
   const shippingOptions = [
@@ -105,6 +129,22 @@ const Checkout = () => {
       navigate('/shop');
     }
   }, [cart, cartLoading, navigate, toast]);
+
+  // Validate createdOrder exists if we're on payment step
+  useEffect(() => {
+    if (step === 5 && createdOrder) {
+      console.log('Validating createdOrder exists:', createdOrder);
+      // If we're on payment step but order doesn't exist, reset to review step
+      // This handles stale localStorage state
+      if (!createdOrder.id) {
+        console.warn('Invalid createdOrder in state, resetting to review step');
+        updateCheckoutState({ 
+          step: 4,
+          createdOrder: null 
+        });
+      }
+    }
+  }, [step, createdOrder, updateCheckoutState]);
 
   const handleAddressChange = (field: keyof typeof shippingAddress, value: string) => {
     console.log(`Updating shipping address ${field}:`, value);
@@ -274,7 +314,7 @@ const Checkout = () => {
     }
   };
 
-  const handlePaymentSuccess = (paymentId: string) => {
+  const handlePaymentSuccess = async (paymentId: string) => {
     toast({
       title: 'Payment successful!',
       description: 'Your order has been placed successfully.',
@@ -282,6 +322,9 @@ const Checkout = () => {
     
     // Capture order number before resetting state
     const orderNumber = createdOrder?.order_number;
+    
+    // Refresh cart to clear it from the UI
+    await refreshCart();
     
     // Reset checkout state after successful payment
     updateCheckoutState({

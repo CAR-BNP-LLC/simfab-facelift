@@ -1,5 +1,4 @@
 import { PayPalButtons } from '@paypal/react-paypal-js';
-import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { paymentAPI } from '@/services/api';
 
@@ -44,7 +43,6 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
   onSuccess,
   onError
 }) => {
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   const createOrder = async () => {
@@ -94,7 +92,7 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
           onSuccess(data.orderID);
         }
         
-        navigate(`/order-confirmation/${orderId}`);
+        // Don't navigate here - let the parent component handle navigation with order number
       } else {
         throw new Error('Payment execution failed');
       }

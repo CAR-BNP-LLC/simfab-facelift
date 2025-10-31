@@ -33,7 +33,8 @@ export class CartController {
 
       const cart = await this.cartService.getCartWithItems(sessionId, userId);
 
-      if (!cart || cart.items.length === 0) {
+      // Return null if cart is empty or doesn't exist
+      if (!cart || !cart.items || cart.items.length === 0) {
         return res.json(successResponse({
           cart: null,
           message: 'Cart is empty'

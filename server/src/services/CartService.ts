@@ -55,6 +55,7 @@ export class CartService {
 
   /**
    * Find existing cart
+   * Excludes converted carts (carts that have been cleared after payment)
    */
   async findCart(sessionId?: string, userId?: number): Promise<Cart | null> {
     try {
@@ -62,12 +63,19 @@ export class CartService {
       let params: any[];
 
       if (userId) {
-        // Logged-in user - find by user_id
-        sql = 'SELECT * FROM carts WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 1';
+        // Logged-in user - find by user_id, excluding converted carts
+        sql = `SELECT * FROM carts 
+               WHERE user_id = $1 
+               AND status != 'converted' 
+               ORDER BY updated_at DESC LIMIT 1`;
         params = [userId];
       } else if (sessionId) {
-        // Guest user - find by session_id
-        sql = 'SELECT * FROM carts WHERE session_id = $1 AND user_id IS NULL ORDER BY updated_at DESC LIMIT 1';
+        // Guest user - find by session_id, excluding converted carts
+        sql = `SELECT * FROM carts 
+               WHERE session_id = $1 
+               AND user_id IS NULL 
+               AND status != 'converted'
+               ORDER BY updated_at DESC LIMIT 1`;
         params = [sessionId];
       } else {
         return null;
@@ -102,6 +110,12 @@ export class CartService {
     try {
       const cart = await this.getOrCreateCart(sessionId, userId);
       if (!cart) return null;
+
+      // If cart is converted, return null so a new cart will be created on next operation
+      if (cart.status === 'converted') {
+        console.log(`Cart ${cart.id} is converted, returning null to trigger new cart creation`);
+        return null;
+      }
 
       // Get cart items with product details
       const itemsSql = `
@@ -415,6 +429,7 @@ export class CartService {
    */
   async clearCart(cartId: number): Promise<void> {
     await this.pool.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+    await this.pool.query('DELETE FROM cart_coupons WHERE cart_id = $1', [cartId]);
   }
 
   /**
@@ -683,18 +698,26 @@ export class CartService {
   async clearCartAfterPayment(cartId: string): Promise<void> {
     const client = await this.pool.connect();
     try {
+      console.log(`📦 Clearing cart after payment: cart_id=${cartId}`);
       await client.query('BEGIN');
 
       // Clear cart items
-      await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+      const deleteResult = await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
+      console.log(`   Deleted ${deleteResult.rowCount} cart items`);
       
-      // Update cart status to completed
-      await client.query('UPDATE carts SET status = $1 WHERE id = $2', ['completed', cartId]);
+      // Clear applied coupons
+      const deleteCouponsResult = await client.query('DELETE FROM cart_coupons WHERE cart_id = $1', [cartId]);
+      console.log(`   Deleted ${deleteCouponsResult.rowCount} cart coupons`);
+      
+      // Update cart status to converted
+      const updateResult = await client.query('UPDATE carts SET status = $1 WHERE id = $2', ['converted', cartId]);
+      console.log(`   Updated cart status: ${updateResult.rowCount} row(s) affected`);
 
       await client.query('COMMIT');
+      console.log(`✅ Cart ${cartId} successfully cleared and marked as converted`);
     } catch (error) {
       await client.query('ROLLBACK');
-      console.error('Error clearing cart after payment:', error);
+      console.error('❌ Error clearing cart after payment:', error);
       throw error;
     } finally {
       client.release();

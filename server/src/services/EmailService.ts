@@ -387,5 +387,123 @@ export class EmailService {
       ]
     );
   }
+
+  /**
+   * Trigger emails based on event
+   * Automatically finds and sends all active templates registered for the given event
+   * 
+   * @param event - The trigger event (e.g., 'order.created', 'order.processing')
+   * @param variables - Template variables to use
+   * @param recipientInfo - Information about recipients (customer email, admin email, etc.)
+   */
+  async triggerEvent(
+    event: string,
+    variables: Record<string, any>,
+    recipientInfo: {
+      customerEmail?: string;
+      customerName?: string;
+      adminEmail?: string;
+    }
+  ): Promise<EmailResult[]> {
+    const results: EmailResult[] = [];
+    
+    try {
+      // Get all active templates for this trigger event
+      const templatesResult = await this.pool.query(
+        `SELECT * FROM email_templates 
+         WHERE trigger_event = $1 AND is_active = true 
+         ORDER BY id`,
+        [event]
+      );
+
+      const templates = templatesResult.rows;
+
+      if (templates.length === 0) {
+        console.log(`📧 No active templates found for trigger event: ${event}`);
+        return results;
+      }
+
+      console.log(`📧 Triggering event '${event}': Found ${templates.length} active template(s)`);
+
+      // Send email for each matching template
+      for (const template of templates) {
+        try {
+          // Determine recipients based on recipient_type
+          const recipients: Array<{ email: string; name?: string }> = [];
+
+          if (template.recipient_type === 'admin') {
+            // Admin recipients
+            if (template.custom_recipient_email) {
+              recipients.push({ email: template.custom_recipient_email, name: 'SimFab Admin' });
+            } else if (template.default_recipients && template.default_recipients.length > 0) {
+              template.default_recipients.forEach((email: string) => {
+                recipients.push({ email, name: 'SimFab Admin' });
+              });
+            } else {
+              // Default admin email
+              recipients.push({ email: recipientInfo.adminEmail || 'info@simfab.com', name: 'SimFab Admin' });
+            }
+          } else if (template.recipient_type === 'customer') {
+            // Customer recipients
+            if (!recipientInfo.customerEmail) {
+              console.warn(`📧 Skipping template ${template.type}: No customer email provided`);
+              continue;
+            }
+            recipients.push({
+              email: recipientInfo.customerEmail,
+              name: recipientInfo.customerName || recipientInfo.customerEmail
+            });
+          } else if (template.recipient_type === 'both') {
+            // Both admin and customer
+            if (recipientInfo.customerEmail) {
+              recipients.push({
+                email: recipientInfo.customerEmail,
+                name: recipientInfo.customerName || recipientInfo.customerEmail
+              });
+            }
+            
+            // Add admin recipients
+            if (template.custom_recipient_email) {
+              recipients.push({ email: template.custom_recipient_email, name: 'SimFab Admin' });
+            } else if (template.default_recipients && template.default_recipients.length > 0) {
+              template.default_recipients.forEach((email: string) => {
+                recipients.push({ email, name: 'SimFab Admin' });
+              });
+            } else {
+              recipients.push({ email: recipientInfo.adminEmail || 'info@simfab.com', name: 'SimFab Admin' });
+            }
+          } else if (template.recipient_type === 'custom' && template.custom_recipient_email) {
+            // Custom recipient
+            recipients.push({ email: template.custom_recipient_email, name: 'Recipient' });
+          }
+
+          // Send email to each recipient
+          for (const recipient of recipients) {
+            const result = await this.sendEmail({
+              templateType: template.type,
+              recipientEmail: recipient.email,
+              recipientName: recipient.name,
+              variables
+            });
+            results.push(result);
+          }
+        } catch (error: any) {
+          console.error(`❌ Failed to send email for template ${template.type}:`, error);
+          results.push({
+            success: false,
+            error: error.message || 'Failed to send email'
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error(`❌ Error triggering event ${event}:`, error);
+      results.push({
+        success: false,
+        error: error.message || 'Failed to trigger event'
+      });
+    }
+
+    return results;
+  }
 }
 
