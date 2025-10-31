@@ -12,13 +12,17 @@ import { ProductType, ProductStatus, VariationType } from '../types/product';
 
 export const createProductSchema = Joi.object({
   sku: Joi.string().min(3).max(100).required(),
-  name: Joi.string().min(5).max(255).required(),
+  name: Joi.string().min(1).max(255).required(),
   slug: Joi.string().min(3).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
   short_description: Joi.string().max(500).allow('', null).optional(),
   type: Joi.string().valid(...Object.values(ProductType)).required(),
   status: Joi.string().valid(...Object.values(ProductStatus)).optional(),
   featured: Joi.boolean().optional(),
+
+  // Region support
+  region: Joi.string().valid('us', 'eu').optional(),
+  product_group_id: Joi.string().uuid().allow(null).optional(),
 
   // Pricing
   regular_price: Joi.number().positive().required(),
@@ -59,13 +63,17 @@ export const createProductSchema = Joi.object({
 
 export const updateProductSchema = Joi.object({
   sku: Joi.string().min(3).max(100).optional(),
-  name: Joi.string().min(5).max(255).optional(),
+  name: Joi.string().min(1).max(255).optional(),
   slug: Joi.string().min(3).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
   short_description: Joi.string().max(500).allow('', null).optional(),
   type: Joi.string().valid(...Object.values(ProductType)).optional(),
   status: Joi.string().valid(...Object.values(ProductStatus)).optional(),
   featured: Joi.boolean().optional(),
+
+  // Region support
+  region: Joi.string().valid('us', 'eu').optional(),
+  product_group_id: Joi.string().uuid().allow(null).optional(),
 
   // Pricing
   regular_price: Joi.number().positive().optional(),

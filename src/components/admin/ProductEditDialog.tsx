@@ -93,7 +93,8 @@ const ProductEditDialog = ({
     sale_label: '',
     stock_quantity: '10',
     categories: 'accessories',
-    tags: ''
+    tags: '',
+    region: 'us' as 'us' | 'eu'
   });
 
   // Utility function to generate slug from name
@@ -202,7 +203,8 @@ const ProductEditDialog = ({
           } catch {
             return '';
           }
-        })()
+        })(),
+        region: (product.region === 'eu' ? 'eu' : 'us') as 'us' | 'eu'
       });
       
       // Load FAQs and description components for this product
@@ -528,6 +530,7 @@ const ProductEditDialog = ({
     try {
       const formData = {
         ...productForm,
+        region: productForm.region as 'us' | 'eu',
         regular_price: parseFloat(productForm.regular_price) || 0,
         sale_price: productForm.sale_price ? parseFloat(productForm.sale_price) : null,
         is_on_sale: productForm.is_on_sale,
@@ -577,12 +580,31 @@ const ProductEditDialog = ({
 
   if (!product) return null;
 
+  // Check if product is linked to another region
+  const isLinked = !!product.product_group_id;
+  const oppositeRegion = product.region === 'us' ? 'EU' : 'US';
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Edit Product: {product.name}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Edit Product: {product.name}</DialogTitle>
+            {isLinked && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800">
+                  <Info className="w-3 h-3 mr-1" />
+                  Linked with {oppositeRegion}
+                </Badge>
+              </div>
+            )}
+          </div>
+          {isLinked && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Changes to name, description, price, and other shared fields will automatically sync to the {oppositeRegion} product. Stock quantities remain separate.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto pr-2">
@@ -614,6 +636,23 @@ const ProductEditDialog = ({
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="region">Region *</Label>
+                    <Select 
+                      value={productForm.region} 
+                      onValueChange={(value) => setProductForm({ ...productForm, region: value as 'us' | 'eu' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="us">United States (US)</SelectItem>
+                        <SelectItem value="eu">Europe (EU)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

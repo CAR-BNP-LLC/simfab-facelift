@@ -58,6 +58,8 @@ import { useErrorHandler } from '@/hooks/use-error-handler';
 import VariationsList from '@/components/admin/VariationsList';
 import VariationManagementDialog from '@/components/admin/VariationManagementDialog';
 import ProductEditDialog from '@/components/admin/ProductEditDialog';
+import ProductGroupRow from '@/components/admin/ProductGroupRow';
+import ProductEditWarningDialog from '@/components/admin/ProductEditWarningDialog';
 import RbacManagement from '@/components/admin/RbacManagement';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
 import CouponList from '@/components/admin/CouponList';
@@ -88,9 +90,14 @@ const Admin = () => {
   const [loading, setLoading] = useState(false);
   const [stockMismatchMap, setStockMismatchMap] = useState<Record<number, boolean>>({});
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingProductGroup, setEditingProductGroup] = useState<any[] | null>(null);
   const [productImages, setProductImages] = useState<any[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editWarningDialogOpen, setEditWarningDialogOpen] = useState(false);
+  const [pendingEditProduct, setPendingEditProduct] = useState<any>(null);
+  const [pairedProduct, setPairedProduct] = useState<any>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
   // Variation management state
   const [productVariations, setProductVariations] = useState<VariationWithOptions[]>([]);
@@ -125,6 +132,7 @@ const Admin = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [featuredFilter, setFeaturedFilter] = useState<string>('all');
+  const [regionFilter, setRegionFilter] = useState<string>('all'); // 'all', 'us', 'eu'
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Product form state
@@ -139,8 +147,10 @@ const Admin = () => {
     featured: false,
     regular_price: '',
     stock_quantity: '10',
+    stock_quantity_eu: '10', // Stock for EU when creating for both
     categories: 'accessories',
-    tags: ''
+    tags: '',
+    region: 'us' as 'us' | 'eu' | 'both'
   });
 
   // Handle product name change and auto-generate slug
@@ -188,7 +198,7 @@ const Admin = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/products?limit=100`, {
+      const response = await fetch(`${API_URL}/api/admin/products?limit=100`, {
         credentials: 'include'
       });
       const data = await response.json();
@@ -279,64 +289,170 @@ const Admin = () => {
     try {
       setLoading(true);
 
-      const productData = {
-        ...productForm,
-        // Only include slug if creating new product or name has changed
-        ...(editingProduct && productForm.name === editingProduct.name 
-          ? {} 
-          : { slug: generateSlug(productForm.name) }
-        ),
-        regular_price: parseFloat(productForm.regular_price),
-        stock_quantity: parseInt(productForm.stock_quantity),
-        featured: productForm.featured,
-        categories: [productForm.categories],
-        tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
-      };
+      // If editing, use normal update flow
+      if (editingProduct) {
+        const productData = {
+          ...productForm,
+          ...(productForm.name !== editingProduct.name 
+            ? { slug: generateSlug(productForm.name) }
+            : {}
+          ),
+          region: productForm.region as 'us' | 'eu',
+          regular_price: parseFloat(productForm.regular_price),
+          stock_quantity: parseInt(productForm.stock_quantity),
+          featured: productForm.featured,
+          categories: [productForm.categories],
+          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
+        };
 
-      const url = editingProduct 
-        ? `${API_URL}/api/admin/products/${editingProduct.id}`
-        : `${API_URL}/api/admin/products`;
-      
-      const method = editingProduct ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(productData)
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: 'Success',
-          description: editingProduct ? 'Product updated' : 'Product created'
+        const response = await fetch(`${API_URL}/api/admin/products/${editingProduct.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(productData)
         });
-        
-        // Invalidate navbar cache
-        window.dispatchEvent(new CustomEvent('productChanged'));
-        
-        // Reset form
-        setProductForm({
-          sku: '',
-          name: '',
-          slug: '', // Will be auto-generated when name is entered
-          description: '',
-          short_description: '',
-          type: 'simple',
-          status: 'active',
-          featured: false,
-          regular_price: '',
-          stock_quantity: '10',
-          categories: 'accessories',
-          tags: ''
+
+        const data = await response.json();
+
+        if (data.success) {
+          toast({
+            title: 'Success',
+            description: 'Product updated'
+          });
+          window.dispatchEvent(new CustomEvent('productChanged'));
+          setProductForm({
+            sku: '',
+            name: '',
+            slug: '',
+            description: '',
+            short_description: '',
+            type: 'simple',
+            status: 'active',
+            featured: false,
+            regular_price: '',
+            stock_quantity: '10',
+            stock_quantity_eu: '10',
+            categories: 'accessories',
+            tags: '',
+            region: 'us'
+          });
+          setEditingProduct(null);
+          fetchProducts();
+          setActiveTab('products');
+        } else {
+          throw new Error(data.error?.message || 'Failed to update product');
+        }
+        return;
+      }
+
+      // Creating new product - handle both regions
+      if (productForm.region === 'both') {
+        // Create product group with both regions
+        const baseData = {
+          name: productForm.name,
+          slug: generateSlug(productForm.name),
+          description: productForm.description,
+          short_description: productForm.short_description,
+          type: productForm.type,
+          status: productForm.status,
+          featured: productForm.featured,
+          regular_price: parseFloat(productForm.regular_price),
+          categories: [productForm.categories],
+          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
+        };
+
+        const productGroupData = {
+          ...baseData,
+          sku: productForm.sku, // Same SKU for both regions
+          stock_quantity_us: parseInt(productForm.stock_quantity),
+          stock_quantity_eu: parseInt(productForm.stock_quantity_eu || productForm.stock_quantity),
+        };
+
+        const response = await fetch(`${API_URL}/api/admin/products/group`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(productGroupData)
         });
-        setEditingProduct(null);
-        fetchProducts();
-        setActiveTab('products');
+
+        const data = await response.json();
+
+        if (data.success) {
+          toast({
+            title: 'Success',
+            description: 'Product created for both US and EU regions'
+          });
+          window.dispatchEvent(new CustomEvent('productChanged'));
+          setProductForm({
+            sku: '',
+            name: '',
+            slug: '',
+            description: '',
+            short_description: '',
+            type: 'simple',
+            status: 'active',
+            featured: false,
+            regular_price: '',
+            stock_quantity: '10',
+            stock_quantity_eu: '10',
+            categories: 'accessories',
+            tags: '',
+            region: 'us'
+          });
+          fetchProducts();
+          setActiveTab('products');
+        } else {
+          throw new Error(data.error?.message || 'Failed to create product group');
+        }
       } else {
-        throw new Error(data.error?.message || 'Failed to save product');
+        // Single region product
+        const productData = {
+          ...productForm,
+          slug: generateSlug(productForm.name),
+          region: productForm.region as 'us' | 'eu',
+          regular_price: parseFloat(productForm.regular_price),
+          stock_quantity: parseInt(productForm.stock_quantity),
+          featured: productForm.featured,
+          categories: [productForm.categories],
+          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
+        };
+
+        const response = await fetch(`${API_URL}/api/admin/products`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(productData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          toast({
+            title: 'Success',
+            description: 'Product created'
+          });
+          window.dispatchEvent(new CustomEvent('productChanged'));
+          setProductForm({
+            sku: '',
+            name: '',
+            slug: '',
+            description: '',
+            short_description: '',
+            type: 'simple',
+            status: 'active',
+            featured: false,
+            regular_price: '',
+            stock_quantity: '10',
+            stock_quantity_eu: '10',
+            categories: 'accessories',
+            tags: '',
+            region: 'us'
+          });
+          fetchProducts();
+          setActiveTab('products');
+        } else {
+          throw new Error(data.error?.message || 'Failed to create product');
+        }
       }
     } catch (error) {
       toast({
@@ -377,15 +493,115 @@ const Admin = () => {
     }
   };
 
-  const handleEditProduct = (product: any) => {
-    setEditingProduct(product);
+  const handleEditProduct = async (product: any) => {
+    // Check if product is in a group
+    if (product.product_group_id) {
+      // Find paired product
+      const paired = products.find(p => 
+        p.product_group_id === product.product_group_id && 
+        p.id !== product.id &&
+        p.region !== product.region
+      );
+      
+      setPendingEditProduct(product);
+      setPairedProduct(paired);
+      setEditWarningDialogOpen(true);
+    } else {
+      // Not in a group, edit directly
+      setEditingProduct(product);
+      setEditDialogOpen(true);
+      
+      if (product.id) {
+        fetchProductImages(product.id);
+        fetchProductVariations(product.id);
+      }
+    }
+  };
+
+  const handleEditProductConfirm = (product: any, breakGroup: boolean) => {
+    if (breakGroup) {
+      // Break the group first
+      handleBreakGroup(product.product_group_id, () => {
+        // After breaking, edit the product
+        setEditingProduct(product);
+        setEditDialogOpen(true);
+        
+        if (product.id) {
+          fetchProductImages(product.id);
+          fetchProductVariations(product.id);
+        }
+      });
+    } else {
+      // Edit normally (will sync to paired product)
+      setEditingProduct(product);
+      setEditDialogOpen(true);
+      
+      if (product.id) {
+        fetchProductImages(product.id);
+        fetchProductVariations(product.id);
+      }
+    }
+    
+    setEditWarningDialogOpen(false);
+    setPendingEditProduct(null);
+    setPairedProduct(null);
+  };
+
+  const handleEditGroup = (groupProducts: any[]) => {
+    setEditingProductGroup(groupProducts);
+    // Use the first product as the base for editing
+    const mainProduct = groupProducts[0];
+    setEditingProduct(mainProduct);
     setEditDialogOpen(true);
     
-    // Fetch product images when editing
-    if (product.id) {
-      fetchProductImages(product.id);
-      fetchProductVariations(product.id);
+    if (mainProduct.id) {
+      fetchProductImages(mainProduct.id);
+      fetchProductVariations(mainProduct.id);
     }
+  };
+
+  const handleBreakGroup = async (groupId: string, callback?: () => void) => {
+    if (!confirm('Are you sure you want to break this product group? The products will no longer sync automatically. This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/group/${groupId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: 'Success',
+          description: 'Product group broken successfully',
+        });
+        fetchProducts();
+        if (callback) callback();
+      } else {
+        throw new Error(data.error?.message || 'Failed to break product group');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to break product group',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleToggleGroup = (groupId: string) => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
   };
 
   const handleCloseEditDialog = () => {
@@ -722,6 +938,11 @@ const Admin = () => {
       filtered = filtered.filter(product => product.featured === isFeatured);
     }
 
+    // Apply region filter
+    if (regionFilter !== 'all') {
+      filtered = filtered.filter(product => product.region === regionFilter);
+    }
+
     // Apply sorting
     filtered.sort((a, b) => {
       let aValue = a[sortField];
@@ -739,6 +960,40 @@ const Admin = () => {
     });
 
     return filtered;
+  };
+
+  // Group products by product_group_id
+  // Only creates groups for products that have at least 2 products sharing the same group_id
+  const groupProducts = () => {
+    const filtered = filteredAndSortedProducts();
+    const groups = new Map<string, any[]>();
+    const ungrouped: any[] = [];
+
+    // First pass: collect all products by group_id
+    const tempGroups = new Map<string, any[]>();
+    filtered.forEach(product => {
+      if (product.product_group_id) {
+        const groupId = product.product_group_id;
+        if (!tempGroups.has(groupId)) {
+          tempGroups.set(groupId, []);
+        }
+        tempGroups.get(groupId)!.push(product);
+      } else {
+        ungrouped.push(product);
+      }
+    });
+
+    // Second pass: only add groups with 2+ products
+    tempGroups.forEach((groupProducts, groupId) => {
+      if (groupProducts.length >= 2) {
+        groups.set(groupId, groupProducts);
+      } else {
+        // If only one product has this group_id, treat it as ungrouped
+        ungrouped.push(...groupProducts);
+      }
+    });
+
+    return { groups, ungrouped };
   };
 
   return (
@@ -1135,12 +1390,26 @@ const Admin = () => {
                         <SelectItem value="not-featured">Not Featured</SelectItem>
                       </SelectContent>
                     </Select>
+                    <Select value={regionFilter} onValueChange={setRegionFilter}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Regions</SelectItem>
+                        <SelectItem value="us">US Only</SelectItem>
+                        <SelectItem value="eu">EU Only</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 
                 {/* Results counter */}
                 <div className="mb-4 text-sm text-muted-foreground">
-                  Showing {filteredAndSortedProducts().length} of {products.length} products
+                  {(() => {
+                    const { groups, ungrouped } = groupProducts();
+                    const totalDisplayed = groups.size + ungrouped.length;
+                    return `Showing ${totalDisplayed} ${groups.size > 0 ? 'groups and ' : ''}${ungrouped.length} products of ${products.length} total`;
+                  })()}
                 </div>
                 
                 {loading ? (
@@ -1219,8 +1488,32 @@ const Admin = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAndSortedProducts().map((product) => (
-                          <tr key={product.id} className="border-b border-border hover:bg-muted/50">
+                        {(() => {
+                          const { groups, ungrouped } = groupProducts();
+                          const rows: JSX.Element[] = [];
+
+                          // Add grouped products
+                          groups.forEach((groupProducts, groupId) => {
+                            rows.push(
+                              <ProductGroupRow
+                                key={`group-${groupId}`}
+                                groupId={groupId}
+                                products={groupProducts}
+                                isExpanded={expandedGroups.has(groupId)}
+                                onToggle={() => handleToggleGroup(groupId)}
+                                onEditProduct={handleEditProduct}
+                                onEditGroup={handleEditGroup}
+                                onDeleteProduct={handleDeleteProduct}
+                                onBreakGroup={handleBreakGroup}
+                                stockMismatchMap={stockMismatchMap}
+                              />
+                            );
+                          });
+
+                          // Add ungrouped products
+                          ungrouped.forEach((product) => (
+                            rows.push(
+                              <tr key={product.id} className="border-b border-border hover:bg-muted/50">
                             <td className="py-3 px-2">
                               <div className="flex items-center gap-2 group">
                                 <span className="font-mono text-sm group-hover:text-primary transition-colors">
@@ -1240,8 +1533,19 @@ const Admin = () => {
                               </div>
                             </td>
                             <td className="py-3 px-2 max-w-xs">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <p className="font-medium truncate">{product.name}</p>
+                                {product.region && (
+                                  <Badge 
+                                    className={`text-xs font-semibold cursor-default pointer-events-none ${
+                                      product.region === 'us' 
+                                        ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900' 
+                                        : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900'
+                                    }`}
+                                  >
+                                    {product.region.toUpperCase()}
+                                  </Badge>
+                                )}
                                 {stockMismatchMap[product.id] && (
                                   <TooltipProvider>
                                     <Tooltip>
@@ -1254,12 +1558,12 @@ const Admin = () => {
                                     </Tooltip>
                                   </TooltipProvider>
                                 )}
+                                {product.is_on_sale && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    SALE
+                                  </Badge>
+                                )}
                               </div>
-                              {product.is_on_sale && (
-                                <Badge variant="destructive" className="text-xs mt-1">
-                                  SALE
-                                </Badge>
-                              )}
                             </td>
                             <td className="py-3 px-2">
                               <div className="flex flex-col gap-1">
@@ -1317,7 +1621,11 @@ const Admin = () => {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                            )
+                          ));
+
+                          return rows;
+                        })()}
                       </tbody>
                     </table>
                   </div>
@@ -1357,6 +1665,30 @@ const Admin = () => {
                         onChange={(e) => handleProductNameChange(e.target.value)}
                         required
                       />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="region">Region *</Label>
+                      <Select 
+                        value={productForm.region} 
+                        onValueChange={(value) => setProductForm({ ...productForm, region: value as 'us' | 'eu' | 'both' })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="us">United States (US) Only</SelectItem>
+                          <SelectItem value="eu">Europe (EU) Only</SelectItem>
+                          <SelectItem value="both">Both US & EU</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {productForm.region === 'both' && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Creates two linked products with separate stock for each region
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1406,7 +1738,9 @@ const Admin = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="stock_quantity">Stock *</Label>
+                      <Label htmlFor="stock_quantity">
+                        {productForm.region === 'both' ? 'Stock (US) *' : 'Stock *'}
+                      </Label>
                       <Input
                         id="stock_quantity"
                         type="number"
@@ -1415,6 +1749,35 @@ const Admin = () => {
                         required
                       />
                     </div>
+                    {productForm.region === 'both' && (
+                      <div>
+                        <Label htmlFor="stock_quantity_eu">Stock (EU) *</Label>
+                        <Input
+                          id="stock_quantity_eu"
+                          type="number"
+                          value={productForm.stock_quantity_eu}
+                          onChange={(e) => setProductForm({ ...productForm, stock_quantity_eu: e.target.value })}
+                          required
+                        />
+                      </div>
+                    )}
+                    {productForm.region !== 'both' && (
+                      <div>
+                        <Label htmlFor="status">Status</Label>
+                        <Select value={productForm.status} onValueChange={(value) => setProductForm({ ...productForm, status: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                            <SelectItem value="draft">Draft</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                  {productForm.region === 'both' && (
                     <div>
                       <Label htmlFor="status">Status</Label>
                       <Select value={productForm.status} onValueChange={(value) => setProductForm({ ...productForm, status: value })}>
@@ -1428,7 +1791,7 @@ const Admin = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -1684,6 +2047,33 @@ const Admin = () => {
         onSave={editingVariation ? handleUpdateVariation : handleCreateVariation}
         variation={editingVariation}
         productId={editingProduct?.id || 0}
+      />
+
+      {/* Product Edit Warning Dialog */}
+      <ProductEditWarningDialog
+        open={editWarningDialogOpen}
+        onClose={() => {
+          setEditWarningDialogOpen(false);
+          setPendingEditProduct(null);
+          setPairedProduct(null);
+        }}
+        onCancel={() => {
+          setEditWarningDialogOpen(false);
+          setPendingEditProduct(null);
+          setPairedProduct(null);
+        }}
+        onEditBoth={() => {
+          if (pendingEditProduct) {
+            handleEditProductConfirm(pendingEditProduct, false);
+          }
+        }}
+        onEditOnlyThis={() => {
+          if (pendingEditProduct) {
+            handleEditProductConfirm(pendingEditProduct, true);
+          }
+        }}
+        product={pendingEditProduct}
+        pairedProduct={pairedProduct}
       />
 
       {/* Product Edit Dialog */}

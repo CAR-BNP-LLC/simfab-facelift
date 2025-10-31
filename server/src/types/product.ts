@@ -47,6 +47,10 @@ export interface Product {
   status: ProductStatus;
   featured: boolean;
   
+  // Region support
+  region: 'us' | 'eu'; // Region where product is available
+  product_group_id: string | null; // UUID linking related products across regions
+  
   // Pricing
   price_min: number | null;
   price_max: number | null;
@@ -231,6 +235,7 @@ export interface ProductFilters {
   featured?: boolean;
   status?: ProductStatus;
   tags?: string[];
+  region?: 'us' | 'eu'; // Filter by region (US or EU)
 }
 
 export interface ProductSortOptions {
@@ -316,6 +321,10 @@ export interface CreateProductDto {
   type: ProductType;
   status?: ProductStatus;
   featured?: boolean;
+  
+  // Region support
+  region?: 'us' | 'eu'; // Optional, defaults based on context
+  product_group_id?: string; // Optional, used when creating product pairs
   
   // Pricing
   regular_price: number;

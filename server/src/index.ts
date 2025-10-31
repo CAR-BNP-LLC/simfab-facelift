@@ -31,6 +31,7 @@ import { createShipStationRoutes } from './routes/shipstation';
 import { createPageProductRoutes, createPublicPageProductRoutes } from './routes/pageProducts';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
+import { regionDetection } from './middleware/regionDetection';
 import { CleanupService } from './services/CleanupService';
 import { CronService } from './services/CronService';
 import { EmailService } from './services/EmailService';
@@ -51,7 +52,7 @@ const corsOptions = {
   origin: true, // Allow all origins temporarily
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Region']
 };
 
 app.use(cors(corsOptions));
@@ -61,6 +62,9 @@ app.options('*', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Region detection middleware - detects US vs EU from hostname/headers
+app.use(regionDetection);
 
 // Session middleware - PostgreSQL for all environments
 const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev';

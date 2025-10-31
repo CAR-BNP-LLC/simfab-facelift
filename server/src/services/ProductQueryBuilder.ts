@@ -60,6 +60,7 @@ export class ProductQueryBuilder {
         p.status, p.featured, p.price_min, p.price_max, p.meta_data,
         p.seo_title, p.seo_description,
         p.is_on_sale, p.sale_start_date, p.sale_end_date, p.sale_label,
+        p.region, p.product_group_id,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -190,6 +191,11 @@ export class ProductQueryBuilder {
    * Apply additional filters (used by both regular and search queries)
    */
   private applyAdditionalFilters(options: ProductQueryOptions): void {
+    // Region filter - IMPORTANT: filters products by region (us or eu)
+    if (options.region) {
+      this.whereConditions.push(`p.region = $${this.addParam(options.region)}`);
+    }
+
     // Category filter (categories stored as TEXT with JSON)
     if (options.category) {
       this.whereConditions.push(`p.categories::text LIKE $${this.addParam(`%"${options.category}"%`)}`);
@@ -281,12 +287,18 @@ export class ProductQueryBuilder {
 
   /**
    * Get featured products
+   * Filters by region and ensures only one product per group is returned
    */
-  buildFeaturedQuery(limit: number = 6): { sql: string; params: any[] } {
+  buildFeaturedQuery(limit: number = 6, region?: 'us' | 'eu'): { sql: string; params: any[] } {
     this.reset();
     
+    const regionFilter = region ? `AND p.region = $${this.addParam(region)}` : '';
+    
+    // Filter by region to ensure only products for current region are shown
+    // DISTINCT ON ensures only one product per product_group_id (in case of edge cases)
+    // If product_group_id is NULL, each product is distinct
     const sql = `
-      SELECT 
+      SELECT DISTINCT ON (COALESCE(p.product_group_id::text, p.id::text))
         p.id, p.type, p.sku, p.gtin_upc_ean_isbn, p.name, p.slug,
         p.published, p.is_featured, p.visibility_in_catalog,
         p.short_description, p.description,
@@ -299,6 +311,7 @@ export class ProductQueryBuilder {
         p.shipping_class, p.brands, p.created_at, p.updated_at,
         p.status, p.featured, p.price_min, p.price_max, p.meta_data,
         p.seo_title, p.seo_description,
+        p.region, p.product_group_id,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -309,7 +322,8 @@ export class ProductQueryBuilder {
       FROM products p
       WHERE p.status = $${this.addParam('active')}
         AND p.featured = $${this.addParam(true)}
-      ORDER BY p.created_at DESC
+        ${regionFilter}
+      ORDER BY COALESCE(p.product_group_id::text, p.id::text), p.created_at DESC
       LIMIT $${this.addParam(limit)}
     `;
 
@@ -319,26 +333,28 @@ export class ProductQueryBuilder {
   /**
    * Get product categories with counts
    */
-  buildCategoriesQuery(): { sql: string; params: any[] } {
+  buildCategoriesQuery(region?: 'us' | 'eu'): { sql: string; params: any[] } {
     this.reset();
+    
+    const regionFilter = region ? `AND region = $${this.addParam(region)}` : '';
     
     // For now, return hardcoded categories since parsing TEXT JSON is complex
     // This will be improved when we migrate to proper JSONB
     const sql = `
       SELECT 'flight-sim' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"flight-sim"%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"flight-sim"%' ${regionFilter}
       UNION ALL
       SELECT 'sim-racing' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"sim-racing"%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"sim-racing"%' ${regionFilter}
       UNION ALL
       SELECT 'cockpits' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"cockpits"%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"cockpits"%' ${regionFilter}
       UNION ALL
       SELECT 'monitor-stands' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"monitor-stands"%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"monitor-stands"%' ${regionFilter}
       UNION ALL
       SELECT 'accessories' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"accessories"%'
+      FROM products WHERE status = 'active' AND categories::text LIKE '%"accessories"%' ${regionFilter}
       ORDER BY count DESC
     `;
 

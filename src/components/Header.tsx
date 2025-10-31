@@ -267,17 +267,29 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 relative">
       {/* Utility Bar */}
-      <div className="bg-secondary text-text-muted text-xs py-2 px-4 text-center">
-        <span>
-          Toll free for USA & Canada:{' '}
-          <a href="tel:1-888-299-2746" className="text-primary hover:underline">
-            1-888-299-2746
-          </a>
-          {' | '}
-          <a href="/international-shipping" className="text-primary hover:underline">
-            We ship worldwide
-          </a>
-        </span>
+      <div className="bg-secondary text-text-muted text-xs py-2 px-4">
+        <div className="container mx-auto flex items-center justify-between">
+          <span className="text-center flex-1">
+            Toll free for USA & Canada:{' '}
+            <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+              1-888-299-2746
+            </a>
+            {' | '}
+            <a href="/international-shipping" className="text-primary hover:underline">
+              We ship worldwide
+            </a>
+          </span>
+          {/* Admin Button in Utility Bar for Medium Screens */}
+          <Button 
+            variant="outline"
+            size="sm"
+            className="hidden lg:inline-flex 2xl:hidden border-destructive text-destructive hover:bg-destructive hover:text-white ml-4 w-[70px] text-xs"
+            onClick={() => window.location.href = '/admin'}
+            title="Admin Dashboard"
+          >
+            ADMIN
+          </Button>
+        </div>
       </div>
 
       {/* Main Header */}
@@ -459,11 +471,11 @@ const Header = () => {
                 </div>
               </button>
               
-              {/* Admin Button */}
+              {/* Admin Button - Only on 2xl+ screens where there's more space */}
               <Button 
                 variant="outline"
                 size="sm"
-                className="hidden xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white ml-6 w-[70px]"
+                className="hidden 2xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white ml-6 w-[70px]"
                 onClick={() => window.location.href = '/admin'}
                 title="Admin Dashboard"
               >
@@ -708,6 +720,19 @@ const Header = () => {
                     </a>
                   </div>
                 </div>
+              </div>
+
+              {/* ADMIN */}
+              <div className="border-b border-gray-800 pb-6">
+                <button 
+                  className="text-white font-bold text-lg uppercase tracking-wider w-full text-left"
+                  onClick={() => {
+                    window.location.href = '/admin';
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  ADMIN DASHBOARD
+                </button>
               </div>
             </div>
           </div>
