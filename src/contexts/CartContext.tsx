@@ -124,12 +124,39 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      console.log('CartContext: Configuration object details:', {
-        configuration,
+      // Comprehensive configuration debugging
+      console.log('========== CART CONTEXT: ADD TO CART DEBUG ==========');
+      console.log('Product ID:', productId);
+      console.log('Quantity:', quantity);
+      console.log('Full Configuration Object:', JSON.stringify(configuration, null, 2));
+      
+      // Breakdown of configuration components
+      const configBreakdown = {
+        hasModelVariation: !!configuration.modelVariationId,
+        modelVariationId: configuration.modelVariationId,
         hasVariations: !!configuration.variations,
-        variationsKeys: configuration.variations ? Object.keys(configuration.variations) : [],
-        variationsValues: configuration.variations || {}
-      });
+        variationsCount: configuration.variations ? Object.keys(configuration.variations).length : 0,
+        variationsDetails: configuration.variations ? Object.entries(configuration.variations).map(([varId, optId]) => ({
+          variationId: varId,
+          optionId: optId,
+          types: {
+            varIdType: typeof varId,
+            optIdType: typeof optId
+          }
+        })) : [],
+        hasAddons: !!(configuration.addons && configuration.addons.length > 0),
+        addonsCount: configuration.addons?.length || 0,
+        addonsDetails: configuration.addons || [],
+        hasBundleItems: !!configuration.bundleItems,
+        bundleItemsDetails: configuration.bundleItems ? {
+          selectedOptional: configuration.bundleItems.selectedOptional || [],
+          optionalCount: configuration.bundleItems.selectedOptional?.length || 0,
+          hasConfigurations: !!configuration.bundleItems.configurations,
+          configurationsCount: configuration.bundleItems.configurations ? Object.keys(configuration.bundleItems.configurations).length : 0,
+          configurationsDetails: configuration.bundleItems.configurations || {}
+        } : null
+      };
+      console.log('Configuration Breakdown:', JSON.stringify(configBreakdown, null, 2));
       
       const requestData = {
         productId,
@@ -137,7 +164,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         quantity
       };
       
-      console.log('CartContext: Sending add to cart request:', requestData);
+      console.log('Sending to backend:', JSON.stringify(requestData, null, 2));
+      console.log('====================================================');
 
       const response = await fetch(`${API_URL}/api/cart/add`, {
         method: 'POST',
@@ -149,13 +177,31 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error?.message || 'Failed to add to cart');
+        // Check for specific error codes
+        const errorCode = data.error?.code;
+        const errorMessage = data.error?.message || 'Failed to add to cart';
+        
+        // Show specific error message for stock issues
+        if (errorCode === 'BUNDLE_REQUIRED_ITEM_OUT_OF_STOCK' || errorMessage.includes('out of stock')) {
+          throw new Error(errorMessage);
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      toast({
-        title: 'Added to cart!',
-        description: `${quantity} item(s) added to your cart`,
-      });
+      // Show warning if optional items were removed
+      if (data.data?.cartItem?.warning) {
+        toast({
+          title: 'Items added with changes',
+          description: data.data.cartItem.warning.message,
+          variant: 'default'
+        });
+      } else {
+        toast({
+          title: 'Added to cart!',
+          description: `${quantity} item(s) added to your cart`,
+        });
+      }
 
       // Refresh cart
       await refreshCart();

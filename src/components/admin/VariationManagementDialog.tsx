@@ -55,6 +55,7 @@ const VariationManagementDialog = ({
     description: '',
     is_required: true,
     sort_order: 0,
+    tracks_stock: false,
     options: [] as VariationOption[],
     yes_price: 0 // For boolean variations
   });
@@ -82,6 +83,7 @@ const VariationManagementDialog = ({
           description: variation.description || '',
           is_required: variation.is_required,
           sort_order: variation.sort_order,
+          tracks_stock: (variation as any).tracks_stock || false,
           options: variation.options || [],
           yes_price: yesPrice
         });
@@ -93,6 +95,7 @@ const VariationManagementDialog = ({
           description: '',
           is_required: true,
           sort_order: 0,
+          tracks_stock: false,
           options: [],
           yes_price: 0
         });
@@ -145,7 +148,8 @@ const VariationManagementDialog = ({
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         is_required: formData.is_required,
-        sort_order: formData.sort_order
+        sort_order: formData.sort_order,
+        tracks_stock: formData.tracks_stock
       };
 
       console.log('Form data before submission:', formData);
@@ -337,6 +341,22 @@ const VariationManagementDialog = ({
                   <Label htmlFor="is_required">Required Selection</Label>
                 </div>
 
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="tracks_stock"
+                    checked={formData.tracks_stock}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, tracks_stock: checked }))}
+                  />
+                  <Label htmlFor="tracks_stock" className="cursor-pointer">
+                    Track Stock Per Option
+                    <span className="block text-xs text-muted-foreground">
+                      Each option will have its own stock quantity
+                    </span>
+                  </Label>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="sort_order">Sort Order</Label>
                   <Input

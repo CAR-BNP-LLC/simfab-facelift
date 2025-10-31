@@ -9,7 +9,8 @@ import {
   Star,
   StarOff,
   CalendarIcon,
-  Clock
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,13 +27,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import VariationsList from './VariationsList';
+import VariationManagementDialog from './VariationManagementDialog';
 import FAQsList from './FAQsList';
 import DescriptionComponentsList from './DescriptionComponentsList';
 import VariationStockManager from './VariationStockManager';
 import BundleComposer from './BundleComposer';
 import PermittedFor from '@/components/auth/PermittedFor';
 import { format } from 'date-fns';
-import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI, ProductDescriptionComponent, productDescriptionsAPI } from '@/services/api';
+import { ProductFAQ, CreateFAQData, UpdateFAQData, faqsAPI, ProductDescriptionComponent, productDescriptionsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto, adminVariationsAPI } from '@/services/api';
 
 interface ProductEditDialogProps {
   open: boolean;
@@ -68,6 +70,12 @@ const ProductEditDialog = ({
   const [saleStartDate, setSaleStartDate] = useState<Date | undefined>(undefined);
   const [saleEndDate, setSaleEndDate] = useState<Date | undefined>(undefined);
   const [descriptionComponents, setDescriptionComponents] = useState<ProductDescriptionComponent[]>([]);
+  const [localVariations, setLocalVariations] = useState<VariationWithOptions[]>([]);
+  const [variationsLoading, setVariationsLoading] = useState(false);
+  const [variationDialogOpen, setVariationDialogOpen] = useState(false);
+  const [editingVariation, setEditingVariation] = useState<VariationWithOptions | null>(null);
+  const [variationStockSum, setVariationStockSum] = useState<number | null>(null);
+  const [checkingStockMismatch, setCheckingStockMismatch] = useState(false);
   const [productForm, setProductForm] = useState({
     sku: '',
     name: '',
@@ -109,6 +117,34 @@ const ProductEditDialog = ({
       name,
       slug
     }));
+  };
+
+  // Check stock mismatch
+  const checkStockMismatch = async () => {
+    if (!product?.id) return;
+    
+    try {
+      setCheckingStockMismatch(true);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/admin/products/${product.id}/variation-stock-summary`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // Calculate sum of all variation option stock
+        const sum = data.data.reduce((total: number, item: any) => {
+          if (item.stock_quantity !== null && item.stock_quantity !== undefined) {
+            return total + Number(item.stock_quantity);
+          }
+          return total;
+        }, 0);
+        setVariationStockSum(sum);
+      }
+    } catch (err) {
+      console.error('Failed to check stock mismatch:', err);
+    } finally {
+      setCheckingStockMismatch(false);
+    }
   };
 
   // Initialize form when product changes
@@ -173,9 +209,25 @@ const ProductEditDialog = ({
       if (product.id) {
         loadFAQs(product.id);
         loadDescriptionComponents(product.id);
+        fetchVariations(product.id);
+        checkStockMismatch();
       }
     }
   }, [product, open]);
+
+  // Check stock mismatch when product stock changes
+  useEffect(() => {
+    if (product?.id) {
+      checkStockMismatch();
+    }
+  }, [productForm.stock_quantity]);
+
+  // Sync variations from props
+  useEffect(() => {
+    if (productVariations) {
+      setLocalVariations(productVariations);
+    }
+  }, [productVariations]);
 
   // Load FAQs for the product
   const loadFAQs = async (productId: number) => {
@@ -369,6 +421,105 @@ const ProductEditDialog = ({
     }
   };
 
+  // Variation management functions
+  const fetchVariations = async (productId: number) => {
+    setVariationsLoading(true);
+    try {
+      const response = await adminVariationsAPI.getVariations(productId);
+      setLocalVariations(response.data);
+    } catch (error) {
+      console.error('Error fetching variations:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load variations',
+        variant: 'destructive'
+      });
+    } finally {
+      setVariationsLoading(false);
+    }
+  };
+
+  const handleCreateVariation = async (data: CreateVariationDto) => {
+    if (!product?.id) return;
+    
+    try {
+      const response = await adminVariationsAPI.createVariation(product.id, data);
+      setLocalVariations(prev => [...prev, response.data]);
+      toast({
+        title: 'Success',
+        description: 'Variation created successfully'
+      });
+      setVariationDialogOpen(false);
+      setEditingVariation(null);
+    } catch (error) {
+      console.error('Error creating variation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create variation',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  const handleUpdateVariation = async (data: UpdateVariationDto) => {
+    if (!product?.id || !editingVariation?.id) return;
+    
+    try {
+      const response = await adminVariationsAPI.updateVariation(product.id, editingVariation.id, data);
+      setLocalVariations(prev => prev.map(v => v.id === editingVariation.id ? response.data : v));
+      toast({
+        title: 'Success',
+        description: 'Variation updated successfully'
+      });
+      setVariationDialogOpen(false);
+      setEditingVariation(null);
+    } catch (error) {
+      console.error('Error updating variation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update variation',
+        variant: 'destructive'
+      });
+      throw error;
+    }
+  };
+
+  const handleDeleteVariation = async (variationId: number) => {
+    if (!product?.id) return;
+    
+    try {
+      await adminVariationsAPI.deleteVariation(product.id, variationId);
+      setLocalVariations(prev => prev.filter(v => v.id !== variationId));
+      toast({
+        title: 'Success',
+        description: 'Variation deleted successfully'
+      });
+    } catch (error) {
+      console.error('Error deleting variation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete variation',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleEditVariation = (variation: VariationWithOptions) => {
+    setEditingVariation(variation);
+    setVariationDialogOpen(true);
+  };
+
+  const handleAddVariation = () => {
+    setEditingVariation(null);
+    setVariationDialogOpen(true);
+  };
+
+  const handleVariationDialogClose = () => {
+    setVariationDialogOpen(false);
+    setEditingVariation(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!product?.id) return;
@@ -427,8 +578,9 @@ const ProductEditDialog = ({
   if (!product) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+    <>
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Edit Product: {product.name}</DialogTitle>
         </DialogHeader>
@@ -955,8 +1107,47 @@ const ProductEditDialog = ({
               </TabsList>
 
               {/* Variations & Stock Tab */}
-              <TabsContent value="variations" className="mt-4">
-                <VariationStockManager productId={product.id} />
+              <TabsContent value="variations" className="mt-4 space-y-6">
+                <div className="space-y-4">
+                  <VariationsList
+                    variations={localVariations}
+                    loading={variationsLoading}
+                    onEdit={handleEditVariation}
+                    onDelete={handleDeleteVariation}
+                    onAdd={handleAddVariation}
+                  />
+                </div>
+                <div className="border-t pt-4">
+                  {/* Stock Mismatch Warning */}
+                  {(() => {
+                    const productStock = parseInt(productForm.stock_quantity) || 0;
+                    const hasVariationStock = variationStockSum !== null;
+                    const stockMismatch = hasVariationStock && variationStockSum !== productStock;
+                    
+                    if (stockMismatch) {
+                      return (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-yellow-800 mb-1">Stock Mismatch Warning</h4>
+                              <p className="text-sm text-yellow-700">
+                                The sum of all variation option stock ({variationStockSum}) does not match the product stock ({productStock}).
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  <h3 className="text-lg font-semibold mb-4">Stock Management</h3>
+                  <VariationStockManager 
+                    productId={product.id}
+                    onStockChange={() => checkStockMismatch()}
+                  />
+                </div>
               </TabsContent>
 
               {/* Bundle Items Tab */}
@@ -1012,7 +1203,19 @@ const ProductEditDialog = ({
           </PermittedFor>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+      
+      {/* Variation Management Dialog */}
+      {product && (
+        <VariationManagementDialog
+          open={variationDialogOpen}
+          onClose={handleVariationDialogClose}
+          onSave={editingVariation ? handleUpdateVariation : handleCreateVariation}
+          variation={editingVariation}
+          productId={product.id}
+        />
+      )}
+    </>
   );
 };
 

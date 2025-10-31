@@ -37,7 +37,8 @@ import {
   ExternalLink,
   Mail,
   FileText,
-  LayoutGrid
+  LayoutGrid,
+  AlertTriangle
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -85,6 +86,7 @@ const Admin = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(false);
+  const [stockMismatchMap, setStockMismatchMap] = useState<Record<number, boolean>>({});
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [productImages, setProductImages] = useState<any[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
@@ -193,6 +195,19 @@ const Admin = () => {
       
       if (data.success) {
         setProducts(data.data.products || []);
+      }
+      
+      // Fetch stock mismatch info
+      try {
+        const mismatchResponse = await fetch(`${API_URL}/api/admin/products/stock-mismatch-check`, {
+          credentials: 'include'
+        });
+        const mismatchData = await mismatchResponse.json();
+        if (mismatchData.success) {
+          setStockMismatchMap(mismatchData.data || {});
+        }
+      } catch (err) {
+        console.error('Failed to load stock mismatch info:', err);
       }
     } catch (error) {
       toast({
@@ -1225,7 +1240,21 @@ const Admin = () => {
                               </div>
                             </td>
                             <td className="py-3 px-2 max-w-xs">
-                              <p className="font-medium truncate">{product.name}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium truncate">{product.name}</p>
+                                {stockMismatchMap[product.id] && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Stock mismatch: Variation stock sum doesn't match product stock</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                               {product.is_on_sale && (
                                 <Badge variant="destructive" className="text-xs mt-1">
                                   SALE

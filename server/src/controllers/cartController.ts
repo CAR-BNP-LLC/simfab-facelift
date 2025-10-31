@@ -57,15 +57,66 @@ export class CartController {
       const userId = req.session?.userId;
       const data: AddToCartData = req.body;
 
-      console.log('CartController.addItem called with:', {
-        sessionId,
-        userId,
-        data
-      });
+      console.log('========== CART CONTROLLER: RECEIVED REQUEST ==========');
+      console.log('Session ID:', sessionId);
+      console.log('User ID:', userId);
+      console.log('Product ID:', data.productId);
+      console.log('Quantity:', data.quantity);
+      console.log('Full Request Body:', JSON.stringify(req.body, null, 2));
       
-      console.log('CartController: Raw request body:', JSON.stringify(req.body, null, 2));
-      console.log('CartController: Configuration field:', req.body.configuration);
-      console.log('CartController: Configuration variations:', req.body.configuration?.variations);
+      // Detailed configuration analysis
+      const config = data.configuration || req.body.configuration;
+      if (config) {
+        console.log('--- Configuration Analysis ---');
+        console.log('Configuration Type:', typeof config);
+        console.log('Full Configuration:', JSON.stringify(config, null, 2));
+        
+        // Variations breakdown
+        if (config.variations) {
+          console.log('Variations Found:', Object.keys(config.variations).length, 'items');
+          console.log('Variations Details:', Object.entries(config.variations).map(([k, v]) => ({
+            key: k,
+            keyType: typeof k,
+            value: v,
+            valueType: typeof v
+          })));
+        } else {
+          console.log('⚠️  No variations in configuration!');
+        }
+        
+        // Addons breakdown
+        if (config.addons) {
+          console.log('Addons Found:', config.addons.length, 'items');
+          console.log('Addons Details:', JSON.stringify(config.addons, null, 2));
+        } else {
+          console.log('No addons in configuration');
+        }
+        
+        // Bundle items breakdown
+        if (config.bundleItems) {
+          console.log('Bundle Items Found:');
+          console.log('  - Selected Optional:', config.bundleItems.selectedOptional?.length || 0);
+          console.log('  - Optional IDs:', config.bundleItems.selectedOptional || []);
+          console.log('  - Configurations:', config.bundleItems.configurations ? Object.keys(config.bundleItems.configurations).length : 0);
+          console.log('  - Full Bundle Config:', JSON.stringify(config.bundleItems, null, 2));
+        } else {
+          console.log('No bundle items in configuration');
+        }
+        
+        // Model variation
+        if (config.modelVariationId) {
+          console.log('Model Variation ID:', config.modelVariationId);
+        }
+        
+        // Dropdown selections (legacy)
+        if (config.dropdownSelections) {
+          console.log('Legacy Dropdown Selections:', JSON.stringify(config.dropdownSelections, null, 2));
+        }
+      } else {
+        console.log('⚠️  ⚠️  ⚠️  NO CONFIGURATION PROVIDED! ⚠️  ⚠️  ⚠️');
+      }
+      
+      console.log('====================================================');
 
       const cartItem = await this.cartService.addItem(sessionId, userId, data);
 

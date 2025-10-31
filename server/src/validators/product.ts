@@ -22,13 +22,13 @@ export const createProductSchema = Joi.object({
 
   // Pricing
   regular_price: Joi.number().positive().required(),
-  sale_price: Joi.number().positive().optional(),
-  sale_start_date: Joi.date().optional(),
-  sale_end_date: Joi.date().optional(),
+  sale_price: Joi.number().positive().allow(null).optional(),
+  sale_start_date: Joi.date().allow(null).optional(),
+  sale_end_date: Joi.date().allow(null).optional(),
   
   // Discount fields
   is_on_sale: Joi.boolean().optional(),
-  sale_label: Joi.string().max(100).optional(),
+  sale_label: Joi.string().max(100).allow(null, '').optional(),
 
   // Physical attributes
   weight_lbs: Joi.number().positive().optional(),
@@ -69,7 +69,7 @@ export const updateProductSchema = Joi.object({
 
   // Pricing
   regular_price: Joi.number().positive().optional(),
-  sale_price: Joi.number().positive().optional(),
+  sale_price: Joi.number().positive().allow(null).optional(),
   
   // Discount fields
   is_on_sale: Joi.boolean().optional(),
@@ -114,12 +114,17 @@ export const createVariationSchema = Joi.object({
   description: Joi.string().allow('', null).optional(),
   is_required: Joi.boolean().optional(),
   sort_order: Joi.number().integer().min(0).optional(),
+  tracks_stock: Joi.boolean().optional(),
   options: Joi.array().items(
     Joi.object({
       option_name: Joi.string().required(),
       option_value: Joi.string().required(),
       price_adjustment: Joi.number().optional(),
-      image_url: Joi.string().uri().optional(),
+      image_url: Joi.alternatives().try(
+        Joi.string().uri(),
+        Joi.string().allow(''),
+        Joi.valid(null)
+      ).optional(),
       is_default: Joi.boolean().optional()
     })
   ).min(1).when('variation_type', {
@@ -135,12 +140,17 @@ export const updateVariationSchema = Joi.object({
   description: Joi.string().allow('', null).optional(),
   is_required: Joi.boolean().optional(),
   sort_order: Joi.number().integer().min(0).optional(),
+  tracks_stock: Joi.boolean().optional(),
   options: Joi.array().items(
     Joi.object({
       option_name: Joi.string().required(),
       option_value: Joi.string().required(),
       price_adjustment: Joi.number().optional(),
-      image_url: Joi.string().uri().optional(),
+      image_url: Joi.alternatives().try(
+        Joi.string().uri(),
+        Joi.string().allow(''),
+        Joi.valid(null)
+      ).optional(),
       is_default: Joi.boolean().optional()
     })
   ).min(1).when('variation_type', {
