@@ -159,11 +159,6 @@ const Cart = () => {
                             <p className="text-sm text-muted-foreground mb-1">
                               SKU: {item.product_sku}
                             </p>
-                            {item.configuration?.colorName && (
-                              <p className="text-sm text-muted-foreground">
-                                Color: {item.configuration.colorName}
-                              </p>
-                            )}
                             {/* Remove button for mobile */}
                             <button
                               onClick={() => handleRemoveItem(item.id)}

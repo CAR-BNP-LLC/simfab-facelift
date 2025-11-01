@@ -47,6 +47,10 @@ export interface Product {
   status: ProductStatus;
   featured: boolean;
   
+  // Region support
+  region: 'us' | 'eu'; // Region where product is available
+  product_group_id: string | null; // UUID linking related products across regions
+  
   // Pricing
   price_min: number | null;
   price_max: number | null;
@@ -137,32 +141,6 @@ export interface VariationOption {
   created_at: Date;
 }
 
-export interface ProductAddon {
-  id: number;
-  product_id: number;
-  name: string;
-  description: string | null;
-  base_price: number | null;
-  price_range_min: number | null;
-  price_range_max: number | null;
-  is_required: boolean;
-  has_options: boolean;
-  sort_order: number;
-  created_at: Date;
-}
-
-export interface AddonOption {
-  id: number;
-  addon_id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  image_url: string | null;
-  is_available: boolean;
-  sort_order: number;
-  created_at: Date;
-}
-
 export interface ProductFAQ {
   id: number;
   product_id: number;
@@ -208,7 +186,6 @@ export interface ProductWithDetails extends Product {
     image: (ProductVariation & { options: VariationOption[] })[];
     boolean: (ProductVariation & { options: VariationOption[] })[];
   };
-  addons: (ProductAddon & { options: AddonOption[] })[];
   faqs: ProductFAQ[];
   assemblyManuals: AssemblyManual[];
   additionalInfo: ProductAdditionalInfo[];
@@ -231,6 +208,7 @@ export interface ProductFilters {
   featured?: boolean;
   status?: ProductStatus;
   tags?: string[];
+  region?: 'us' | 'eu'; // Filter by region (US or EU)
 }
 
 export interface ProductSortOptions {
@@ -264,14 +242,9 @@ export interface PaginatedProducts {
 // ============================================================================
 
 export interface ProductConfiguration {
-  colorId?: number;
   modelVariationId?: number;
   dropdownSelections?: Record<number, number>; // variationId -> optionId
   variations?: Record<number, number>; // variationId -> optionId (new variations system)
-  addons?: Array<{
-    addonId: number;
-    optionId?: number;
-  }>;
   bundleItems?: {
     selectedOptional?: number[]; // Array of optional bundle item IDs
     configurations?: Record<number, any>; // bundleItemId -> { variationId: optionId }
@@ -280,12 +253,10 @@ export interface ProductConfiguration {
 
 export interface PriceBreakdown {
   basePrice: number;
-  colorAdjustment?: number;
   variationAdjustments: Array<{
     name: string;
     amount: number;
   }>;
-  addonsTotal: number;
   subtotal: number;
   quantity: number;
   total: number;
@@ -299,7 +270,6 @@ export interface PriceCalculation {
     variations: number;
     requiredBundleAdjustments?: number;
     optionalBundleTotal?: number;
-    addons: number;
   };
 }
 
@@ -316,6 +286,10 @@ export interface CreateProductDto {
   type: ProductType;
   status?: ProductStatus;
   featured?: boolean;
+  
+  // Region support
+  region?: 'us' | 'eu'; // Optional, defaults based on context
+  product_group_id?: string; // Optional, used when creating product pairs
   
   // Pricing
   regular_price: number;
@@ -372,25 +346,6 @@ export interface CreateVariationDto {
     price_adjustment?: number;
     image_url?: string;
     is_default?: boolean;
-  }>;
-}
-
-export interface CreateAddonDto {
-  product_id: number;
-  name: string;
-  description?: string;
-  base_price?: number;
-  price_range_min?: number;
-  price_range_max?: number;
-  is_required?: boolean;
-  has_options?: boolean;
-  sort_order?: number;
-  options?: Array<{
-    name: string;
-    description?: string;
-    price: number;
-    image_url?: string;
-    is_available?: boolean;
   }>;
 }
 

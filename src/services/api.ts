@@ -12,21 +12,43 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
+  // Detect region from URL query params
+  const urlParams = new URLSearchParams(window.location.search);
+  const region = urlParams.get('region') || import.meta.env.VITE_DEFAULT_REGION;
+  
+  console.log('🌐 API Request:', {
+    endpoint,
+    url,
+    detectedRegion: region,
+    'window.location.search': window.location.search
+  });
+  
+  // Add region to query string if present
+  const separator = endpoint.includes('?') ? '&' : '?';
+  const regionParam = region ? `${separator}region=${region}` : '';
+  const finalUrl = `${url}${regionParam}`;
+  
   const config: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(region ? { 'X-Region': region } : {}), // Also send as header
       ...options.headers,
     },
     credentials: 'include', // Important for cookies/sessions
   };
+
+  console.log('📤 Making request:', {
+    finalUrl,
+    headers: config.headers
+  });
 
   try {
     // Add 10-second timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
     
-    const response = await fetch(url, { ...config, signal: controller.signal });
+    const response = await fetch(finalUrl, { ...config, signal: controller.signal });
     clearTimeout(timeoutId);
     
     const data = await response.json();
@@ -288,28 +310,6 @@ export interface ProductVariation {
   options: VariationOption[];
 }
 
-export interface AddonOption {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string;
-  isAvailable: boolean;
-}
-
-export interface ProductAddon {
-  id: number;
-  name: string;
-  description?: string;
-  price: {
-    min?: number;
-    max?: number;
-  };
-  isRequired: boolean;
-  hasOptions: boolean;
-  options: AddonOption[];
-}
-
 export interface Product {
   id: number;
   sku: string;
@@ -355,7 +355,6 @@ export interface ProductWithDetails extends Product {
     image: ProductVariation[];
     boolean: ProductVariation[];
   };
-  addons: ProductAddon[];
   faqs?: Array<{
     id: number;
     question: string;
@@ -371,10 +370,6 @@ export interface ProductWithDetails extends Product {
 
 export interface ProductConfiguration {
   variations?: Record<number, number>;
-  addons?: Array<{
-    addonId: number;
-    optionId?: number;
-  }>;
   bundleItems?: {
     selectedOptional?: number[]; // Array of optional bundle item IDs
     configurations?: Record<number, any>; // bundleItemId -> { variationId: optionId }
@@ -454,7 +449,6 @@ export interface PriceCalculation {
     name: string;
     amount: number;
   }>;
-  addonsTotal: number;
   subtotal: number;
   quantity: number;
   total: number;
@@ -559,7 +553,6 @@ export const productsAPI = {
         breakdown: {
           base: number;
           variations: number;
-          addons: number;
         };
       };
     }>(`/api/products/${productId}/calculate-price`, {

@@ -32,7 +32,7 @@ Migrations are executed in numerical order:
 4. **004_create_product_images.sql** - Creates product_images table with gallery support
 5. **005_create_product_colors.sql** - Creates product_colors table for color variations
 6. **006_create_product_variations.sql** - Creates product_variations and variation_options tables
-7. **007_create_product_addons.sql** - Creates product_addons and addon_options tables
+7. **007_create_product_addons.sql** - ⚠️ DEPRECATED: Creates product_addons and addon_options tables (removed in migration 999)
 8. **008_create_product_additional_content.sql** - Creates product_faqs, assembly_manuals, product_additional_info tables
 9. **009_create_carts.sql** - Creates carts and cart_items tables with configuration support
 10. **010_create_orders.sql** - Creates orders, order_items, order_status_history tables
@@ -42,10 +42,12 @@ Migrations are executed in numerical order:
 14. **014_create_recommendations_tables.sql** - Creates product_views, product_relationships, search_queries tables
 15. **015_create_newsletter_enhancements.sql** - Enhances newsletter_subscriptions, creates newsletter_campaigns, newsletter_tracking tables
 16. **016_create_reviews_ratings.sql** - Creates product_reviews, review_votes, review_images tables
+...
+999. **999_drop_product_addons.sql** - Drops product_addons and addon_options tables (replaced by bundle items system)
 
 ## Total Database Schema
 
-After running all migrations, the database will have **35 tables**:
+After running all migrations, the database will have **34 tables** (product_addons and addon_options removed):
 
 ### Core Tables
 - users
@@ -55,11 +57,10 @@ After running all migrations, the database will have **35 tables**:
 - product_colors
 - product_variations
 - variation_options
-- product_addons
-- addon_options
 - product_faqs
 - assembly_manuals
 - product_additional_info
+- product_bundle_items
 
 ### E-commerce Tables
 - carts
@@ -210,7 +211,7 @@ npm run db:test
 ## Schema Overview
 
 The database schema supports:
-- ✅ Complex product configurations (colors, variations, add-ons)
+- ✅ Complex product configurations (colors, variations, bundle items)
 - ✅ Guest and logged-in shopping carts
 - ✅ Complete order lifecycle management
 - ✅ PayPal payment tracking

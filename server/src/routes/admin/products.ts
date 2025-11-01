@@ -14,8 +14,6 @@ import {
   updateProductSchema,
   createVariationSchema,
   updateVariationSchema,
-  createAddonSchema,
-  updateAddonSchema,
   updateImageSchema,
   reorderImagesSchema,
   productQuerySchema
@@ -66,6 +64,30 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
     '/:id',
     requireAuthority('products:view'),
     controller.getProduct
+  );
+
+  /**
+   * @route   POST /api/admin/products/group
+   * @desc    Create product group (both US and EU)
+   * @access  Admin with products:create authority
+   * @note    Must be before /:id routes to avoid route conflicts
+   */
+  router.post(
+    '/group',
+    requireAuthority('products:create'),
+    controller.createProductGroup
+  );
+
+  /**
+   * @route   DELETE /api/admin/products/group/:groupId
+   * @desc    Break product group (unlink products)
+   * @access  Admin with products:edit authority
+   * @note    Must be before /:id routes to avoid route conflicts
+   */
+  router.delete(
+    '/group/:groupId',
+    requireAuthority('products:edit'),
+    controller.breakProductGroup
   );
 
   /**
@@ -157,52 +179,6 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   router.get(
     '/:id/variation-stock-summary',
     controller.getVariationStockSummary
-  );
-
-  // ============================================================================
-  // ADD-ONS
-  // ============================================================================
-
-  /**
-   * @route   GET /api/admin/products/:id/addons
-   * @desc    Get product add-ons
-   * @access  Admin
-   */
-  router.get(
-    '/:id/addons',
-    controller.getAddons
-  );
-
-  /**
-   * @route   POST /api/admin/products/:id/addons
-   * @desc    Create add-on
-   * @access  Admin
-   */
-  router.post(
-    '/:id/addons',
-    validateRequest(createAddonSchema),
-    controller.createAddon
-  );
-
-  /**
-   * @route   PUT /api/admin/products/:id/addons/:addonId
-   * @desc    Update add-on
-   * @access  Admin
-   */
-  router.put(
-    '/:id/addons/:addonId',
-    validateRequest(updateAddonSchema),
-    controller.updateAddon
-  );
-
-  /**
-   * @route   DELETE /api/admin/products/:id/addons/:addonId
-   * @desc    Delete add-on
-   * @access  Admin
-   */
-  router.delete(
-    '/:id/addons/:addonId',
-    controller.deleteAddon
   );
 
   // ============================================================================

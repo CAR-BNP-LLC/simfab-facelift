@@ -182,18 +182,11 @@ export const productValidation = {
   }),
 
   calculatePrice: Joi.object({
-    colorId: Joi.number().integer().positive().allow(null),
     modelVariationId: Joi.number().integer().positive().allow(null),
     dropdownSelections: Joi.object().pattern(
       Joi.number(),
       Joi.number().integer().positive()
     ).default({}),
-    addons: Joi.array().items(
-      Joi.object({
-        addonId: Joi.number().integer().positive().required(),
-        optionId: Joi.number().integer().positive().allow(null)
-      })
-    ).default([]),
     quantity: Joi.number().integer().min(1).max(100).default(1)
   })
 };
@@ -206,18 +199,11 @@ export const cartValidation = {
     productId: Joi.number().integer().positive().required(),
     quantity: Joi.number().integer().min(1).max(100).default(1),
     configuration: Joi.object({
-      colorId: Joi.number().integer().positive().allow(null),
       modelVariationId: Joi.number().integer().positive().allow(null),
       dropdownSelections: Joi.object().pattern(
         Joi.number(),
         Joi.number().integer().positive()
-      ).default({}),
-      addons: Joi.array().items(
-        Joi.object({
-          addonId: Joi.number().integer().positive().required(),
-          optionId: Joi.number().integer().positive().allow(null)
-        })
-      ).default([])
+      ).default({})
     }).default({})
   }),
 

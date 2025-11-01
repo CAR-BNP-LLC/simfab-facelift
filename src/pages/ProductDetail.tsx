@@ -9,7 +9,6 @@ import Footer from "@/components/Footer";
 import { WishlistButton } from "@/components/WishlistButton";
 import ProductImageGallery from "@/components/ProductImageGallery";
 import ProductVariations from "@/components/ProductVariations";
-import ProductAddons from "@/components/ProductAddons";
 import ProductAdditionalInfo from "@/components/ProductAdditionalInfo";
 import ProductFAQs from "@/components/ProductFAQs";
 import ProductDescriptionBuilder from "@/components/ProductDescriptionBuilder";
@@ -32,8 +31,6 @@ const ProductDetail = () => {
   // Configuration state
   const [selectedModelVariation, setSelectedModelVariation] = useState<number | undefined>(undefined);
   const [selectedDropdownVariations, setSelectedDropdownVariations] = useState<Record<number, number>>({});
-  const [selectedAddons, setSelectedAddons] = useState<Set<number>>(new Set());
-  const [selectedAddonOptions, setSelectedAddonOptions] = useState<Record<number, number>>({});
   
   // New variation state
   const [selectedTextValues, setSelectedTextValues] = useState<Record<string, string>>({});
@@ -92,7 +89,7 @@ const ProductDetail = () => {
       checkVariationStock();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModelVariation, selectedDropdownVariations, selectedAddons, selectedAddonOptions, selectedTextValues, selectedImageValues, selectedBooleanValues, selectedOptionalItems, bundleConfigurations]);
+  }, [selectedModelVariation, selectedDropdownVariations, selectedTextValues, selectedImageValues, selectedBooleanValues, selectedOptionalItems, bundleConfigurations]);
 
   // Check bundle item stock when configuration changes
   useEffect(() => {
@@ -273,11 +270,7 @@ const ProductDetail = () => {
               return [parseInt(variationId), value ? 1 : 0];
             })
           )
-        },
-        addons: Array.from(selectedAddons).map(addonId => ({
-          addonId,
-          optionId: selectedAddonOptions[addonId]
-        }))
+        }
       };
 
       // Only check if we have variations selected (that might track stock)
@@ -346,11 +339,7 @@ const ProductDetail = () => {
             })
           )
           // Note: Text variations don't affect price, so they're not included
-        },
-        addons: Array.from(selectedAddons).map(addonId => ({
-          addonId,
-          optionId: selectedAddonOptions[addonId]
-        }))
+        }
       };
 
       
@@ -442,7 +431,6 @@ const ProductDetail = () => {
         variationAdjustments: response.data.pricing.variationAdjustments.reduce((sum: number, adj: any) => sum + adj.amount, 0),
         requiredBundleAdjustments: requiredItemsVariationAdjustments,
         optionalBundleItems,
-        addonsTotal: response.data.breakdown.addons || 0,
         quantity: 1
       });
       
@@ -495,10 +483,6 @@ const ProductDetail = () => {
             })
           )
         },
-        addons: Array.from(selectedAddons).map(addonId => ({
-          addonId,
-          optionId: selectedAddonOptions[addonId]
-        })),
         bundleItems: {
           selectedOptional: Array.from(selectedOptionalItems),
           configurations: bundleConfigurations
@@ -522,27 +506,6 @@ const ProductDetail = () => {
     setSelectedDropdownVariations(prev => ({
       ...prev,
       [variationId]: optionId
-    }));
-  };
-
-  const handleAddonToggle = (addonId: number) => {
-    
-    const newSelected = new Set(selectedAddons);
-    if (newSelected.has(addonId)) {
-      newSelected.delete(addonId);
-      const newOptions = { ...selectedAddonOptions };
-      delete newOptions[addonId];
-      setSelectedAddonOptions(newOptions);
-    } else {
-      newSelected.add(addonId);
-    }
-    setSelectedAddons(newSelected);
-  };
-
-  const handleAddonOptionChange = (addonId: number, optionId: number) => {
-    setSelectedAddonOptions(prev => ({
-      ...prev,
-      [addonId]: optionId
     }));
   };
 
@@ -812,27 +775,6 @@ const ProductDetail = () => {
       };
     })
   ];
-
-  // Debug logging
-
-  const addons = Array.isArray(product.addons)
-    ? product.addons.map((a: any) => ({
-        id: a.id, // Keep as number, don't convert to string
-        name: a.name,
-        price: a.base_price || a.price?.min,
-        priceRange: a.price_range_min && a.price_range_max && a.price_range_min !== a.price_range_max ? {
-          min: a.price_range_min,
-          max: a.price_range_max
-        } : undefined,
-        options: Array.isArray(a.options) && a.has_options ? a.options.map((o: any) => ({
-          id: o.id, // Keep as number, don't convert to string
-          name: o.name,
-          image: o.image_url || o.imageUrl || '/api/placeholder/200/150',
-          price: o.price
-        })) : undefined
-      }))
-    : [];
-  
 
   const additionalDescriptions = Array.isArray(product.additionalInfo)
     ? product.additionalInfo.map((info: any) => ({
@@ -1267,23 +1209,6 @@ const ProductDetail = () => {
                   );
                 })}
               </div>
-            )}
-
-            {/* Product Addons */}
-            {addons.length > 0 && (
-              <ProductAddons
-                addons={addons}
-                selectedAddons={new Set(Array.from(selectedAddons).map(id => id.toString()))}
-                selectedAddonOptions={Object.fromEntries(
-                  Object.entries(selectedAddonOptions).map(([k, v]) => [k, v.toString()])
-                )}
-                onAddonToggle={(id) => {
-                  handleAddonToggle(parseInt(id.toString()));
-                }}
-                onAddonOptionChange={(addonId, optId) => 
-                  handleAddonOptionChange(parseInt(addonId), parseInt(optId))
-                }
-              />
             )}
 
             {/* Stock Status */}

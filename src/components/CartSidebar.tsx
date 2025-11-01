@@ -133,14 +133,6 @@ const CartSidebar = ({ isOpen, onClose }: CartSidebarProps) => {
                           {item.product_name}
                         </h3>
                         
-                        {/* Configuration Info */}
-                        {item.configuration && (
-                          <div className="text-xs text-muted-foreground mb-2">
-                            {item.configuration.colorId && (
-                              <div>Color: {item.configuration.colorName || 'Selected'}</div>
-                            )}
-                          </div>
-                        )}
 
                         {/* Price */}
                         <div className="flex items-center justify-between mb-2">

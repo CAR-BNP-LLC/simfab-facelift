@@ -7,14 +7,12 @@ import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { ProductService } from '../services/ProductService';
 import { ProductVariationService } from '../services/ProductVariationService';
-import { ProductAddonService } from '../services/ProductAddonService';
 import { ProductImageService } from '../services/ProductImageService';
 import { FileUploadService } from '../services/FileUploadService';
 import {
   CreateProductDto,
   UpdateProductDto,
   CreateVariationDto,
-  CreateAddonDto,
   ProductStatus
 } from '../types/product';
 import { successResponse, paginatedResponse } from '../utils/response';
@@ -22,7 +20,6 @@ import { successResponse, paginatedResponse } from '../utils/response';
 export class AdminProductController {
   private productService: ProductService;
   private variationService: ProductVariationService;
-  private addonService: ProductAddonService;
   private imageService: ProductImageService;
   private fileUploadService: FileUploadService;
   private pool: Pool;
@@ -31,7 +28,6 @@ export class AdminProductController {
     this.pool = pool;
     this.productService = new ProductService(pool);
     this.variationService = new ProductVariationService(pool);
-    this.addonService = new ProductAddonService(pool);
     this.imageService = new ProductImageService(pool);
     this.fileUploadService = new FileUploadService();
   }
@@ -97,6 +93,41 @@ export class AdminProductController {
   };
 
   /**
+   * Create product group (both US and EU)
+   * POST /api/admin/products/group
+   */
+  createProductGroup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {
+        name, slug, description, short_description, type, status, featured,
+        regular_price, categories, tags,
+        sku,
+        stock_quantity_us, stock_quantity_eu
+      } = req.body;
+
+      const products = await this.productService.createProductGroup({
+        name,
+        slug,
+        description,
+        short_description,
+        type,
+        status,
+        featured,
+        regular_price,
+        categories,
+        tags,
+        sku,
+        stock_quantity_us,
+        stock_quantity_eu
+      });
+
+      res.status(201).json(successResponse(products, 'Product group created successfully (US & EU)'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Update product
    * PUT /api/admin/products/:id
    */
@@ -112,6 +143,21 @@ export class AdminProductController {
       const product = await this.productService.updateProduct(productId, updateData);
 
       res.json(successResponse(product, 'Product updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Break product group (unlink products)
+   * DELETE /api/admin/products/group/:groupId
+   */
+  breakProductGroup = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productGroupId = req.params.groupId;
+      await this.productService.breakProductGroup(productGroupId);
+
+      res.json(successResponse(null, 'Product group broken successfully. Products are now unlinked.'));
     } catch (error) {
       next(error);
     }
@@ -198,77 +244,6 @@ export class AdminProductController {
       await this.variationService.deleteVariation(variationId);
 
       res.json(successResponse(null, 'Variation deleted successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  // ============================================================================
-  // ADD-ONS
-  // ============================================================================
-
-  /**
-   * Get product add-ons
-   * GET /api/admin/products/:id/addons
-   */
-  getAddons = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const productId = parseInt(req.params.id);
-      const addons = await this.addonService.getAddonsByProduct(productId);
-
-      res.json(successResponse(addons, 'Add-ons retrieved'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Create add-on
-   * POST /api/admin/products/:id/addons
-   */
-  createAddon = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const productId = parseInt(req.params.id);
-      const addonData: CreateAddonDto = {
-        ...req.body,
-        product_id: productId
-      };
-
-      const addon = await this.addonService.createAddon(addonData);
-
-      res.status(201).json(successResponse(addon, 'Add-on created successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Update add-on
-   * PUT /api/admin/products/:id/addons/:addonId
-   */
-  updateAddon = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const addonId = parseInt(req.params.addonId);
-      const updateData = req.body;
-
-      const addon = await this.addonService.updateAddon(addonId, updateData);
-
-      res.json(successResponse(addon, 'Add-on updated successfully'));
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * Delete add-on
-   * DELETE /api/admin/products/:id/addons/:addonId
-   */
-  deleteAddon = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const addonId = parseInt(req.params.addonId);
-      await this.addonService.deleteAddon(addonId);
-
-      res.json(successResponse(null, 'Add-on deleted successfully'));
     } catch (error) {
       next(error);
     }

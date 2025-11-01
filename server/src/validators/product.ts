@@ -12,13 +12,17 @@ import { ProductType, ProductStatus, VariationType } from '../types/product';
 
 export const createProductSchema = Joi.object({
   sku: Joi.string().min(3).max(100).required(),
-  name: Joi.string().min(5).max(255).required(),
+  name: Joi.string().min(1).max(255).required(),
   slug: Joi.string().min(3).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
   short_description: Joi.string().max(500).allow('', null).optional(),
   type: Joi.string().valid(...Object.values(ProductType)).required(),
   status: Joi.string().valid(...Object.values(ProductStatus)).optional(),
   featured: Joi.boolean().optional(),
+
+  // Region support
+  region: Joi.string().valid('us', 'eu').optional(),
+  product_group_id: Joi.string().uuid().allow(null).optional(),
 
   // Pricing
   regular_price: Joi.number().positive().required(),
@@ -59,13 +63,17 @@ export const createProductSchema = Joi.object({
 
 export const updateProductSchema = Joi.object({
   sku: Joi.string().min(3).max(100).optional(),
-  name: Joi.string().min(5).max(255).optional(),
+  name: Joi.string().min(1).max(255).optional(),
   slug: Joi.string().min(3).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
   short_description: Joi.string().max(500).allow('', null).optional(),
   type: Joi.string().valid(...Object.values(ProductType)).optional(),
   status: Joi.string().valid(...Object.values(ProductStatus)).optional(),
   featured: Joi.boolean().optional(),
+
+  // Region support
+  region: Joi.string().valid('us', 'eu').optional(),
+  product_group_id: Joi.string().uuid().allow(null).optional(),
 
   // Pricing
   regular_price: Joi.number().positive().optional(),
@@ -161,41 +169,6 @@ export const updateVariationSchema = Joi.object({
 }).min(1);
 
 // ============================================================================
-// ADDON SCHEMAS
-// ============================================================================
-
-export const createAddonSchema = Joi.object({
-  name: Joi.string().min(2).max(255).required(),
-  description: Joi.string().allow('', null).optional(),
-  base_price: Joi.number().positive().allow(null).optional(),
-  price_range_min: Joi.number().positive().allow(null).optional(),
-  price_range_max: Joi.number().positive().allow(null).optional(),
-  is_required: Joi.boolean().optional(),
-  has_options: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional(),
-  options: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required(),
-      description: Joi.string().allow('', null).optional(),
-      price: Joi.number().positive().required(),
-      image_url: Joi.string().uri().optional(),
-      is_available: Joi.boolean().optional()
-    })
-  ).optional()
-});
-
-export const updateAddonSchema = Joi.object({
-  name: Joi.string().min(2).max(255).optional(),
-  description: Joi.string().allow('', null).optional(),
-  base_price: Joi.number().positive().allow(null).optional(),
-  price_range_min: Joi.number().positive().allow(null).optional(),
-  price_range_max: Joi.number().positive().allow(null).optional(),
-  is_required: Joi.boolean().optional(),
-  has_options: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional()
-}).min(1);
-
-// ============================================================================
 // PRICE CALCULATION SCHEMA
 // ============================================================================
 
@@ -203,12 +176,6 @@ export const calculatePriceSchema = Joi.object({
   variations: Joi.object().pattern(
     Joi.number().integer().positive(),
     Joi.number().integer().positive()
-  ).optional(),
-  addons: Joi.array().items(
-    Joi.object({
-      addonId: Joi.number().integer().positive().required(),
-      optionId: Joi.number().integer().positive().optional()
-    })
   ).optional(),
   quantity: Joi.number().integer().min(1).max(100).optional()
 });

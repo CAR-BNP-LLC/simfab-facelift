@@ -245,31 +245,86 @@ export class VariationStockService {
       );
       const tracksStockVariationIds = new Set(tracksStockResult.rows.map((r: any) => r.id.toString()));
 
-      for (const [variationId, optionId] of Object.entries(configuration.variations)) {
+      for (const [variationId, optionIdOrValue] of Object.entries(configuration.variations)) {
         // Only check stock for variations that have tracks_stock = true
         if (!tracksStockVariationIds.has(variationId.toString())) {
           continue; // Skip this variation, it doesn't track stock
         }
 
-        const available = await this.getVariationOptionStock(Number(optionId));
-        minAvailable = Math.min(minAvailable, available);
-
-        // Get variation details
-        const optionResult = await client.query(
-          `SELECT vo.option_name, v.name as variation_name
-           FROM variation_options vo
-           JOIN product_variations v ON v.id = vo.variation_id
-           WHERE vo.id = $1`,
-          [optionId]
+        // Get the variation type to handle boolean values
+        const variationTypeResult = await client.query(
+          `SELECT variation_type FROM product_variations WHERE id = $1 AND product_id = $2`,
+          [Number(variationId), productId]
         );
 
-        if (optionResult.rows.length > 0) {
-          variationStock.push({
-            variationName: optionResult.rows[0].variation_name,
-            optionName: optionResult.rows[0].option_name,
-            available
-          });
+        if (variationTypeResult.rows.length === 0) {
+          continue; // Variation doesn't exist
         }
+
+        const variationType = variationTypeResult.rows[0].variation_type;
+        let actualOptionId: number | null = null;
+
+        // Handle boolean variations - convert true/false to option IDs
+        if (variationType === 'boolean') {
+          // Handle boolean values that may be passed as true/false or as option IDs
+          const value: any = optionIdOrValue;
+          const isYes = value === true || value === 'true' || value === 1 || value === '1';
+          const optionName = isYes ? 'Yes' : 'No';
+          
+          const booleanOptionResult = await client.query(
+            `SELECT vo.id FROM variation_options vo
+             JOIN product_variations v ON v.id = vo.variation_id
+             WHERE v.id = $1 AND v.product_id = $2 AND vo.option_name = $3`,
+            [Number(variationId), productId, optionName]
+          );
+
+          if (booleanOptionResult.rows.length > 0) {
+            actualOptionId = booleanOptionResult.rows[0].id;
+          } else {
+            console.warn(`Boolean option "${optionName}" not found for variation ${variationId} in product ${productId}`);
+            continue;
+          }
+        } else {
+          // For other types, use the value directly as option ID
+          const value: any = optionIdOrValue;
+          if (typeof value === 'number') {
+            actualOptionId = value;
+          } else {
+            actualOptionId = Number(value);
+            if (isNaN(actualOptionId)) {
+              console.warn(`Invalid option ID ${value} for variation ${variationId}`);
+              continue;
+            }
+          }
+        }
+
+        // Validate that the option exists and belongs to this variation
+        const optionResult = await client.query(
+          `SELECT vo.id, vo.option_name, vo.stock_quantity, vo.reserved_quantity,
+                  v.name as variation_name, v.id as variation_id
+           FROM variation_options vo
+           JOIN product_variations v ON v.id = vo.variation_id
+           WHERE vo.id = $1 AND v.id = $2 AND v.product_id = $3`,
+          [actualOptionId, Number(variationId), productId]
+        );
+
+        if (optionResult.rows.length === 0) {
+          console.warn(`Variation option ${actualOptionId} not found for variation ${variationId} in product ${productId}`);
+          continue; // Skip invalid option
+        }
+
+        const option = optionResult.rows[0];
+        const stock = Number(option.stock_quantity) || 0;
+        const reserved = Number(option.reserved_quantity) || 0;
+        const available = Math.max(0, stock - reserved);
+        
+        minAvailable = Math.min(minAvailable, available);
+
+        variationStock.push({
+          variationName: option.variation_name,
+          optionName: option.option_name,
+          available
+        });
       }
 
       // If no stock-tracked variations were checked, fall back to product-level stock
