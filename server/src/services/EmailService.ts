@@ -41,8 +41,12 @@ export class EmailService {
       return;
     }
 
-    // Check if we should use test mode or production
-    const shouldUseTestMode = settings.test_mode === true || !settings.smtp_host || !settings.smtp_user || !settings.smtp_password;
+    // Determine if we should use test mode or production
+    // Only use test mode if:
+    // 1. Explicitly set to test_mode = true, OR
+    // 2. SMTP credentials are missing
+    const hasSMTPCredentials = settings.smtp_host && settings.smtp_user && settings.smtp_password;
+    const shouldUseTestMode = settings.test_mode === true || !hasSMTPCredentials;
     
     if (shouldUseTestMode) {
       console.log('📧 Email service initialized in TEST MODE');
@@ -55,8 +59,9 @@ export class EmailService {
       if (!settings.smtp_password) {
         console.log('   ❌ SMTP_PASS not found in environment variables');
       }
-      if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_password) {
+      if (!hasSMTPCredentials) {
         console.log('   💡 Add SMTP_HOST, SMTP_USER, and SMTP_PASS to docker-compose.yml or .env file');
+        console.log('   💡 Set EMAIL_TEST_MODE=false when credentials are configured');
       }
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
@@ -64,34 +69,24 @@ export class EmailService {
         buffer: true
       });
     } else {
-      // Production SMTP from environment variables
-      if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_password) {
-        console.warn('⚠️  SMTP credentials missing. Using test mode.');
-        console.warn('   Required: EMAIL_SMTP_HOST, EMAIL_SMTP_USER, EMAIL_SMTP_PASSWORD');
-        this.transporter = nodemailer.createTransport({
-          streamTransport: true,
-          newline: 'unix',
-          buffer: true
-        });
-        return;
-      }
-      
+      // Production SMTP - credentials are verified to exist
       this.transporter = nodemailer.createTransport({
-        host: settings.smtp_host,
+        host: settings.smtp_host!,
         port: settings.smtp_port || 587,
         secure: settings.smtp_port === 465, // true for 465 (SSL), false for 587 (TLS)
         auth: {
-          user: settings.smtp_user,
-          pass: settings.smtp_password
+          user: settings.smtp_user!,
+          pass: settings.smtp_password!
         },
         // Additional options for better compatibility
         tls: {
           rejectUnauthorized: false // For self-signed certificates (development only)
         }
       });
-      console.log('📧 Email service initialized for production');
+      console.log('✅ Email service initialized for PRODUCTION');
       console.log(`   SMTP: ${settings.smtp_host}:${settings.smtp_port}`);
       console.log(`   From: ${settings.smtp_from_name} <${settings.smtp_from_email}>`);
+      console.log(`   Test Mode: ${settings.test_mode}`);
     }
   }
 
@@ -99,6 +94,14 @@ export class EmailService {
    * Send email using template
    */
   async sendEmail(options: SendEmailOptions): Promise<EmailResult> {
+    console.log(`📧 [DEBUG] sendEmail called:`, {
+      templateType: options.templateType,
+      recipientEmail: options.recipientEmail,
+      recipientName: options.recipientName,
+      hasVariables: !!options.variables,
+      variableKeys: options.variables ? Object.keys(options.variables) : []
+    });
+
     const client = await this.pool.connect();
     
     try {
@@ -106,11 +109,19 @@ export class EmailService {
       const template = await this.getTemplate(options.templateType);
       
       if (!template) {
+        console.error(`❌ [DEBUG] Template not found: ${options.templateType}`);
         throw new NotFoundError(`Template not found: ${options.templateType}`);
       }
 
+      console.log(`📧 [DEBUG] Template found:`, {
+        id: template.id,
+        type: template.type,
+        is_active: template.is_active,
+        recipient_type: template.recipient_type
+      });
+
       if (!template.is_active) {
-        console.log(`Template ${options.templateType} is inactive, skipping email`);
+        console.log(`📧 [DEBUG] Template ${options.templateType} is inactive, skipping email`);
         return { success: false, error: 'Template is inactive' };
       }
 
@@ -152,8 +163,9 @@ export class EmailService {
       let result: EmailResult;
 
       // Send email
+      // Production mode = test_mode is explicitly false AND SMTP credentials exist
       const hasSMTPConfig = settings.smtp_host && settings.smtp_user && settings.smtp_password;
-      const isProductionMode = !settings.test_mode && hasSMTPConfig;
+      const isProductionMode = settings.test_mode === false && hasSMTPConfig;
       
       // Debug logging
       console.log('📧 Email send debug:', {
@@ -172,10 +184,29 @@ export class EmailService {
         await this.initialize();
       }
       
-      // Re-check after initialization
-      if (isProductionMode && this.transporter) {
+      // Ensure transporter is properly initialized for production
+      if (isProductionMode) {
+        if (!this.transporter) {
+          console.log('📧 Re-initializing transporter for production email send...');
+          await this.initialize();
+        }
+        
+        if (!this.transporter) {
+          console.error('❌ Failed to initialize transporter for production');
+          result = {
+            success: false,
+            error: 'Email transporter not initialized',
+            logId
+          };
+          await client.query(
+            'UPDATE email_logs SET status = $1, error_message = $2 WHERE id = $3',
+            ['failed', 'Email transporter not initialized', logId]
+          );
+          client.release();
+          return result;
+        }
+        
         // Send actual email in production mode
-
         const mailOptions: any = {
           from: `${settings.smtp_from_name} <${settings.smtp_from_email}>`,
           to: actualRecipient,
@@ -188,10 +219,23 @@ export class EmailService {
         }
 
         try {
-          console.log(`📧 Sending email via SMTP to: ${actualRecipient}`);
+          console.log(`📧 [DEBUG] Sending email via SMTP:`, {
+            to: actualRecipient,
+            from: mailOptions.from,
+            subject: mailOptions.subject,
+            hasHtml: !!mailOptions.html,
+            hasText: !!mailOptions.text,
+            template: options.templateType
+          });
+
           const info: any = await this.transporter!.sendMail(mailOptions);
           
-          console.log(`✅ Email sent successfully! Message ID: ${info?.messageId}`);
+          console.log(`✅ [DEBUG] Email sent successfully!`, {
+            messageId: info?.messageId,
+            response: info?.response,
+            accepted: info?.accepted,
+            rejected: info?.rejected
+          });
           
           result = {
             success: true,
@@ -205,12 +249,17 @@ export class EmailService {
             ['sent', logId]
           );
         } catch (error: any) {
-          console.error('❌ Error sending email:', error);
-          console.error('Error details:', {
+          console.error('❌ [DEBUG] Error sending email:', error);
+          console.error('❌ [DEBUG] Error details:', {
             code: error.code,
             command: error.command,
             response: error.response,
-            responseCode: error.responseCode
+            responseCode: error.responseCode,
+            message: error.message,
+            stack: error.stack,
+            to: actualRecipient,
+            from: mailOptions.from,
+            subject: mailOptions.subject
           });
           
           result = {
@@ -309,7 +358,26 @@ export class EmailService {
       // Use environment variables (more secure)
       // Support both naming conventions: SMTP_* and EMAIL_SMTP_*
       return {
-        test_mode: !(process.env.EMAIL_TEST_MODE === 'false' || process.env.EMAIL_TEST_MODE === '0'),
+        test_mode: (() => {
+          // Intelligent test mode detection:
+          // - Explicitly false if EMAIL_TEST_MODE='false' or '0'
+          // - Explicitly true if EMAIL_TEST_MODE='true' or '1'
+          // - Auto-detect: If SMTP credentials are provided, default to FALSE (production)
+          // - Only default to TRUE (test) if SMTP credentials are missing
+          const explicitTestMode = process.env.EMAIL_TEST_MODE;
+          const smtpUser = process.env.SMTP_USER || process.env.EMAIL_SMTP_USER;
+          const smtpPassword = process.env.SMTP_PASS || process.env.EMAIL_SMTP_PASSWORD || process.env.EMAIL_SMTP_PASSWORD;
+          
+          if (explicitTestMode === 'false' || explicitTestMode === '0') {
+            return false;
+          } else if (explicitTestMode === 'true' || explicitTestMode === '1') {
+            return true;
+          } else {
+            // Auto-detect: If SMTP credentials are provided, use production mode
+            // Otherwise default to test mode
+            return !(smtpHost && smtpUser && smtpPassword);
+          }
+        })(),
         enabled: process.env.EMAIL_ENABLED !== 'false',
         smtp_host: smtpHost,
         smtp_port: parseInt(
@@ -407,6 +475,14 @@ export class EmailService {
   ): Promise<EmailResult[]> {
     const results: EmailResult[] = [];
     
+    console.log(`📧 [DEBUG] triggerEvent called:`, {
+      event,
+      recipientInfo,
+      variableKeys: Object.keys(variables),
+      hasCustomerEmail: !!recipientInfo.customerEmail,
+      hasAdminEmail: !!recipientInfo.adminEmail
+    });
+    
     try {
       // Get all active templates for this trigger event
       const templatesResult = await this.pool.query(
@@ -418,15 +494,32 @@ export class EmailService {
 
       const templates = templatesResult.rows;
 
+      console.log(`📧 [DEBUG] Query result for event '${event}':`, {
+        rowCount: templates.length,
+        templates: templates.map(t => ({
+          id: t.id,
+          type: t.type,
+          recipient_type: t.recipient_type,
+          is_active: t.is_active
+        }))
+      });
+
       if (templates.length === 0) {
-        console.log(`📧 No active templates found for trigger event: ${event}`);
+        console.log(`📧 [DEBUG] No active templates found for trigger event: ${event}`);
         return results;
       }
 
-      console.log(`📧 Triggering event '${event}': Found ${templates.length} active template(s)`);
+      console.log(`📧 [DEBUG] Triggering event '${event}': Found ${templates.length} active template(s)`);
 
       // Send email for each matching template
       for (const template of templates) {
+        console.log(`📧 [DEBUG] Processing template:`, {
+          id: template.id,
+          type: template.type,
+          recipient_type: template.recipient_type,
+          custom_recipient_email: template.custom_recipient_email || 'none'
+        });
+
         try {
           // Determine recipients based on recipient_type
           const recipients: Array<{ email: string; name?: string }> = [];
@@ -477,26 +570,48 @@ export class EmailService {
             recipients.push({ email: template.custom_recipient_email, name: 'Recipient' });
           }
 
+          console.log(`📧 [DEBUG] Template ${template.type} will send to ${recipients.length} recipient(s):`, 
+            recipients.map(r => ({ email: r.email, name: r.name }))
+          );
+
           // Send email to each recipient
           for (const recipient of recipients) {
+            console.log(`📧 [DEBUG] Sending email for template ${template.type} to ${recipient.email}...`);
             const result = await this.sendEmail({
               templateType: template.type,
               recipientEmail: recipient.email,
               recipientName: recipient.name,
               variables
             });
+            console.log(`📧 [DEBUG] Email send result for ${recipient.email}:`, {
+              success: result.success,
+              messageId: result.messageId,
+              error: result.error,
+              logId: result.logId
+            });
             results.push(result);
           }
         } catch (error: any) {
-          console.error(`❌ Failed to send email for template ${template.type}:`, error);
+          console.error(`❌ [DEBUG] Failed to send email for template ${template.type}:`, error);
+          console.error(`❌ [DEBUG] Error details:`, {
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+          });
           results.push({
             success: false,
             error: error.message || 'Failed to send email'
           });
         }
       }
+
+      console.log(`📧 [DEBUG] triggerEvent completed for '${event}':`, {
+        totalTemplates: templates.length,
+        results: results.map(r => ({ success: r.success, error: r.error }))
+      });
     } catch (error: any) {
-      console.error(`❌ Error triggering event ${event}:`, error);
+      console.error(`❌ [DEBUG] Error triggering event ${event}:`, error);
+      console.error(`❌ [DEBUG] Error stack:`, error.stack);
       results.push({
         success: false,
         error: error.message || 'Failed to trigger event'

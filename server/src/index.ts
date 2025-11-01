@@ -150,11 +150,15 @@ cronService.addJob(
 
 console.log('✅ Wishlist notification cron jobs registered');
 
-// Initialize email service
+// Initialize email service - MUST initialize before routes
 const emailService = new EmailService(pool);
-emailService.initialize().catch(err => {
-  console.error('Failed to initialize email service:', err);
-});
+emailService.initialize()
+  .then(() => {
+    console.log('✅ Email service initialized successfully');
+  })
+  .catch(err => {
+    console.error('❌ Failed to initialize email service:', err);
+  });
 
 // Initialize logger service
 const loggerService = new LoggerService(pool);

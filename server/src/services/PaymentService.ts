@@ -4,6 +4,7 @@ import * as paypal from '@paypal/checkout-server-sdk';
 import { PaymentError } from '../utils/errors';
 import { OrderService } from './OrderService';
 import { CartService } from './CartService';
+import { EmailService } from './EmailService';
 
 export interface CreatePaymentData {
   orderId: number;
@@ -48,10 +49,13 @@ export interface PaymentResult {
 export class PaymentService {
   private orderService: OrderService;
   private cartService: CartService;
+  private emailService: EmailService;
 
   constructor(private pool: Pool) {
     this.orderService = new OrderService(pool);
     this.cartService = new CartService(pool);
+    this.emailService = new EmailService(pool);
+    this.emailService.initialize();
   }
 
   async createPayment(data: CreatePaymentData): Promise<PaymentResult> {
@@ -309,12 +313,61 @@ export class PaymentService {
 
       // CRITICAL: Validate PayPal response
       if (!capture || capture.status !== 'COMPLETED') {
+        // Get order details BEFORE updating payment status (while still in transaction)
+        const orderResult = await client.query(
+          `SELECT o.order_number, o.customer_email, o.total_amount, o.billing_address
+           FROM orders o
+           WHERE o.id = $1`,
+          [orderId]
+        );
+
         await client.query(
           `UPDATE payments SET status = 'failed', failure_reason = $1 
            WHERE transaction_id = $2`,
           [capture?.status || 'Unknown PayPal error', paymentId]
         );
+        
         await client.query('COMMIT');
+        
+        // Trigger payment failure email event (after commit, outside transaction)
+        if (orderResult.rows.length > 0) {
+          const order = orderResult.rows[0];
+          try {
+            // Get customer name from billing address
+            let customerName = order.customer_email;
+            try {
+              const billingAddress = typeof order.billing_address === 'string'
+                ? JSON.parse(order.billing_address)
+                : order.billing_address;
+              if (billingAddress?.firstName && billingAddress?.lastName) {
+                customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+              }
+            } catch (error) {
+              // Use email as fallback
+            }
+
+            const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+            
+            await this.emailService.triggerEvent(
+              'order.payment_failed',
+              {
+                order_number: order.order_number,
+                customer_name: customerName,
+                customer_email: order.customer_email,
+                order_total: `$${totalAmount.toFixed(2)}`,
+                error_message: capture?.status || 'Unknown PayPal error'
+              },
+              {
+                customerEmail: order.customer_email,
+                customerName: customerName,
+                adminEmail: 'info@simfab.com'
+              }
+            );
+          } catch (emailError) {
+            console.error('Failed to trigger payment failed email event:', emailError);
+          }
+        }
+        
         throw new PaymentError('PayPal payment capture failed', 'PAYPAL_CAPTURE_FAILED', {
           paypalStatus: capture?.status,
           paymentId
@@ -355,14 +408,64 @@ export class PaymentService {
       console.error('Payment execution failed:', error);
       
       // Update payment status to failed if we have a payment record
+      let failureReason = error instanceof Error ? error.message : String(error);
       try {
         await client.query(
           `UPDATE payments SET status = 'failed', failure_reason = $1 
            WHERE transaction_id = $2`,
-          [error instanceof Error ? error.message : String(error), paymentId]
+          [failureReason, paymentId]
         );
       } catch (updateError) {
         console.error('Failed to update payment status:', updateError);
+      }
+      
+      // Get order details for email notification (only if not already sent above)
+      if (!(error instanceof PaymentError && error.code === 'PAYPAL_CAPTURE_FAILED')) {
+        try {
+          const orderResult = await client.query(
+            `SELECT o.order_number, o.customer_email, o.total_amount, o.billing_address
+             FROM orders o
+             WHERE o.id = $1`,
+            [orderId]
+          );
+          
+          if (orderResult.rows.length > 0) {
+            const order = orderResult.rows[0];
+            
+            // Get customer name from billing address
+            let customerName = order.customer_email;
+            try {
+              const billingAddress = typeof order.billing_address === 'string'
+                ? JSON.parse(order.billing_address)
+                : order.billing_address;
+              if (billingAddress?.firstName && billingAddress?.lastName) {
+                customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+              }
+            } catch (parseError) {
+              // Use email as fallback
+            }
+
+            const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+            
+            await this.emailService.triggerEvent(
+              'order.payment_failed',
+              {
+                order_number: order.order_number,
+                customer_name: customerName,
+                customer_email: order.customer_email,
+                order_total: `$${totalAmount.toFixed(2)}`,
+                error_message: failureReason
+              },
+              {
+                customerEmail: order.customer_email,
+                customerName: customerName,
+                adminEmail: 'info@simfab.com'
+              }
+            );
+          }
+        } catch (emailError) {
+          console.error('Failed to trigger payment failed email event:', emailError);
+        }
       }
       
       if (error instanceof PaymentError) {

@@ -149,19 +149,21 @@ export class AuthController {
         await userModel.subscribeToNewsletter(email, subscribedAt);
       }
 
-      // Send welcome email
+      // Trigger new account creation email event
       try {
-        await emailService.sendEmail({
-          templateType: 'new_account',
-          recipientEmail: email,
-          recipientName: userFirstName || email,
-          variables: {
+        await emailService.triggerEvent(
+          'auth.account_created',
+          {
             customer_name: userFirstName || email,
             login_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`
+          },
+          {
+            customerEmail: email,
+            customerName: userFirstName || email
           }
-        });
+        );
       } catch (emailError) {
-        console.error('Failed to send welcome email:', emailError);
+        console.error('Failed to trigger account created email event:', emailError);
       }
 
       // Set session
@@ -320,21 +322,23 @@ export class AuthController {
       // Store reset code
       await userModel.createPasswordReset(user.id!, resetCode, expiresAt);
 
-      // Send password reset email
+      // Trigger password reset email event
       try {
         const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetCode}`;
-        await emailService.sendEmail({
-          templateType: 'reset_password',
-          recipientEmail: email,
-          recipientName: user.first_name || email,
-          variables: {
+        await emailService.triggerEvent(
+          'auth.password_reset',
+          {
             reset_url: resetUrl,
             expire_hours: '15 minutes',
             customer_name: user.first_name || email
+          },
+          {
+            customerEmail: email,
+            customerName: user.first_name || email
           }
-        });
+        );
       } catch (emailError) {
-        console.error('Failed to send password reset email:', emailError);
+        console.error('Failed to trigger password reset email event:', emailError);
       }
 
       // Log the reset code (as requested)

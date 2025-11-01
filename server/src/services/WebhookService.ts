@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { paypalClient } from '../config/paypal';
 import * as paypal from '@paypal/checkout-server-sdk';
 import { OrderService } from './OrderService';
+import { EmailService } from './EmailService';
 
 export interface PayPalWebhookEvent {
   id: string;
@@ -15,9 +16,12 @@ export interface PayPalWebhookEvent {
 
 export class WebhookService {
   private orderService: OrderService;
+  private emailService: EmailService;
 
   constructor(private pool: Pool) {
     this.orderService = new OrderService(pool);
+    this.emailService = new EmailService(pool);
+    this.emailService.initialize();
   }
 
   async verifyWebhookSignature(
@@ -110,9 +114,10 @@ export class WebhookService {
       const capture = event.resource;
       const orderId = capture.custom_id;
 
-      // Get order first
+      // Get order details for email notification
       const orderResult = await client.query(
-        'SELECT order_number FROM orders WHERE id = $1',
+        `SELECT order_number, customer_email, total_amount, billing_address
+         FROM orders WHERE id = $1`,
         [orderId]
       );
 
@@ -122,13 +127,14 @@ export class WebhookService {
       }
 
       const order = orderResult.rows[0];
+      const failureReason = capture.reason_code || 'Payment denied';
 
       // Update payment status
       await client.query(
         `UPDATE payments 
          SET status = 'failed', failure_reason = $1
          WHERE order_id = $2`,
-        [capture.reason_code || 'Payment denied', orderId]
+        [failureReason, orderId]
       );
 
       // Update order status and cancel stock reservations
@@ -141,6 +147,42 @@ export class WebhookService {
 
       // Cancel stock reservations
       await this.orderService.cancelOrder(order.order_number);
+
+      // Trigger payment failure email event
+      try {
+        // Get customer name from billing address
+        let customerName = order.customer_email;
+        try {
+          const billingAddress = typeof order.billing_address === 'string'
+            ? JSON.parse(order.billing_address)
+            : order.billing_address;
+          if (billingAddress?.firstName && billingAddress?.lastName) {
+            customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+          }
+        } catch (error) {
+          // Use email as fallback
+        }
+
+        const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+        
+        await this.emailService.triggerEvent(
+          'order.payment_failed',
+          {
+            order_number: order.order_number,
+            customer_name: customerName,
+            customer_email: order.customer_email,
+            order_total: `$${totalAmount.toFixed(2)}`,
+            error_message: failureReason
+          },
+          {
+            customerEmail: order.customer_email,
+            customerName: customerName,
+            adminEmail: 'info@simfab.com'
+          }
+        );
+      } catch (emailError) {
+        console.error('Failed to trigger payment failed email event:', emailError);
+      }
 
       console.log(`Payment denied for order ${orderId}`);
     } finally {
