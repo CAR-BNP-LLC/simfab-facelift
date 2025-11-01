@@ -294,24 +294,66 @@ export class BundleService {
     const bundleItems = await this.getBundleItems(bundleProductId);
     const errors: string[] = [];
 
-    // Check all required items have configuration
+    // Check all required items exist and have configuration if needed
     const requiredItems = bundleItems.filter(item => item.item_type === 'required');
     
     for (const item of requiredItems) {
-      if (item.is_configurable && !configuration.requiredItems?.[item.id]) {
-        errors.push(`Configuration required for ${item.display_name || 'required item'}`);
+      // Required items are always included, but if configurable, they need configuration
+      if (item.is_configurable) {
+        const itemConfig = configuration.requiredItems?.[item.id];
+        const itemName = item.display_name || (item as any).item_product_name || `Item ${item.id}`;
+        
+        if (!itemConfig) {
+          errors.push(`${itemName} requires configuration`);
+        } else {
+          // Validate it has required variations
+          const itemConfigValidation = await this.validateBundleItemConfiguration(
+            item.item_product_id,
+            itemConfig
+          );
+          if (!itemConfigValidation.valid) {
+            errors.push(...itemConfigValidation.errors.map(e => 
+              `${itemName} - ${e}`
+            ));
+          }
+        }
       }
+      // Non-configurable required items don't need explicit configuration - they're always included
     }
 
-    // Validate optional items exist
-    if (configuration.optionalItems) {
+    // Validate optional items that were chosen
+    if (configuration.optionalItems && configuration.optionalItems.length > 0) {
       const optionalIds = bundleItems
         .filter(item => item.item_type === 'optional')
         .map(item => item.id);
 
       for (const itemId of configuration.optionalItems) {
-        if (!optionalIds.includes(itemId)) {
+        // Check optional item exists
+        const bundleItem = bundleItems.find(item => item.id === itemId && item.item_type === 'optional');
+        if (!bundleItem) {
           errors.push(`Invalid optional item: ${itemId}`);
+          continue;
+        }
+
+        // If configurable, it must have configuration with required variations
+        if (bundleItem.is_configurable) {
+          const itemConfig = configuration.requiredItems?.[itemId];
+          const itemName = bundleItem.display_name || (bundleItem as any).item_product_name || `Item ${itemId}`;
+          
+          if (!itemConfig) {
+            errors.push(`Optional item ${itemName} requires configuration`);
+          } else {
+            // Validate it has required variations
+            const itemConfigValidation = await this.validateBundleItemConfiguration(
+              bundleItem.item_product_id,
+              itemConfig
+            );
+            if (!itemConfigValidation.valid) {
+              errors.push(...itemConfigValidation.errors.map(e => 
+                `Optional item ${itemName} - ${e}`
+              ));
+            }
+          }
         }
       }
     }
@@ -320,6 +362,65 @@ export class BundleService {
       valid: errors.length === 0,
       errors
     };
+  }
+
+  /**
+   * Validate bundle item configuration (check required variations)
+   */
+  private async validateBundleItemConfiguration(
+    itemProductId: number,
+    configuration: ProductConfiguration
+  ): Promise<{ valid: boolean; errors: string[] }> {
+    const errors: string[] = [];
+
+    try {
+      // Get required variations for this bundle item product
+      const requiredVariations = await this.getRequiredVariations(itemProductId);
+
+      for (const variation of requiredVariations) {
+        if (variation.variation_type === 'model') {
+          if (!configuration.modelVariationId) {
+            errors.push(`${variation.name} model variation is required`);
+          }
+        } else if (variation.variation_type === 'dropdown') {
+          const inOldFormat = configuration.dropdownSelections && configuration.dropdownSelections[variation.id];
+          const inNewFormat = configuration.variations && configuration.variations[variation.id];
+          if (!inOldFormat && !inNewFormat) {
+            errors.push(`${variation.name} variation is required`);
+          }
+        } else if (variation.variation_type === 'image') {
+          if (!configuration.variations || !configuration.variations[variation.id]) {
+            errors.push(`${variation.name} variation is required`);
+          }
+        } else if (variation.variation_type === 'boolean') {
+          if (configuration.variations === undefined || configuration.variations[variation.id] === undefined) {
+            errors.push(`${variation.name} variation is required`);
+          }
+        }
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors
+      };
+    } catch (error) {
+      console.error('Error validating bundle item configuration:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get required variations for a product
+   */
+  private async getRequiredVariations(productId: number) {
+    const sql = `
+      SELECT id, name, variation_type
+      FROM product_variations
+      WHERE product_id = $1 AND is_required = true
+    `;
+
+    const result = await this.pool.query(sql, [productId]);
+    return result.rows;
   }
 
   /**

@@ -54,6 +54,9 @@ const ProductDetail = () => {
   const { addToCart } = useCart();
   const { region } = useRegion();
 
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
   // Helper function to check if product is in stock
   const isProductInStock = (product: any): boolean => {
     if (!product) return false;
@@ -66,6 +69,174 @@ const ProductDetail = () => {
     // Fallback: if stock is not defined, check in_stock field
     return inStock === '1' || inStock === true;
   };
+
+  // Check if all required variations are selected
+  const checkRequiredVariations = (): string[] => {
+    if (!product) return [];
+    const errors: string[] = [];
+
+    // Check model variations
+    const modelVariations = product.variations?.model || [];
+    const requiredModel = modelVariations.find((v: any) => v.is_required);
+    if (requiredModel && !selectedModelVariation) {
+      errors.push(`${requiredModel.name} model variation is required`);
+    }
+
+    // Check dropdown variations
+    const dropdownVariations = product.variations?.dropdown || [];
+    dropdownVariations.forEach((variation: any) => {
+      if (variation.is_required) {
+        const variationId = parseInt(variation.id.toString());
+        if (!selectedDropdownVariations[variationId]) {
+          errors.push(`${variation.name} variation is required`);
+        }
+      }
+    });
+
+    // Check image variations
+    const imageVariations = product.variations?.image || [];
+    imageVariations.forEach((variation: any) => {
+      if (variation.is_required) {
+        const variationId = variation.id.toString();
+        if (!selectedImageValues[variationId]) {
+          errors.push(`${variation.name} variation is required`);
+        }
+      }
+    });
+
+    // Check boolean variations
+    const booleanVariations = product.variations?.boolean || [];
+    booleanVariations.forEach((variation: any) => {
+      if (variation.is_required) {
+        const variationId = variation.id.toString();
+        if (selectedBooleanValues[variationId] === undefined) {
+          errors.push(`${variation.name} variation is required`);
+        }
+      }
+    });
+
+    return errors;
+  };
+
+  // Check if required bundle items are configured
+  const checkRequiredBundleItems = (): string[] => {
+    if (!product || !bundleItems?.required) return [];
+    const errors: string[] = [];
+
+    bundleItems.required.forEach((item: any) => {
+      if (item.is_configurable) {
+        const itemConfig = bundleConfigurations[item.id];
+        const itemName = item.display_name || item.item_product_name;
+        if (!itemConfig || Object.keys(itemConfig).length === 0) {
+          errors.push(`${itemName} requires configuration`);
+        } else if (item.variations) {
+          // Check required variations within the bundle item
+          const allVariations = [
+            ...(item.variations.text || []),
+            ...(item.variations.dropdown || []),
+            ...(item.variations.image || []),
+            ...(item.variations.boolean || [])
+          ];
+          
+          allVariations.forEach((variation: any) => {
+            if (variation.is_required) {
+              const variationId = variation.id.toString();
+              if (variation.variation_type === 'dropdown') {
+                if (!itemConfig[variationId]) {
+                  errors.push(`${itemName} - ${variation.name} variation is required`);
+                }
+              } else if (variation.variation_type === 'image') {
+                if (!itemConfig[variationId]) {
+                  errors.push(`${itemName} - ${variation.name} variation is required`);
+                }
+              } else if (variation.variation_type === 'boolean') {
+                if (itemConfig[variationId] === undefined) {
+                  errors.push(`${itemName} - ${variation.name} variation is required`);
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    return errors;
+  };
+
+  // Check if chosen optional bundle items have required variations
+  const checkOptionalBundleItems = (): string[] => {
+    if (!product || !bundleItems?.optional || selectedOptionalItems.size === 0) return [];
+    const errors: string[] = [];
+
+    Array.from(selectedOptionalItems).forEach((itemId: number) => {
+      const bundleItem = bundleItems.optional.find((item: any) => item.id === itemId);
+      if (!bundleItem) return;
+
+      if (bundleItem.is_configurable) {
+        const itemConfig = bundleConfigurations[itemId];
+        const itemName = bundleItem.display_name || bundleItem.item_product_name;
+        if (!itemConfig || Object.keys(itemConfig).length === 0) {
+          errors.push(`Optional item ${itemName} requires configuration`);
+        } else if (bundleItem.variations) {
+          // Check required variations within the optional bundle item
+          const allVariations = [
+            ...(bundleItem.variations.text || []),
+            ...(bundleItem.variations.dropdown || []),
+            ...(bundleItem.variations.image || []),
+            ...(bundleItem.variations.boolean || [])
+          ];
+          
+          allVariations.forEach((variation: any) => {
+            if (variation.is_required) {
+              const variationId = variation.id.toString();
+              if (variation.variation_type === 'dropdown') {
+                if (!itemConfig[variationId]) {
+                  errors.push(`Optional item ${itemName} - ${variation.name} variation is required`);
+                }
+              } else if (variation.variation_type === 'image') {
+                if (!itemConfig[variationId]) {
+                  errors.push(`Optional item ${itemName} - ${variation.name} variation is required`);
+                }
+              } else if (variation.variation_type === 'boolean') {
+                if (itemConfig[variationId] === undefined) {
+                  errors.push(`Optional item ${itemName} - ${variation.name} variation is required`);
+                }
+              }
+            }
+          });
+        }
+      }
+    });
+
+    return errors;
+  };
+
+  // Run all validations
+  const validateConfiguration = (): string[] => {
+    const errors = [
+      ...checkRequiredVariations(),
+      ...checkRequiredBundleItems(),
+      ...checkOptionalBundleItems()
+    ];
+    setValidationErrors(errors);
+    return errors;
+  };
+
+  // Re-validate when configuration changes
+  useEffect(() => {
+    if (product) {
+      validateConfiguration();
+    }
+  }, [
+    product,
+    selectedModelVariation,
+    selectedDropdownVariations,
+    selectedImageValues,
+    selectedBooleanValues,
+    bundleItems,
+    bundleConfigurations,
+    selectedOptionalItems
+  ]);
 
   // Fetch product on mount and when region changes
   useEffect(() => {
@@ -1253,7 +1424,9 @@ const ProductDetail = () => {
                   (bundleItems?.required?.some((item: any) => {
                     const stockInfo = bundleItemStock[item.id];
                     return stockInfo && stockInfo.required && stockInfo.available <= 0;
-                  }))
+                  })) ||
+                  // Disable if validation errors exist
+                  validationErrors.length > 0
                 }
                 onClick={handleAddToCart}
               >
@@ -1270,8 +1443,19 @@ const ProductDetail = () => {
                 )}
               </Button>
               
+              {/* Show validation errors */}
+              {validationErrors.length > 0 && (
+                <div className="space-y-1">
+                  {validationErrors.map((error, index) => (
+                    <p key={index} className="text-sm text-destructive text-center font-medium">
+                      {error}
+                    </p>
+                  ))}
+                </div>
+              )}
+              
               {/* Show message if disabled due to variation stock */}
-              {variationStock && !variationStock.available && (
+              {variationStock && !variationStock.available && validationErrors.length === 0 && (
                 <p className="text-sm text-destructive text-center font-medium">
                   Cannot add to cart: Selected option is out of stock
                 </p>
@@ -1281,7 +1465,7 @@ const ProductDetail = () => {
               {bundleItems?.required?.some((item: any) => {
                 const stockInfo = bundleItemStock[item.id];
                 return stockInfo && stockInfo.required && stockInfo.available <= 0;
-              }) && (
+              }) && validationErrors.length === 0 && (
                 <p className="text-sm text-destructive text-center font-medium">
                   Cannot add to cart: Required items are out of stock
                 </p>

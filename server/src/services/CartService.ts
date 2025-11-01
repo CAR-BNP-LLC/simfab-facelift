@@ -371,6 +371,43 @@ export class CartService {
       // Normalize configuration first
       const normalizedConfig = this.normalizeConfigurationForComparison(data.configuration);
       
+      // Validate required variations for the main product
+      const mainProductValidation = await this.priceCalculator.validateConfiguration(
+        data.productId,
+        normalizedConfig
+      );
+      if (!mainProductValidation.valid) {
+        await client.query('ROLLBACK');
+        throw new ValidationError(
+          'Invalid product configuration',
+          {
+            errors: mainProductValidation.errors,
+            code: 'REQUIRED_VARIATIONS_MISSING'
+          }
+        );
+      }
+      
+      // Validate bundle items if this is a bundle product
+      if (product.is_bundle && normalizedConfig.bundleItems) {
+        const bundleValidation = await this.bundleService.validateBundleConfiguration(
+          product.id,
+          {
+            requiredItems: normalizedConfig.bundleItems.configurations || {},
+            optionalItems: normalizedConfig.bundleItems.selectedOptional || []
+          }
+        );
+        if (!bundleValidation.valid) {
+          await client.query('ROLLBACK');
+          throw new ValidationError(
+            'Invalid bundle configuration',
+            {
+              errors: bundleValidation.errors,
+              code: 'BUNDLE_CONFIGURATION_INVALID'
+            }
+          );
+        }
+      }
+      
       // Check available stock (considering reservations and variation stock)
       const availableStock = await this.stockReservationService.getAvailableStock(
         product.id, 
