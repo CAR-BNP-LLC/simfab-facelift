@@ -5,6 +5,15 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+// Global region getter - will be set by RegionContext
+// Using a ref-based getter to avoid stale closure issues
+let getCurrentRegion: (() => 'us' | 'eu') | null = null;
+
+export function setRegionGetter(getter: () => 'us' | 'eu') {
+  getCurrentRegion = getter;
+  console.log('✅ api.ts: Region getter registered. Current region:', getter());
+}
+
 // Generic API request handler with timeout
 export async function apiRequest<T>(
   endpoint: string,
@@ -12,27 +21,24 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  // Detect region from URL query params
-  const urlParams = new URLSearchParams(window.location.search);
-  const region = urlParams.get('region') || import.meta.env.VITE_DEFAULT_REGION;
+  // Get region from global state (RegionContext) - call getter to get latest value
+  const region = getCurrentRegion ? getCurrentRegion() : 'us';
   
-  console.log('🌐 API Request:', {
-    endpoint,
-    url,
-    detectedRegion: region,
-    'window.location.search': window.location.search
-  });
+  if (!getCurrentRegion) {
+    console.warn('⚠️ apiRequest: Region getter not set yet! Defaulting to "us". This might cause wrong products to load.');
+  }
   
-  // Add region to query string if present
+  console.log('📤 apiRequest: Using region', region, 'for endpoint', endpoint);
+  
+  // Add region to query string
   const separator = endpoint.includes('?') ? '&' : '?';
-  const regionParam = region ? `${separator}region=${region}` : '';
-  const finalUrl = `${url}${regionParam}`;
+  const finalUrl = `${url}${separator}region=${region}`;
   
   const config: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      ...(region ? { 'X-Region': region } : {}), // Also send as header
+      'X-Region': region,
       ...options.headers,
     },
     credentials: 'include', // Important for cookies/sessions
@@ -40,7 +46,8 @@ export async function apiRequest<T>(
 
   console.log('📤 Making request:', {
     finalUrl,
-    headers: config.headers
+    headers: config.headers,
+    'region being sent': region
   });
 
   try {
@@ -468,6 +475,27 @@ export interface ProductQueryParams {
   sortOrder?: 'asc' | 'desc';
 }
 
+// CSV Import/Export Types
+export interface ImportResult {
+  success: boolean;
+  total: number;
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: Array<{
+    row: number;
+    sku?: string;
+    field?: string;
+    message: string;
+    severity: 'critical' | 'warning';
+  }>;
+  warnings: Array<{
+    row: number;
+    sku?: string;
+    message: string;
+  }>;
+}
+
 export const productsAPI = {
   /**
    * Get all products with filtering and pagination
@@ -649,6 +677,95 @@ export const productsAPI = {
         max: number;
       };
     }>(`/api/products/${productId}/price-range`);
+  },
+
+  /**
+   * Import products from CSV
+   */
+  async importCSV(file: File, mode: 'create' | 'update' | 'skip_duplicates' = 'create', dryRun: boolean = false) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', mode);
+    if (dryRun) {
+      formData.append('dry_run', 'true');
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/admin/products/import`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Import failed');
+    }
+
+    return response.json() as Promise<{
+      success: boolean;
+      data: ImportResult;
+      message: string;
+    }>;
+  },
+
+  /**
+   * Validate CSV without importing
+   */
+  async validateCSV(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/admin/products/import/validate`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Validation failed');
+    }
+
+    return response.json() as Promise<{
+      success: boolean;
+      data: ImportResult;
+      message: string;
+    }>;
+  },
+
+  /**
+   * Export products to CSV
+   */
+  async exportCSV(options?: { status?: string; category?: string; region?: 'us' | 'eu' }) {
+    const queryParams = new URLSearchParams();
+    if (options?.status) queryParams.append('status', options.status);
+    if (options?.category) queryParams.append('category', options.category);
+    if (options?.region) queryParams.append('region', options.region);
+
+    const queryString = queryParams.toString();
+    const url = `${API_BASE_URL}/api/admin/products/export${queryString ? `?${queryString}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Export failed');
+    }
+
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `products-export-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+
+    return { success: true };
   },
 };
 

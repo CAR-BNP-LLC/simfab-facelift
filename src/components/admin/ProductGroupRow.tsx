@@ -84,7 +84,12 @@ const ProductGroupRow = ({
         </td>
         <td className="py-3 px-2">
           <div className="flex flex-col gap-1">
-            <span>${avgPrice.toFixed(2)}</span>
+            <span>
+              {usProduct && euProduct 
+                ? `$${usProduct.regular_price ? parseFloat(usProduct.regular_price.toString()).toFixed(2) : '0.00'} / €${euProduct.regular_price ? parseFloat(euProduct.regular_price.toString()).toFixed(2) : '0.00'}`
+                : `${mainProduct.region === 'eu' ? '€' : '$'}${avgPrice.toFixed(2)}`
+              }
+            </span>
             {hasSale && (
               <span className="text-xs text-muted-foreground">Avg price</span>
             )}
@@ -188,18 +193,21 @@ const ProductGroupRow = ({
           </td>
           <td className="py-3 px-2">
             <div className="flex flex-col gap-1">
-              {product.is_on_sale && product.sale_price ? (
-                <>
-                  <span className="font-bold text-destructive">
-                    ${parseFloat(product.sale_price.toString()).toFixed(2)}
-                  </span>
-                  <span className="text-xs line-through text-muted-foreground">
-                    ${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
-                  </span>
-                </>
-              ) : (
-                <span>${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}</span>
-              )}
+              {(() => {
+                const currency = product.region === 'eu' ? '€' : '$';
+                return product.is_on_sale && product.sale_price ? (
+                  <>
+                    <span className="font-bold text-destructive">
+                      {currency}{parseFloat(product.sale_price.toString()).toFixed(2)}
+                    </span>
+                    <span className="text-xs line-through text-muted-foreground">
+                      {currency}{product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
+                    </span>
+                  </>
+                ) : (
+                  <span>{currency}{product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}</span>
+                );
+              })()}
             </div>
           </td>
           <td className="py-3 px-2">

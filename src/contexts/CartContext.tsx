@@ -5,6 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useRegion } from '@/contexts/RegionContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -78,11 +79,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true); // Start as true since we load cart on mount
   const { toast } = useToast();
+  const { region } = useRegion();
 
   // Load cart on mount
   useEffect(() => {
     refreshCart();
-  }, []);
+  }, [region]); // Refresh cart when region changes
 
   /**
    * Refresh cart from API
@@ -90,8 +92,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const refreshCart = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/cart`, {
-        credentials: 'include'
+      const response = await fetch(`${API_URL}/api/cart?region=${region}`, {
+        credentials: 'include',
+        headers: { 'X-Region': region }
       });
 
       const data = await response.json();
@@ -164,9 +167,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('Sending to backend:', JSON.stringify(requestData, null, 2));
       console.log('====================================================');
 
-      const response = await fetch(`${API_URL}/api/cart/add`, {
+      const response = await fetch(`${API_URL}/api/cart/add?region=${region}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Region': region
+        },
         credentials: 'include',
         body: JSON.stringify(requestData)
       });
@@ -177,6 +183,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Check for specific error codes
         const errorCode = data.error?.code;
         const errorMessage = data.error?.message || 'Failed to add to cart';
+        
+        // Show specific error message for region mismatch
+        if (errorCode === 'REGION_MISMATCH') {
+          throw new Error(errorMessage);
+        }
         
         // Show specific error message for stock issues
         if (errorCode === 'BUNDLE_REQUIRED_ITEM_OUT_OF_STOCK' || errorMessage.includes('out of stock')) {
@@ -221,9 +232,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/api/cart/items/${itemId}`, {
+      const response = await fetch(`${API_URL}/api/cart/items/${itemId}?region=${region}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Region': region
+        },
         credentials: 'include',
         body: JSON.stringify({ quantity })
       });
@@ -255,8 +269,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/api/cart/items/${itemId}`, {
+      const response = await fetch(`${API_URL}/api/cart/items/${itemId}?region=${region}`, {
         method: 'DELETE',
+        headers: { 'X-Region': region },
         credentials: 'include'
       });
 
@@ -292,8 +307,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/api/cart/clear`, {
+      const response = await fetch(`${API_URL}/api/cart/clear?region=${region}`, {
         method: 'DELETE',
+        headers: { 'X-Region': region },
         credentials: 'include'
       });
 
@@ -328,9 +344,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
 
-      const response = await fetch(`${API_URL}/api/cart/apply-coupon`, {
+      const response = await fetch(`${API_URL}/api/cart/apply-coupon?region=${region}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Region': region
+        },
         credentials: 'include',
         body: JSON.stringify({ couponCode: code })
       });

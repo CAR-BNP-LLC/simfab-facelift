@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, User, ShoppingCart, Heart, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CartSidebar from './CartSidebar';
+import { RegionToggle } from './RegionToggle';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -242,26 +243,27 @@ const Header = () => {
   // Get product price
   const getProductPrice = (product: any) => {
     try {
+      const currency = product.region === 'eu' ? '€' : '$';
       if (product.price && typeof product.price === 'object') {
         if (product.price.min !== undefined && product.price.max !== undefined && product.price.min !== product.price.max) {
-          return `$${product.price.min.toFixed(2)} - $${product.price.max.toFixed(2)}`;
+          return `${currency}${product.price.min.toFixed(2)} - ${currency}${product.price.max.toFixed(2)}`;
         }
         if (product.price.regular) {
-          return `$${product.price.regular.toFixed(2)}`;
+          return `${currency}${product.price.regular.toFixed(2)}`;
         }
         if (product.price.min) {
-          return `$${product.price.min.toFixed(2)}`;
+          return `${currency}${product.price.min.toFixed(2)}`;
         }
       }
       
       if (product.price_min !== undefined && product.price_max !== undefined && product.price_min !== product.price_max) {
-        return `$${product.price_min.toFixed(2)} - $${product.price_max.toFixed(2)}`;
+        return `${currency}${product.price_min.toFixed(2)} - ${currency}${product.price_max.toFixed(2)}`;
       }
       if (product.regular_price !== undefined && product.regular_price !== null) {
-        return `$${product.regular_price.toFixed(2)}`;
+        return `${currency}${product.regular_price.toFixed(2)}`;
       }
       if (product.sale_price !== undefined && product.sale_price !== null) {
-        return `$${product.sale_price.toFixed(2)}`;
+        return `${currency}${product.sale_price.toFixed(2)}`;
       }
       
       return 'Price TBD';
@@ -490,6 +492,11 @@ const Header = () => {
                   )}
                 </div>
               </button>
+              
+              {/* Region Toggle */}
+              <div className="ml-2 hidden md:block">
+                <RegionToggle />
+              </div>
               
               {/* Admin Button - Only on 2xl+ screens where there's more space, and only for non-customer users */}
               {isNotCustomer && (

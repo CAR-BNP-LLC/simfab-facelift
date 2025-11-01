@@ -30,6 +30,7 @@ export class AdminOrderController {
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as string;
       const search = req.query.search as string;
+      const region = req.query.region as string;
 
       const offset = (page - 1) * limit;
 
@@ -54,6 +55,12 @@ export class AdminOrderController {
         params.push(status);
       }
 
+      if (region && (region === 'us' || region === 'eu')) {
+        paramCount++;
+        sql += ` AND o.region = $${paramCount}`;
+        params.push(region);
+      }
+
       if (search) {
         paramCount++;
         sql += ` AND (o.order_number ILIKE $${paramCount} OR o.customer_email ILIKE $${paramCount})`;
@@ -74,6 +81,12 @@ export class AdminOrderController {
         countParamCount++;
         countSql += ` AND o.status = $${countParamCount}`;
         countParams.push(status);
+      }
+
+      if (region && (region === 'us' || region === 'eu')) {
+        countParamCount++;
+        countSql += ` AND o.region = $${countParamCount}`;
+        countParams.push(region);
       }
 
       if (search) {
@@ -151,6 +164,22 @@ export class AdminOrderController {
       const orderId = parseInt(req.params.id);
       const { status, trackingNumber, carrier, notes } = req.body;
 
+      // Get previous order state BEFORE update to check if note is new
+      const previousOrderResult = await this.orderService['pool'].query(
+        'SELECT notes FROM orders WHERE id = $1',
+        [orderId]
+      );
+      
+      if (previousOrderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'ORDER_NOT_FOUND', message: 'Order not found' }
+        });
+      }
+
+      const previousNotes = previousOrderResult.rows[0]?.notes || '';
+      const hasNewNote = notes && notes.trim() && notes !== previousNotes && notes.trim().length > 0;
+
       let sql = 'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP';
       const params: any[] = [status];
       let paramCount = 1;
@@ -195,6 +224,33 @@ export class AdminOrderController {
         console.warn('Could not parse billing address for customer name:', error);
       }
 
+      // Trigger admin note event if a new note was added
+      if (hasNewNote) {
+        try {
+          const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+          
+          await this.emailService.triggerEvent(
+            'admin.note_added',
+            {
+              order_number: order.order_number,
+              customer_name: customerName,
+              customer_email: order.customer_email,
+              order_total: `$${totalAmount.toFixed(2)}`,
+              note: notes
+            },
+            {
+              customerEmail: order.customer_email,
+              customerName: customerName,
+              adminEmail: 'info@simfab.com'
+            }
+          );
+
+          console.log('✅ [DEBUG] admin.note_added event triggered successfully');
+        } catch (emailError) {
+          console.error('❌ [DEBUG] Failed to trigger admin.note_added event:', emailError);
+        }
+      }
+
       // Trigger appropriate event based on status change - automatically sends emails for all templates registered for the event
       try {
         let triggerEvent: string | null = null;
@@ -212,13 +268,25 @@ export class AdminOrderController {
         }
 
         if (triggerEvent) {
+          // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
+          const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+
+          console.log('📧 [DEBUG] Triggering order status change event:', {
+            event: triggerEvent,
+            order_number: order.order_number,
+            status,
+            customer_email: order.customer_email,
+            customer_name: customerName,
+            total_amount: totalAmount
+          });
+
           await this.emailService.triggerEvent(
             triggerEvent,
             {
               order_number: order.order_number,
               customer_name: customerName,
               customer_email: order.customer_email,
-              order_total: `$${order.total_amount.toFixed(2)}`,
+              order_total: `$${totalAmount.toFixed(2)}`,
               order_date: new Date(order.created_at).toLocaleDateString(),
               tracking_number: trackingNumber || '',
               carrier: carrier || '',
@@ -230,6 +298,8 @@ export class AdminOrderController {
               adminEmail: 'info@simfab.com'
             }
           );
+
+          console.log(`✅ [DEBUG] ${triggerEvent} event triggered successfully`);
         }
       } catch (emailError) {
         console.error(`Failed to trigger ${status} event emails:`, emailError);

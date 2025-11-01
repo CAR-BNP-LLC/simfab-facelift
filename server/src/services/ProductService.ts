@@ -92,10 +92,27 @@ export class ProductService {
    * Get product by ID with all details
    * Optionally filter by region if provided
    */
-  async getProductById(id: number, region?: 'us' | 'eu'): Promise<ProductWithDetails> {
+  async getProductById(id: number | string, region?: 'us' | 'eu'): Promise<ProductWithDetails> {
+    // Validate and convert ID
+    let productId: number;
+    if (typeof id === 'number') {
+      if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
+        throw new Error(`Invalid product ID: ${id}`);
+      }
+      productId = id;
+    } else {
+      const strId = String(id).trim();
+      if (strId === '' || strId.toLowerCase() === 'nan') {
+        throw new Error(`Invalid product ID: "${strId}"`);
+      }
+      productId = parseInt(strId, 10);
+      if (isNaN(productId) || productId <= 0 || !Number.isInteger(productId)) {
+        throw new Error(`Invalid product ID: "${strId}"`);
+      }
+    }
     try {
       const regionFilter = region ? `AND p.region = $2` : '';
-      const params = region ? [id, region] : [id];
+      const params = region ? [productId, region] : [productId];
       
       const sql = `
         SELECT 
@@ -115,25 +132,25 @@ export class ProductService {
       const result = await this.pool.query(sql, params);
 
       if (result.rows.length === 0) {
-        throw new NotFoundError('Product', { productId: id });
+        throw new NotFoundError('Product', { productId });
       }
 
       const product = result.rows[0];
 
       // Get variations with options
-      const variations = await this.getProductVariations(id);
+      const variations = await this.getProductVariations(productId);
 
       // Get FAQs
-      const faqs = await this.getProductFAQs(id);
+      const faqs = await this.getProductFAQs(productId);
 
       // Get description components
-      const descriptionComponents = await this.getProductDescriptionComponents(id);
+      const descriptionComponents = await this.getProductDescriptionComponents(productId);
 
       // Get assembly manuals
-      const assemblyManuals = await this.getAssemblyManuals(id);
+      const assemblyManuals = await this.getAssemblyManuals(productId);
 
       // Get additional info
-      const additionalInfo = await this.getAdditionalInfo(id);
+      const additionalInfo = await this.getAdditionalInfo(productId);
 
       return {
         ...product,
@@ -156,17 +173,27 @@ export class ProductService {
 
   /**
    * Get product by slug
+   * @param slug - Product slug
+   * @param region - Region filter ('us' | 'eu'). If provided, only returns products from that region.
    */
-  async getProductBySlug(slug: string): Promise<ProductWithDetails> {
+  async getProductBySlug(slug: string, region?: 'us' | 'eu'): Promise<ProductWithDetails> {
     try {
-      const sql = 'SELECT id FROM products WHERE slug = $1 AND status = $2';
-      const result = await this.pool.query(sql, [slug, ProductStatus.ACTIVE]);
+      let sql = 'SELECT id FROM products WHERE slug = $1 AND status = $2';
+      const params: any[] = [slug, ProductStatus.ACTIVE];
+      
+      // Filter by region if provided
+      if (region) {
+        sql += ' AND region = $3';
+        params.push(region);
+      }
+      
+      const result = await this.pool.query(sql, params);
 
       if (result.rows.length === 0) {
-        throw new NotFoundError('Product', { slug });
+        throw new NotFoundError('Product', { slug, region });
       }
 
-      return this.getProductById(result.rows[0].id);
+      return this.getProductById(result.rows[0].id, region);
     } catch (error) {
       if (error instanceof NotFoundError) throw error;
       console.error('Error getting product by slug:', error);
@@ -201,11 +228,12 @@ export class ProductService {
       if (slugCheck.rows.length > 0) {
         throw new ConflictError(`Product with slug "${slug}" already exists in ${region.toUpperCase()} region`, 'DUPLICATE_ENTRY');
       }
-      // Generate product_group_id if not provided (for single-region products, each gets unique ID)
-      // If product_group_id is provided, use it (for multi-region products)
-      const productGroupId = data.product_group_id !== undefined 
+      // Only set product_group_id if explicitly provided (for multi-region products)
+      // Single-region products should have product_group_id = NULL
+      // This prevents orphaned product_group_ids from showing as "linked" when no paired product exists
+      const productGroupId = data.product_group_id !== undefined && data.product_group_id !== null && data.product_group_id !== ''
         ? data.product_group_id 
-        : null; // Will be set by default in SQL or generate UUID
+        : null;
       
       const sql = `
         INSERT INTO products (
@@ -225,7 +253,7 @@ export class ProductService {
           $18, $19,
           $20, $21, $22,
           $23, $24,
-          $25, COALESCE($26, gen_random_uuid())
+          $25, $26
         )
         RETURNING *
       `;
@@ -310,17 +338,20 @@ export class ProductService {
         }
       }
 
-      // Fields that should be synced to paired product (everything except stock)
+      // Fields that should be synced to paired product (everything except stock, pricing, and SKU)
       const sharedFields = [
         'name', 'slug', 'description', 'short_description', 'type', 'status', 'featured',
-        'regular_price', 'sale_price', 'is_on_sale', 'sale_start_date', 'sale_end_date', 'sale_label',
         'weight_lbs', 'length_in', 'width_in', 'height_in',
         'tax_class', 'shipping_class', 'categories', 'tags', 'meta_data',
         'seo_title', 'seo_description'
       ];
 
       // Fields that are region-specific (should NOT be synced)
-      const regionSpecificFields = ['stock', 'stock_quantity', 'low_stock_amount', 'low_stock_threshold', 'in_stock', 'sku', 'region'];
+      // Pricing is region-specific because US uses USD and EU uses EUR
+      const regionSpecificFields = [
+        'stock', 'stock_quantity', 'low_stock_amount', 'low_stock_threshold', 'in_stock', 'sku', 'region',
+        'regular_price', 'sale_price', 'is_on_sale', 'sale_start_date', 'sale_end_date', 'sale_label'
+      ];
 
       // Build dynamic update query for the main product
       const updateFields: string[] = [];
@@ -375,31 +406,32 @@ export class ProductService {
         addField('featured', data.featured);
         if (hasGroup) sharedFieldsToSync['featured'] = data.featured;
       }
+      // Pricing fields - region-specific (USD for US, EUR for EU), NOT synced
       if (data.regular_price !== undefined) {
         addField('regular_price', data.regular_price);
-        if (hasGroup) sharedFieldsToSync['regular_price'] = data.regular_price;
+        // Do NOT sync prices - they are region-specific
       }
       if (data.sale_price !== undefined) {
         addField('sale_price', data.sale_price);
-        if (hasGroup) sharedFieldsToSync['sale_price'] = data.sale_price;
+        // Do NOT sync prices - they are region-specific
       }
       
-      // Discount fields
+      // Discount fields - region-specific (sale can be active in one region but not the other)
       if (data.is_on_sale !== undefined) {
         forceAddField('is_on_sale', data.is_on_sale);
-        if (hasGroup) sharedFieldsToSync['is_on_sale'] = data.is_on_sale;
+        // Do NOT sync sale status - it's region-specific
       }
       if ('sale_start_date' in data) {
         forceAddField('sale_start_date', data.sale_start_date);
-        if (hasGroup) sharedFieldsToSync['sale_start_date'] = data.sale_start_date;
+        // Do NOT sync sale dates - they are region-specific
       }
       if ('sale_end_date' in data) {
         forceAddField('sale_end_date', data.sale_end_date);
-        if (hasGroup) sharedFieldsToSync['sale_end_date'] = data.sale_end_date;
+        // Do NOT sync sale dates - they are region-specific
       }
       if ('sale_label' in data) {
         forceAddField('sale_label', data.sale_label);
-        if (hasGroup) sharedFieldsToSync['sale_label'] = data.sale_label;
+        // Do NOT sync sale label - it's region-specific
       }
       
       if (data.weight_lbs !== undefined) {

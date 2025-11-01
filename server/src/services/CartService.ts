@@ -33,23 +33,26 @@ export class CartService {
   /**
    * Get or create cart for current session/user
    */
-  async getOrCreateCart(sessionId?: string, userId?: number): Promise<Cart> {
+  async getOrCreateCart(sessionId?: string, userId?: number, region?: 'us' | 'eu'): Promise<Cart> {
     try {
-      // First try to find existing cart
-      let cart = await this.findCart(sessionId, userId);
+      // First try to find existing cart with matching region
+      let cart = await this.findCart(sessionId, userId, region);
 
       if (cart) {
         // Check if cart is expired
         if (new Date(cart.expires_at) < new Date()) {
           // Clear expired cart and create new one
           await this.clearCart(cart.id);
-          cart = await this.createCart(sessionId, userId);
+          cart = await this.createCart(sessionId, userId, region);
         }
         return cart;
       }
 
-      // Create new cart if none exists
-      return await this.createCart(sessionId, userId);
+      // Create new cart if none exists (region required)
+      if (!region) {
+        throw new Error('Region is required to create a cart');
+      }
+      return await this.createCart(sessionId, userId, region);
     } catch (error) {
       console.error('Error getting or creating cart:', error);
       throw error;
@@ -59,59 +62,145 @@ export class CartService {
   /**
    * Find existing cart
    * Excludes converted carts (carts that have been cleared after payment)
+   * If region is provided, only finds carts matching that region
    */
-  async findCart(sessionId?: string, userId?: number): Promise<Cart | null> {
+  async findCart(sessionId?: string, userId?: number, region?: 'us' | 'eu'): Promise<Cart | null> {
     try {
       let sql: string;
       let params: any[];
 
+      console.log('🔍 findCart called:', { sessionId, userId, region });
+
       if (userId) {
         // Logged-in user - find by user_id, excluding converted carts
-        sql = `SELECT * FROM carts 
-               WHERE user_id = $1 
-               AND status != 'converted' 
-               ORDER BY updated_at DESC LIMIT 1`;
-        params = [userId];
+        if (region) {
+          sql = `SELECT * FROM carts 
+                 WHERE user_id = $1 
+                 AND status != 'converted' 
+                 AND region = $2
+                 ORDER BY updated_at DESC LIMIT 1`;
+          params = [userId, region];
+        } else {
+          sql = `SELECT * FROM carts 
+                 WHERE user_id = $1 
+                 AND status != 'converted' 
+                 ORDER BY updated_at DESC LIMIT 1`;
+          params = [userId];
+        }
       } else if (sessionId) {
         // Guest user - find by session_id, excluding converted carts
-        sql = `SELECT * FROM carts 
-               WHERE session_id = $1 
-               AND user_id IS NULL 
-               AND status != 'converted'
-               ORDER BY updated_at DESC LIMIT 1`;
-        params = [sessionId];
+        if (region) {
+          sql = `SELECT * FROM carts 
+                 WHERE session_id = $1 
+                 AND user_id IS NULL 
+                 AND status != 'converted'
+                 AND region = $2
+                 ORDER BY updated_at DESC LIMIT 1`;
+          params = [sessionId, region];
+        } else {
+          sql = `SELECT * FROM carts 
+                 WHERE session_id = $1 
+                 AND user_id IS NULL 
+                 AND status != 'converted'
+                 ORDER BY updated_at DESC LIMIT 1`;
+          params = [sessionId];
+        }
       } else {
+        console.warn('⚠️ findCart called without sessionId or userId');
         return null;
       }
 
+      console.log('🔍 Executing SQL:', sql, 'with params:', params);
       const result = await this.pool.query(sql, params);
+      console.log('🔍 findCart result:', result.rows.length > 0 ? `Found cart ${result.rows[0].id} with region ${result.rows[0].region}` : 'No cart found');
       return result.rows[0] || null;
     } catch (error) {
-      console.error('Error finding cart:', error);
+      console.error('❌ Error finding cart:', error);
       return null;
     }
   }
 
   /**
    * Create new cart
+   * @param region - Cart region (required)
    */
-  async createCart(sessionId?: string, userId?: number): Promise<Cart> {
+  async createCart(sessionId?: string, userId?: number, region?: 'us' | 'eu'): Promise<Cart> {
+    if (!region) {
+      throw new Error('Region is required to create a cart');
+    }
+    
     const sql = `
-      INSERT INTO carts (user_id, session_id, expires_at)
-      VALUES ($1, $2, CURRENT_TIMESTAMP + INTERVAL '7 days')
+      INSERT INTO carts (user_id, session_id, region, expires_at)
+      VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '7 days')
       RETURNING *
     `;
 
-    const result = await this.pool.query(sql, [userId || null, sessionId || null]);
+    const result = await this.pool.query(sql, [userId || null, sessionId || null, region]);
     return result.rows[0];
   }
 
   /**
    * Get cart with all items and details
+   * @param sessionId - Session ID (optional)
+   * @param userId - User ID (optional)
+   * @param region - Region to filter cart by (optional, but recommended)
+   * @param cartId - Specific cart ID to retrieve (optional, overrides other params)
+   * @param createIfNotExists - If true, creates a new cart if none exists (default: false)
    */
-  async getCartWithItems(sessionId?: string, userId?: number): Promise<CartWithItems | null> {
+  async getCartWithItems(sessionId?: string, userId?: number, region?: 'us' | 'eu', cartId?: number, createIfNotExists: boolean = false): Promise<CartWithItems | null> {
     try {
-      const cart = await this.getOrCreateCart(sessionId, userId);
+      let cart: Cart | null = null;
+      
+      // If cartId is provided, get that specific cart (with security check)
+      if (cartId) {
+        let cartSql = 'SELECT * FROM carts WHERE id = $1';
+        const cartParams: any[] = [cartId];
+        
+        // Security: Verify cart belongs to this session/user
+        if (userId) {
+          cartSql += ' AND (user_id = $2 OR user_id IS NULL)';
+          cartParams.push(userId);
+        } else if (sessionId) {
+          cartSql += ' AND (session_id = $2 OR user_id IS NULL)';
+          cartParams.push(sessionId);
+        }
+        
+        const cartResult = await this.pool.query(cartSql, cartParams);
+        cart = cartResult.rows[0] || null;
+        
+        if (!cart) {
+          console.warn(`Cart ${cartId} not found or access denied for session ${sessionId}, user ${userId}`);
+        }
+      } else if (region) {
+        // If region is provided, find cart for that region (or create if createIfNotExists is true)
+        if (createIfNotExists) {
+          cart = await this.getOrCreateCart(sessionId, userId, region);
+        } else {
+          // Try to find cart with the specified region first
+          cart = await this.findCart(sessionId, userId, region) || null;
+          
+          // If no cart found with region filter, try without region filter to find ANY cart
+          // This handles cases where region detection might be incorrect
+          if (!cart) {
+            console.log(`⚠️ No cart found for region ${region}, trying without region filter...`);
+            cart = await this.findCart(sessionId, userId) || null;
+            if (cart) {
+              console.log(`✅ Found cart ${cart.id} with region ${cart.region} (requested region was ${region})`);
+              // If we found a cart with a different region, update the region parameter
+              // to ensure currency and totals are calculated correctly
+              region = cart.region as 'us' | 'eu';
+            }
+          }
+          // Note: We do NOT fall back to a different region's cart if the current region's cart is empty.
+          // This prevents region/currency mismatches. If the cart for the requested region is empty,
+          // we return it as-is and let the controller handle returning null for empty carts.
+        }
+      } else {
+        // Otherwise, get existing cart (which should already have a region)
+        // Don't create if region is not provided - we need region to create
+        cart = await this.findCart(sessionId, userId) || null;
+      }
+      
       if (!cart) return null;
 
       // If cart is converted, return null so a new cart will be created on next operation
@@ -160,8 +249,8 @@ export class CartService {
       );
       const appliedCoupons = couponsResult.rows;
 
-      // Calculate totals
-      const totals = await this.calculateTotals(cart.id, items);
+      // Calculate totals (pass cart region for currency)
+      const totals = await this.calculateTotals(cart.id, items, cart.region);
 
       return {
         ...cart,
@@ -188,13 +277,10 @@ export class CartService {
     try {
       await client.query('BEGIN');
 
-      // Get or create cart
-      const cart = await this.getOrCreateCart(sessionId, userId);
-
-      // Validate product exists and is in stock
+      // Validate product exists and get its region first
       const productSql = `
         SELECT 
-          p.id, p.name, p.sku, p.slug, p.stock, p.status, p.is_bundle,
+          p.id, p.name, p.sku, p.slug, p.stock, p.status, p.is_bundle, p.region,
           COALESCE(
             (SELECT json_agg(row_to_json(pi))
              FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -207,13 +293,79 @@ export class CartService {
       const productResult = await client.query(productSql, [data.productId]);
 
       if (productResult.rows.length === 0) {
+        await client.query('ROLLBACK');
         throw new NotFoundError('Product', { productId: data.productId });
       }
 
       const product = productResult.rows[0];
 
       if (product.status !== 'active') {
+        await client.query('ROLLBACK');
         throw new ValidationError('Product is not available for purchase');
+      }
+
+      const productRegion = product.region as 'us' | 'eu';
+
+      // Find or create cart within the transaction (using client, not pool)
+      let cart: Cart | null = null;
+      
+      // Try to find existing cart with matching region within transaction
+      let findCartSql: string;
+      let findCartParams: any[];
+      
+      if (userId) {
+        findCartSql = `SELECT * FROM carts 
+                       WHERE user_id = $1 
+                       AND status != 'converted' 
+                       AND region = $2
+                       ORDER BY updated_at DESC LIMIT 1`;
+        findCartParams = [userId, productRegion];
+      } else if (sessionId) {
+        findCartSql = `SELECT * FROM carts 
+                       WHERE session_id = $1 
+                       AND user_id IS NULL 
+                       AND status != 'converted'
+                       AND region = $2
+                       ORDER BY updated_at DESC LIMIT 1`;
+        findCartParams = [sessionId, productRegion];
+      } else {
+        await client.query('ROLLBACK');
+        throw new ValidationError('Session ID or User ID required');
+      }
+      
+      const findCartResult = await client.query(findCartSql, findCartParams);
+      cart = findCartResult.rows[0] || null;
+      
+      if (!cart) {
+        // No cart exists for this region, create one within transaction
+        const createCartSql = `
+          INSERT INTO carts (user_id, session_id, region, expires_at)
+          VALUES ($1, $2, $3, CURRENT_TIMESTAMP + INTERVAL '7 days')
+          RETURNING *
+        `;
+        const createCartResult = await client.query(createCartSql, [
+          userId || null,
+          sessionId || null,
+          productRegion
+        ]);
+        cart = createCartResult.rows[0];
+      } else {
+        // Cart exists - validate it matches product region
+        if (cart.region !== productRegion) {
+          await client.query('ROLLBACK');
+          const existingRegion = cart.region === 'us' ? 'US' : 'EU';
+          const newRegion = productRegion === 'us' ? 'US' : 'EU';
+          throw new ValidationError(
+            `You can only add products from ${newRegion} to your cart. Your cart currently contains ${existingRegion} products. Please clear your cart first or visit the ${existingRegion === 'US' ? 'EU' : 'US'} store.`,
+            { code: 'REGION_MISMATCH', cartRegion: cart.region, productRegion }
+          );
+        }
+      }
+
+      // At this point, cart should never be null (either found or created)
+      if (!cart) {
+        await client.query('ROLLBACK');
+        throw new Error('Failed to get or create cart');
       }
 
       // Normalize configuration first
@@ -226,6 +378,7 @@ export class CartService {
       );
       
       if (data.quantity > availableStock) {
+        await client.query('ROLLBACK');
         throw new ValidationError(`Insufficient stock. Only ${availableStock} available`, {
           available: availableStock,
           requested: data.quantity
@@ -295,6 +448,7 @@ export class CartService {
         const outOfStockRequired = requiredItems.filter((item: any) => item.available <= 0);
         
         if (outOfStockRequired.length > 0) {
+          await client.query('ROLLBACK');
           const itemNames = outOfStockRequired.map((item: any) => item.productName).join(', ');
           throw new ValidationError(
             `Cannot add to cart: Required bundle items are out of stock: ${itemNames}`,
@@ -760,8 +914,9 @@ export class CartService {
 
   /**
    * Calculate cart totals
+   * @param cartRegion - Cart region for determining currency
    */
-  private async calculateTotals(cartId: number, items: CartItemWithProduct[]): Promise<CartTotals> {
+  private async calculateTotals(cartId: number, items: CartItemWithProduct[], cartRegion?: 'us' | 'eu'): Promise<CartTotals> {
     // Calculate subtotal from items
     const subtotal = items.reduce((sum, item) => sum + parseFloat(item.total_price.toString()), 0);
 
@@ -787,13 +942,16 @@ export class CartService {
     const total = subtotal - totalDiscount + shipping + tax;
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
+    // Determine currency from cart region
+    const currency = cartRegion === 'eu' ? 'EUR' : 'USD';
+
     return {
       subtotal: Math.round(subtotal * 100) / 100,
       discount: Math.round(totalDiscount * 100) / 100,
       shipping: Math.round(shipping * 100) / 100,
       tax: Math.round(tax * 100) / 100,
       total: Math.round(total * 100) / 100,
-      currency: 'USD',
+      currency,
       itemCount
     };
   }

@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { Pool } from 'pg';
 import { AdminProductController } from '../../controllers/adminProductController';
+import { AdminCSVController } from '../../controllers/adminCSVController';
 import { FileUploadService } from '../../services/FileUploadService';
 import {
   validateRequest,
@@ -24,6 +25,7 @@ import { adminRateLimiter } from '../../middleware/rateLimiter';
 export const createAdminProductRoutes = (pool: Pool): Router => {
   const router = Router();
   const controller = new AdminProductController(pool);
+  const csvController = new AdminCSVController(pool);
   const fileUploadService = new FileUploadService();
 
   // Apply rate limiting to all admin routes
@@ -53,6 +55,18 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   router.get(
     '/stock-mismatch-check',
     controller.checkStockMismatch
+  );
+
+  /**
+   * @route   GET /api/admin/products/export
+   * @desc    Export products to CSV
+   * @access  Admin with products:view authority
+   * @note    Must be before /:id routes to avoid route conflicts
+   */
+  router.get(
+    '/export',
+    requireAuthority('products:view'),
+    csvController.exportProducts
   );
 
   /**
@@ -247,6 +261,34 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
     '/:id/images/reorder',
     validateRequest(reorderImagesSchema),
     controller.reorderImages
+  );
+
+  // ============================================================================
+  // CSV IMPORT/EXPORT
+  // ============================================================================
+
+  /**
+   * @route   POST /api/admin/products/import
+   * @desc    Import products from CSV
+   * @access  Admin with products:create authority
+   */
+  router.post(
+    '/import',
+    requireAuthority('products:create'),
+    fileUploadService.getCSVUploadMiddleware().single('file'),
+    csvController.importProducts
+  );
+
+  /**
+   * @route   POST /api/admin/products/import/validate
+   * @desc    Validate CSV without importing
+   * @access  Admin with products:view authority
+   */
+  router.post(
+    '/import/validate',
+    requireAuthority('products:view'),
+    fileUploadService.getCSVUploadMiddleware().single('file'),
+    csvController.validateCSV
   );
 
   return router;

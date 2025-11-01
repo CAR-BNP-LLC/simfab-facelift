@@ -110,7 +110,9 @@ export class ProductController {
   getProductBySlug = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const slug = req.params.slug;
-      const product = await this.productService.getProductBySlug(slug);
+      // Use region from request (set by regionDetection middleware)
+      const region = req.region;
+      const product = await this.productService.getProductBySlug(slug, region);
 
       if (!product) {
         return res.status(404).json({

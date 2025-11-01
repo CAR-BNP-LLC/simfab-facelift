@@ -46,6 +46,10 @@ export class OrderService {
         throw new ValidationError('Cannot create order with empty cart');
       }
       
+      if (!cart.region) {
+        throw new ValidationError('Cart region is missing');
+      }
+      
       console.log('Cart items for order creation:', cart.items.map(item => ({
         product_id: item.product_id,
         product_name: item.product_name,
@@ -64,6 +68,7 @@ export class OrderService {
       const shipping = orderData.shippingAmount !== undefined ? orderData.shippingAmount : cart.totals.shipping;
       const tax = orderData.taxAmount !== undefined ? orderData.taxAmount : cart.totals.tax;
       const total = subtotal - discount + shipping + tax;
+      const currency = cart.totals.currency || (cart.region === 'eu' ? 'EUR' : 'USD');
 
       console.log('💰 Order totals calculation:', {
         subtotal,
@@ -71,6 +76,7 @@ export class OrderService {
         shipping,
         tax,
         total,
+        currency,
         formula: `${subtotal} - ${discount} + ${shipping} + ${tax} = ${total}`,
         'orderData.shippingAmount': orderData.shippingAmount,
         'orderData.taxAmount': orderData.taxAmount,
@@ -89,7 +95,7 @@ export class OrderService {
       const orderSql = `
         INSERT INTO orders (
           user_id, cart_id, status, payment_status, shipping_status,
-          subtotal, tax_amount, shipping_amount, discount_amount, total_amount, currency,
+          subtotal, tax_amount, shipping_amount, discount_amount, total_amount, currency, region,
           customer_email, customer_phone,
           billing_address, shipping_address,
           payment_method, shipping_method, notes,
@@ -97,12 +103,12 @@ export class OrderService {
           package_size, is_international_shipping
         ) VALUES (
           $1, $2, $3, $4, $5,
-          $6, $7, $8, $9, $10, $11,
-          $12, $13,
-          $14, $15,
-          $16, $17, $18,
-          $19, $20,
-          $21, $22
+          $6, $7, $8, $9, $10, $11, $12,
+          $13, $14,
+          $15, $16,
+          $17, $18, $19,
+          $20, $21,
+          $22, $23
         )
         RETURNING *
       `;
@@ -110,28 +116,29 @@ export class OrderService {
       const paymentExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
       const orderResult = await client.query(orderSql, [
-        userId || null,
-        cart.id,
-        OrderStatus.PENDING,
-        PaymentStatus.PENDING,
-        'pending',
-        subtotal,
-        tax,
-        shipping,
-        discount,
-        total,
-        'USD',
-        orderData.billingAddress.email || orderData.shippingAddress.email || '',
-        orderData.billingAddress.phone || orderData.shippingAddress.phone || null,
-        JSON.stringify(orderData.billingAddress),
-        JSON.stringify(orderData.shippingAddress),
-        orderData.paymentMethodId || null,
-        orderData.shippingMethodId || null,
-        orderData.orderNotes || null,
-        paymentExpiresAt,
-        true,
-        packageSize,
-        isInternational
+        userId || null,           // $1 user_id
+        cart.id,                   // $2 cart_id
+        OrderStatus.PENDING,       // $3 status
+        PaymentStatus.PENDING,      // $4 payment_status
+        'pending',                  // $5 shipping_status
+        subtotal,                   // $6 subtotal
+        tax,                        // $7 tax_amount
+        shipping,                   // $8 shipping_amount
+        discount,                    // $9 discount_amount
+        total,                      // $10 total_amount
+        currency,                   // $11 currency
+        cart.region,                // $12 region
+        orderData.billingAddress.email || orderData.shippingAddress.email || '',  // $13 customer_email
+        orderData.billingAddress.phone || orderData.shippingAddress.phone || null, // $14 customer_phone
+        JSON.stringify(orderData.billingAddress),   // $15 billing_address
+        JSON.stringify(orderData.shippingAddress), // $16 shipping_address
+        orderData.paymentMethodId || null,         // $17 payment_method
+        orderData.shippingMethodId || null,        // $18 shipping_method
+        orderData.orderNotes || null,              // $19 notes
+        paymentExpiresAt,                          // $20 payment_expires_at
+        true,                                      // $21 stock_reserved
+        packageSize,                                // $22 package_size
+        isInternational                             // $23 is_international_shipping
       ]);
 
       const order = orderResult.rows[0];

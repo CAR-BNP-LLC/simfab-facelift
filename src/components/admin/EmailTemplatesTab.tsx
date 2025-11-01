@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Mail, Send, Save, FileText, Eye, Plus, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -468,26 +469,6 @@ export default function EmailTemplatesTab() {
               </p>
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button 
-                onClick={handleSave} 
-                disabled={saving}
-                className="flex-1"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Template
-                  </>
-                )}
-              </Button>
-            </div>
-
             <div className="border-t pt-4">
               <Label htmlFor="test_email">Test Email Address</Label>
               <div className="flex gap-2 mt-2">
@@ -609,6 +590,52 @@ export default function EmailTemplatesTab() {
                   </Badge>
                 </div>
               </div>
+              
+              {/* Toggle to Enable/Disable Email */}
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-[#2b2b2b]">
+                <div className="space-y-0.5">
+                  <Label htmlFor="email-active-toggle" className="text-white">
+                    Enable Email Template
+                  </Label>
+                  <p className="text-xs text-[#999999]">
+                    {selectedTemplate.is_active 
+                      ? 'This email will be sent automatically when triggered'
+                      : 'This email is disabled and will not be sent'}
+                  </p>
+                </div>
+                <Switch
+                  id="email-active-toggle"
+                  checked={selectedTemplate.is_active}
+                  onCheckedChange={(checked) => {
+                    setSelectedTemplate({
+                      ...selectedTemplate,
+                      is_active: checked
+                    });
+                  }}
+                  className="data-[state=checked]:bg-[#c5303b]"
+                />
+              </div>
+            </div>
+
+            {/* Save Template Button - At the bottom */}
+            <div className="border-t pt-4 mt-4">
+              <Button 
+                onClick={handleSave} 
+                disabled={saving}
+                className="w-full bg-[#c5303b] hover:bg-[#a02630] text-white"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Template
+                  </>
+                )}
+              </Button>
             </div>
           </CardContent>
           </Card>

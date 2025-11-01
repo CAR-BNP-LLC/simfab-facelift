@@ -12,13 +12,14 @@ const SimRacingSection = () => {
     const product = pageProduct.product;
     if (!product) return null;
 
+    const currency = product.region === 'eu' ? '€' : '$';
     const price = product.sale_price 
-      ? `$${product.sale_price}` 
+      ? `${currency}${product.sale_price}` 
       : product.regular_price 
-        ? `$${product.regular_price}` 
+        ? `${currency}${product.regular_price}` 
         : product.price_min 
-          ? `from $${product.price_min}` 
-          : 'from $0';
+          ? `from ${currency}${product.price_min}` 
+          : `from ${currency}0`;
 
     return {
       id: product.id,

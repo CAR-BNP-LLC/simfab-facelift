@@ -48,6 +48,7 @@ export function detectRegion(req: Request): Region {
   // Development/Testing: Check X-Region header
   if (headerRegion === 'eu' || headerRegion === 'us') {
     console.log('✅ Detected region from X-Region header:', headerRegion);
+    console.log('📝 Note: Header overrides DEFAULT_REGION env var. If this is wrong, check VITE_DEFAULT_REGION in frontend .env and restart frontend dev server.');
     return headerRegion as Region;
   }
   
@@ -57,17 +58,32 @@ export function detectRegion(req: Request): Region {
     return queryRegion as Region;
   }
   
-  // Default to US or from env var
-  const defaultRegion = process.env.DEFAULT_REGION === 'eu' ? 'eu' : 'us';
-  console.log('⚠️ Using default region:', defaultRegion);
-  return defaultRegion;
+  // No region provided - client must specify region via header or query param
+  // This ensures the client is always in control of region selection
+  console.error('❌ No region detected! Client must provide region via X-Region header or ?region query parameter.');
+  // Return null instead of throwing - let controllers handle missing region
+  return null as any;
 }
 
 /**
  * Middleware to detect and set region on request
  */
 export function regionDetection(req: Request, res: Response, next: NextFunction): void {
-  req.region = detectRegion(req);
-  next();
+  try {
+    const detectedRegion = detectRegion(req);
+    if (!detectedRegion) {
+      console.error('❌ regionDetection middleware: No region detected for', req.method, req.path);
+      req.region = 'us'; // Fallback to 'us' but log the error
+      console.warn('⚠️ Falling back to "us" region. Client should provide X-Region header or ?region query parameter.');
+    } else {
+      req.region = detectedRegion;
+      console.log('🌐 regionDetection middleware: Set req.region =', detectedRegion, 'for', req.method, req.path);
+    }
+    next();
+  } catch (error) {
+    console.error('❌ Error in regionDetection middleware:', error);
+    req.region = 'us'; // Fallback to 'us' on error
+    next();
+  }
 }
 

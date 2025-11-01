@@ -60,7 +60,10 @@ const Checkout = () => {
 
   // Get cart data early so it's available for useEffects
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, itemCount: 0 };
+  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, currency: 'USD', itemCount: 0 };
+  
+  // Get currency symbol from cart totals
+  const currency = totals.currency === 'EUR' ? '€' : '$';
 
   // Auto-fill from user data when available (only if fields are empty, never overwrite user input)
   const [hasAutoFilled, setHasAutoFilled] = useState(false);
@@ -554,7 +557,7 @@ const Checkout = () => {
                           <div className="flex-1">
                             <h3 className="font-semibold">{item.product_name}</h3>
                             <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                            <p className="font-semibold mt-2">${parseFloat(item.total_price).toFixed(2)}</p>
+                            <p className="font-semibold mt-2">{currency}{parseFloat(item.total_price).toFixed(2)}</p>
                           </div>
                         </div>
                       ))}
@@ -668,9 +671,9 @@ const Checkout = () => {
                                               SimFab team saves you {option.fedexRateData.discountPercent}% on delivery!
                                             </div>
                                             <div className="text-muted-foreground">
-                                              <span className="line-through">${option.fedexRateData.listRate.toFixed(2)}</span>
+                                              <span className="line-through">{currency}{option.fedexRateData.listRate.toFixed(2)}</span>
                                               {' '}→{' '}
-                                              <span className="font-semibold text-foreground">${option.cost.toFixed(2)}</span>
+                                              <span className="font-semibold text-foreground">{currency}{option.cost.toFixed(2)}</span>
                                             </div>
                                           </div>
                                         ) : null}
@@ -683,7 +686,7 @@ const Checkout = () => {
                                         ? 'Quote Required'
                                         : option.cost === 0
                                         ? 'FREE'
-                                        : `$${option.cost.toFixed(2)}`}
+                                        : `${currency}${option.cost.toFixed(2)}`}
                                     </p>
                                   </div>
                                 </label>
@@ -701,7 +704,7 @@ const Checkout = () => {
                           {shippingAddress.country === 'US' && 
                            shippingAddress.state && 
                            !['AK', 'HI'].includes(shippingAddress.state) 
-                            ? 'Free shipping on orders over $50'
+                            ? `Free shipping on orders over ${currency}50`
                             : 'Shipping rates are calculated based on package size and destination'}
                         </AlertDescription>
                       </Alert>
@@ -774,7 +777,7 @@ const Checkout = () => {
                             ? 'Quote Required' 
                             : shippingCost === 0 
                             ? 'FREE' 
-                            : `$${shippingCost.toFixed(2)}`}
+                            : `${currency}${shippingCost.toFixed(2)}`}
                         </p>
                       </div>
                     </CardContent>
@@ -807,7 +810,7 @@ const Checkout = () => {
                               <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold">${parseFloat(item.total_price).toFixed(2)}</p>
+                              <p className="font-semibold">{currency}{parseFloat(item.total_price).toFixed(2)}</p>
                             </div>
                           </div>
                         ))}
@@ -900,7 +903,7 @@ const Checkout = () => {
                             <div key={idx} className="flex items-center justify-between bg-green-50 dark:bg-green-950 p-2 rounded mb-1">
                               <div>
                                 <span className="font-mono font-semibold text-sm text-green-700 dark:text-green-300">{coupon?.code || 'Coupon'}</span>
-                                <p className="text-xs text-green-600 dark:text-green-400">-${discount.toFixed(2)}</p>
+                                <p className="text-xs text-green-600 dark:text-green-400">-{currency}{discount.toFixed(2)}</p>
                               </div>
                             </div>
                           );
@@ -942,13 +945,13 @@ const Checkout = () => {
 
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal:</span>
-                      <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
+                      <span className="font-medium">{currency}{totals.subtotal.toFixed(2)}</span>
                     </div>
 
                     {totals.discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Discount:</span>
-                        <span className="font-medium text-green-600">-${totals.discount.toFixed(2)}</span>
+                        <span className="font-medium text-green-600">-{currency}{totals.discount.toFixed(2)}</span>
                       </div>
                     )}
 
@@ -961,22 +964,22 @@ const Checkout = () => {
                           ) : shippingCost === 0 ? (
                             'FREE'
                           ) : (
-                            `$${shippingCost.toFixed(2)}`
+                            `${currency}${shippingCost.toFixed(2)}`
                           )}
                         </span>
                       </div>
                     )}
 
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tax (included):</span>
-                      <span className="font-medium">${totals.tax.toFixed(2)}</span>
+                      <span className="text-muted-foreground">Tax:</span>
+                      <span className="font-medium">{currency}{totals.tax.toFixed(2)}</span>
                     </div>
 
                     <div className="border-t border-border pt-3">
                       <div className="flex justify-between items-center">
                         <span className="font-bold">Total:</span>
                         <span className="text-xl font-bold text-primary">
-                          ${orderTotal.toFixed(2)}
+                          {currency}{orderTotal.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -985,7 +988,6 @@ const Checkout = () => {
                   <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
                     {totals.itemCount} item{totals.itemCount !== 1 ? 's' : ''} in your order
                   </div>
-
                 </CardContent>
               </Card>
             </div>

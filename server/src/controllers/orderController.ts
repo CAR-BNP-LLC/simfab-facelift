@@ -112,18 +112,38 @@ export class OrderController {
 
       // Trigger order.created event - automatically sends emails for all templates registered for this event
       try {
+        // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
+        const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+        const subtotal = typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : Number(order.subtotal) || 0;
+        const taxAmount = typeof order.tax_amount === 'string' ? parseFloat(order.tax_amount) : Number(order.tax_amount) || 0;
+        const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
+        const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
+
+        console.log('📧 [DEBUG] Triggering order.created event:', {
+          order_number: order.order_number,
+          customer_email: order.customer_email,
+          customer_name: customerName,
+          amounts: {
+            total: totalAmount,
+            subtotal,
+            tax: taxAmount,
+            shipping: shippingAmount,
+            discount: discountAmount
+          }
+        });
+
         await this.emailService.triggerEvent(
           'order.created',
           {
             order_number: order.order_number,
             customer_name: customerName,
             customer_email: order.customer_email,
-            order_total: `$${order.total_amount.toFixed(2)}`,
+            order_total: `$${totalAmount.toFixed(2)}`,
             order_date: new Date(order.created_at).toLocaleDateString(),
-            subtotal: `$${order.subtotal.toFixed(2)}`,
-            tax_amount: `$${order.tax_amount.toFixed(2)}`,
-            shipping_amount: `$${order.shipping_amount.toFixed(2)}`,
-            discount_amount: `$${order.discount_amount.toFixed(2)}`
+            subtotal: `$${subtotal.toFixed(2)}`,
+            tax_amount: `$${taxAmount.toFixed(2)}`,
+            shipping_amount: `$${shippingAmount.toFixed(2)}`,
+            discount_amount: `$${discountAmount.toFixed(2)}`
           },
           {
             customerEmail: order.customer_email,
@@ -131,8 +151,11 @@ export class OrderController {
             adminEmail: 'info@simfab.com'
           }
         );
+
+        console.log('✅ [DEBUG] order.created event triggered successfully');
       } catch (emailError) {
-        console.error('Failed to trigger order.created event emails:', emailError);
+        console.error('❌ [DEBUG] Failed to trigger order.created event emails:', emailError);
+        console.error('Error stack:', emailError instanceof Error ? emailError.stack : 'No stack trace');
       }
 
       res.status(201).json(successResponse({
