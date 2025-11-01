@@ -14,8 +14,6 @@ import {
   updateProductSchema,
   createVariationSchema,
   updateVariationSchema,
-  createAddonSchema,
-  updateAddonSchema,
   updateImageSchema,
   reorderImagesSchema,
   productQuerySchema
@@ -181,52 +179,6 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
   router.get(
     '/:id/variation-stock-summary',
     controller.getVariationStockSummary
-  );
-
-  // ============================================================================
-  // ADD-ONS
-  // ============================================================================
-
-  /**
-   * @route   GET /api/admin/products/:id/addons
-   * @desc    Get product add-ons
-   * @access  Admin
-   */
-  router.get(
-    '/:id/addons',
-    controller.getAddons
-  );
-
-  /**
-   * @route   POST /api/admin/products/:id/addons
-   * @desc    Create add-on
-   * @access  Admin
-   */
-  router.post(
-    '/:id/addons',
-    validateRequest(createAddonSchema),
-    controller.createAddon
-  );
-
-  /**
-   * @route   PUT /api/admin/products/:id/addons/:addonId
-   * @desc    Update add-on
-   * @access  Admin
-   */
-  router.put(
-    '/:id/addons/:addonId',
-    validateRequest(updateAddonSchema),
-    controller.updateAddon
-  );
-
-  /**
-   * @route   DELETE /api/admin/products/:id/addons/:addonId
-   * @desc    Delete add-on
-   * @access  Admin
-   */
-  router.delete(
-    '/:id/addons/:addonId',
-    controller.deleteAddon
   );
 
   // ============================================================================

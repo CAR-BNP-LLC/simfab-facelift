@@ -38,7 +38,6 @@ export class PriceCalculatorService {
       console.log('Base Product Price:', product.regular_price, '→', totalPrice);
       
       const variationAdjustments: Array<{ name: string; amount: number }> = [];
-      let addonsTotal = 0;
       let colorAdjustment = 0;
 
       // 1. Calculate color adjustment (usually $0, but supports custom pricing)
@@ -112,43 +111,7 @@ export class PriceCalculatorService {
         console.log('No variations found in configuration');
       }
 
-      // 4. Calculate add-ons total
-      if (configuration.addons && configuration.addons.length > 0) {
-        console.log('--- Processing Addons ---');
-        console.log('Addons Count:', configuration.addons.length);
-        for (const addon of configuration.addons) {
-          let addonPrice = 0;
-
-          if (addon.optionId) {
-            console.log(`  - Processing addon ${addon.addonId} with option ${addon.optionId}`);
-            const addonOption = await this.getAddonOptionPrice(addon.optionId);
-            if (addonOption) {
-              addonPrice = Number(addonOption.price) || 0;
-              console.log(`    Option price: $${addonPrice}`);
-            } else {
-              console.log(`    ⚠️  Option not found!`);
-            }
-          } else {
-            console.log(`  - Processing addon ${addon.addonId} (base price)`);
-            const addonBase = await this.getAddonBasePrice(addon.addonId);
-            if (addonBase) {
-              addonPrice = Number(addonBase.base_price) || 0;
-              console.log(`    Base price: $${addonPrice}`);
-            } else {
-              console.log(`    ⚠️  Addon not found!`);
-            }
-          }
-
-          addonsTotal += addonPrice;
-          totalPrice += addonPrice;
-          console.log(`  - Addon total so far: $${addonsTotal}, Overall price: $${totalPrice}`);
-        }
-        console.log('Final Addons Total:', addonsTotal);
-      } else {
-        console.log('No addons found in configuration');
-      }
-
-      // 4.5. Calculate bundle items (required adjustments + optional items)
+      // 4. Calculate bundle items (required adjustments + optional items)
       let requiredBundleAdjustments = 0;
       let optionalBundleTotal = 0;
       
@@ -348,7 +311,6 @@ export class PriceCalculatorService {
         basePrice: product.regular_price,
         colorAdjustment: colorAdjustment > 0 ? colorAdjustment : undefined,
         variationAdjustments,
-        addonsTotal,
         subtotal,
         quantity,
         total,
@@ -361,8 +323,7 @@ export class PriceCalculatorService {
           base: product.regular_price,
           variations: variationAdjustments.reduce((sum, v) => sum + v.amount, 0),
           requiredBundleAdjustments,
-          optionalBundleTotal,
-          addons: addonsTotal
+          optionalBundleTotal
         }
       };
 
@@ -372,7 +333,6 @@ export class PriceCalculatorService {
       console.log('Variation Adjustments Total:', variationAdjustments.reduce((sum, v) => sum + v.amount, 0));
       console.log('Required Bundle Adjustments:', requiredBundleAdjustments);
       console.log('Optional Bundle Total:', optionalBundleTotal);
-      console.log('Addons Total:', addonsTotal);
       console.log('Final Subtotal:', subtotal);
       console.log('Final Total (quantity × subtotal):', total);
       console.log('====================================================');
@@ -422,16 +382,6 @@ export class PriceCalculatorService {
           if (!configuration.variations || configuration.variations[variation.id] === undefined) {
             errors.push(`Boolean variation "${variation.name}" is required`);
           }
-        }
-      }
-
-      // Check required add-ons
-      const requiredAddons = await this.getRequiredAddons(productId);
-      const selectedAddonIds = (configuration.addons || []).map(a => a.addonId);
-
-      for (const addon of requiredAddons) {
-        if (!selectedAddonIds.includes(addon.id)) {
-          errors.push(`Add-on "${addon.name}" is required`);
         }
       }
 
@@ -564,43 +514,10 @@ export class PriceCalculatorService {
     return result.rows;
   }
 
-  private async getAddonOptionPrice(optionId: number) {
-    const sql = `
-      SELECT price, name
-      FROM addon_options
-      WHERE id = $1 AND is_available = true
-    `;
-
-    const result = await this.pool.query(sql, [optionId]);
-    return result.rows[0] || null;
-  }
-
-  private async getAddonBasePrice(addonId: number) {
-    const sql = `
-      SELECT base_price
-      FROM product_addons
-      WHERE id = $1
-    `;
-
-    const result = await this.pool.query(sql, [addonId]);
-    return result.rows[0] || null;
-  }
-
   private async getRequiredVariations(productId: number) {
     const sql = `
       SELECT id, name, variation_type
       FROM product_variations
-      WHERE product_id = $1 AND is_required = true
-    `;
-
-    const result = await this.pool.query(sql, [productId]);
-    return result.rows;
-  }
-
-  private async getRequiredAddons(productId: number) {
-    const sql = `
-      SELECT id, name
-      FROM product_addons
       WHERE product_id = $1 AND is_required = true
     `;
 
@@ -648,21 +565,6 @@ export class PriceCalculatorService {
 
       minPrice += variationsData.min_adj || 0;
       maxPrice += variationsData.max_adj || 0;
-
-      // Get all addon prices
-      const addonsSql = `
-        SELECT COALESCE(MIN(price), 0) as min_price,
-               COALESCE(MAX(price), 0) as max_price
-        FROM addon_options ao
-        JOIN product_addons pa ON pa.id = ao.addon_id
-        WHERE pa.product_id = $1 AND ao.is_available = true
-      `;
-
-      const addonsResult = await this.pool.query(addonsSql, [productId]);
-      const addonsData = addonsResult.rows[0];
-
-      // Max price includes all optional addons
-      maxPrice += addonsData.max_price || 0;
 
       return {
         min: Math.round(minPrice * 100) / 100,

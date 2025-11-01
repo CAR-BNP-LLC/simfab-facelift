@@ -310,28 +310,6 @@ export interface ProductVariation {
   options: VariationOption[];
 }
 
-export interface AddonOption {
-  id: number;
-  name: string;
-  price: number;
-  description?: string;
-  imageUrl?: string;
-  isAvailable: boolean;
-}
-
-export interface ProductAddon {
-  id: number;
-  name: string;
-  description?: string;
-  price: {
-    min?: number;
-    max?: number;
-  };
-  isRequired: boolean;
-  hasOptions: boolean;
-  options: AddonOption[];
-}
-
 export interface Product {
   id: number;
   sku: string;
@@ -377,7 +355,6 @@ export interface ProductWithDetails extends Product {
     image: ProductVariation[];
     boolean: ProductVariation[];
   };
-  addons: ProductAddon[];
   faqs?: Array<{
     id: number;
     question: string;
@@ -393,10 +370,6 @@ export interface ProductWithDetails extends Product {
 
 export interface ProductConfiguration {
   variations?: Record<number, number>;
-  addons?: Array<{
-    addonId: number;
-    optionId?: number;
-  }>;
   bundleItems?: {
     selectedOptional?: number[]; // Array of optional bundle item IDs
     configurations?: Record<number, any>; // bundleItemId -> { variationId: optionId }
@@ -476,7 +449,6 @@ export interface PriceCalculation {
     name: string;
     amount: number;
   }>;
-  addonsTotal: number;
   subtotal: number;
   quantity: number;
   total: number;
@@ -581,7 +553,6 @@ export const productsAPI = {
         breakdown: {
           base: number;
           variations: number;
-          addons: number;
         };
       };
     }>(`/api/products/${productId}/calculate-price`, {

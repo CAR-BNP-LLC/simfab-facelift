@@ -123,9 +123,6 @@ export class ProductService {
       // Get variations with options
       const variations = await this.getProductVariations(id);
 
-      // Get add-ons with options
-      const addons = await this.getProductAddons(id);
-
       // Get FAQs
       const faqs = await this.getProductFAQs(id);
 
@@ -141,7 +138,6 @@ export class ProductService {
       return {
         ...product,
         variations,
-        addons,
         faqs,
         descriptionComponents,
         assemblyManuals,
@@ -902,25 +898,6 @@ export class ProductService {
       image: variations.filter(v => v.variation_type === 'image'),
       boolean: variations.filter(v => v.variation_type === 'boolean')
     };
-  }
-
-  private async getProductAddons(productId: number) {
-    const sql = `
-      SELECT 
-        a.*,
-        COALESCE(
-          (SELECT json_agg(ao ORDER BY ao.sort_order)
-           FROM addon_options ao
-           WHERE ao.addon_id = a.id),
-          '[]'::json
-        ) as options
-      FROM product_addons a
-      WHERE a.product_id = $1
-      ORDER BY a.sort_order
-    `;
-
-    const result = await this.pool.query(sql, [productId]);
-    return result.rows;
   }
 
   private async getProductFAQs(productId: number) {

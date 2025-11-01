@@ -169,41 +169,6 @@ export const updateVariationSchema = Joi.object({
 }).min(1);
 
 // ============================================================================
-// ADDON SCHEMAS
-// ============================================================================
-
-export const createAddonSchema = Joi.object({
-  name: Joi.string().min(2).max(255).required(),
-  description: Joi.string().allow('', null).optional(),
-  base_price: Joi.number().positive().allow(null).optional(),
-  price_range_min: Joi.number().positive().allow(null).optional(),
-  price_range_max: Joi.number().positive().allow(null).optional(),
-  is_required: Joi.boolean().optional(),
-  has_options: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional(),
-  options: Joi.array().items(
-    Joi.object({
-      name: Joi.string().required(),
-      description: Joi.string().allow('', null).optional(),
-      price: Joi.number().positive().required(),
-      image_url: Joi.string().uri().optional(),
-      is_available: Joi.boolean().optional()
-    })
-  ).optional()
-});
-
-export const updateAddonSchema = Joi.object({
-  name: Joi.string().min(2).max(255).optional(),
-  description: Joi.string().allow('', null).optional(),
-  base_price: Joi.number().positive().allow(null).optional(),
-  price_range_min: Joi.number().positive().allow(null).optional(),
-  price_range_max: Joi.number().positive().allow(null).optional(),
-  is_required: Joi.boolean().optional(),
-  has_options: Joi.boolean().optional(),
-  sort_order: Joi.number().integer().min(0).optional()
-}).min(1);
-
-// ============================================================================
 // PRICE CALCULATION SCHEMA
 // ============================================================================
 
@@ -211,12 +176,6 @@ export const calculatePriceSchema = Joi.object({
   variations: Joi.object().pattern(
     Joi.number().integer().positive(),
     Joi.number().integer().positive()
-  ).optional(),
-  addons: Joi.array().items(
-    Joi.object({
-      addonId: Joi.number().integer().positive().required(),
-      optionId: Joi.number().integer().positive().optional()
-    })
   ).optional(),
   quantity: Joi.number().integer().min(1).max(100).optional()
 });

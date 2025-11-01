@@ -144,9 +144,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             optIdType: typeof optId
           }
         })) : [],
-        hasAddons: !!(configuration.addons && configuration.addons.length > 0),
-        addonsCount: configuration.addons?.length || 0,
-        addonsDetails: configuration.addons || [],
         hasBundleItems: !!configuration.bundleItems,
         bundleItemsDetails: configuration.bundleItems ? {
           selectedOptional: configuration.bundleItems.selectedOptional || [],

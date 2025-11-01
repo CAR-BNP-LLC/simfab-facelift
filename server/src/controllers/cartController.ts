@@ -84,14 +84,6 @@ export class CartController {
           console.log('⚠️  No variations in configuration!');
         }
         
-        // Addons breakdown
-        if (config.addons) {
-          console.log('Addons Found:', config.addons.length, 'items');
-          console.log('Addons Details:', JSON.stringify(config.addons, null, 2));
-        } else {
-          console.log('No addons in configuration');
-        }
-        
         // Bundle items breakdown
         if (config.bundleItems) {
           console.log('Bundle Items Found:');

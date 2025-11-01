@@ -141,32 +141,6 @@ export interface VariationOption {
   created_at: Date;
 }
 
-export interface ProductAddon {
-  id: number;
-  product_id: number;
-  name: string;
-  description: string | null;
-  base_price: number | null;
-  price_range_min: number | null;
-  price_range_max: number | null;
-  is_required: boolean;
-  has_options: boolean;
-  sort_order: number;
-  created_at: Date;
-}
-
-export interface AddonOption {
-  id: number;
-  addon_id: number;
-  name: string;
-  description: string | null;
-  price: number;
-  image_url: string | null;
-  is_available: boolean;
-  sort_order: number;
-  created_at: Date;
-}
-
 export interface ProductFAQ {
   id: number;
   product_id: number;
@@ -212,7 +186,6 @@ export interface ProductWithDetails extends Product {
     image: (ProductVariation & { options: VariationOption[] })[];
     boolean: (ProductVariation & { options: VariationOption[] })[];
   };
-  addons: (ProductAddon & { options: AddonOption[] })[];
   faqs: ProductFAQ[];
   assemblyManuals: AssemblyManual[];
   additionalInfo: ProductAdditionalInfo[];
@@ -273,10 +246,6 @@ export interface ProductConfiguration {
   modelVariationId?: number;
   dropdownSelections?: Record<number, number>; // variationId -> optionId
   variations?: Record<number, number>; // variationId -> optionId (new variations system)
-  addons?: Array<{
-    addonId: number;
-    optionId?: number;
-  }>;
   bundleItems?: {
     selectedOptional?: number[]; // Array of optional bundle item IDs
     configurations?: Record<number, any>; // bundleItemId -> { variationId: optionId }
@@ -290,7 +259,6 @@ export interface PriceBreakdown {
     name: string;
     amount: number;
   }>;
-  addonsTotal: number;
   subtotal: number;
   quantity: number;
   total: number;
@@ -304,7 +272,6 @@ export interface PriceCalculation {
     variations: number;
     requiredBundleAdjustments?: number;
     optionalBundleTotal?: number;
-    addons: number;
   };
 }
 
@@ -381,25 +348,6 @@ export interface CreateVariationDto {
     price_adjustment?: number;
     image_url?: string;
     is_default?: boolean;
-  }>;
-}
-
-export interface CreateAddonDto {
-  product_id: number;
-  name: string;
-  description?: string;
-  base_price?: number;
-  price_range_min?: number;
-  price_range_max?: number;
-  is_required?: boolean;
-  has_options?: boolean;
-  sort_order?: number;
-  options?: Array<{
-    name: string;
-    description?: string;
-    price: number;
-    image_url?: string;
-    is_available?: boolean;
   }>;
 }
 

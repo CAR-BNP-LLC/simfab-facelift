@@ -7,7 +7,6 @@
  * - Native variations of main product
  * - Required bundle items (variation price changes only)
  * - Optional bundle items (base price + variation changes)
- * - Required/optional addons
  */
 
 export interface PriceCalculationInput {
@@ -26,9 +25,6 @@ export interface PriceCalculationInput {
     variationAdjustments: number;
   }>;
   
-  // Addons (both required and optional)
-  addonsTotal: number;
-  
   // Quantity
   quantity?: number;
 }
@@ -39,7 +35,6 @@ export interface PriceCalculationResult {
   requiredBundleAdjustments: number;
   optionalBundleAdjustments: number;
   optionalBundleBasePrice: number;
-  addonsTotal: number;
   subtotal: number;
   quantity: number;
   total: number;
@@ -49,7 +44,6 @@ export interface PriceCalculationResult {
     requiredBundleAdjustments: number;
     optionalBundleAdjustments: number;
     optionalBundleBasePrice: number;
-    addons: number;
   };
 }
 
@@ -76,8 +70,7 @@ export function calculateTotalPrice(input: PriceCalculationInput): PriceCalculat
     input.variationAdjustments + 
     input.requiredBundleAdjustments + 
     optionalBundleBasePrice + 
-    optionalBundleAdjustments + 
-    input.addonsTotal;
+    optionalBundleAdjustments;
   
   // Calculate final total
   const total = subtotal * quantity;
@@ -88,7 +81,6 @@ export function calculateTotalPrice(input: PriceCalculationInput): PriceCalculat
     requiredBundleAdjustments: input.requiredBundleAdjustments,
     optionalBundleAdjustments,
     optionalBundleBasePrice,
-    addonsTotal: input.addonsTotal,
     subtotal: Math.round(subtotal * 100) / 100,
     quantity,
     total: Math.round(total * 100) / 100,
@@ -97,8 +89,7 @@ export function calculateTotalPrice(input: PriceCalculationInput): PriceCalculat
       variations: input.variationAdjustments,
       requiredBundleAdjustments: input.requiredBundleAdjustments,
       optionalBundleAdjustments,
-      optionalBundleBasePrice,
-      addons: input.addonsTotal
+      optionalBundleBasePrice
     }
   };
 }
@@ -156,17 +147,9 @@ export function formatPriceBreakdown(result: PriceCalculationResult): {
     });
   }
   
-  // Addons
-  if (result.addonsTotal > 0) {
-    breakdown.push({
-      label: 'Addons',
-      value: result.addonsTotal,
-      type: 'base'
-    });
-  }
-  
   return breakdown;
 }
+
 
 
 
