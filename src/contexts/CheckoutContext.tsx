@@ -61,7 +61,7 @@ const defaultCheckoutState: CheckoutState = {
     phone: '',
     email: ''
   },
-  selectedShipping: 'standard',
+  selectedShipping: '',
   orderNotes: '',
   createdOrder: null,
   isBillingSameAsShipping: true

@@ -220,6 +220,8 @@ export interface CreateOrderData {
   orderNotes?: string;
   subscribeNewsletter?: boolean;
   packageSize?: 'S' | 'M' | 'L';
+  shippingAmount?: number;
+  taxAmount?: number;
   shippingMethodData?: {
     fedexRateData?: {
       listRate: number;

@@ -806,6 +806,10 @@ export const orderAPI = {
     paymentMethodId?: string;
     orderNotes?: string;
     subscribeNewsletter?: boolean;
+    packageSize?: 'S' | 'M' | 'L';
+    shippingAmount?: number;
+    taxAmount?: number;
+    shippingMethodData?: any;
   }) => {
     return apiRequest<{
       success: boolean;

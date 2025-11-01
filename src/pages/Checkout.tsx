@@ -104,9 +104,9 @@ const Checkout = () => {
   useEffect(() => {
     const fetchShippingRates = async () => {
       // Only fetch if we have a complete shipping address
+      // City is optional for countries without city lists (like UK)
       const hasCompleteAddress = 
         shippingAddress.addressLine1 &&
-        shippingAddress.city &&
         shippingAddress.state &&
         shippingAddress.postalCode &&
         shippingAddress.country;
@@ -228,7 +228,7 @@ const Checkout = () => {
   };
 
   const validateAddress = (): boolean => {
-    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'city', 'postalCode', 'phone', 'email'];
+    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'postalCode', 'phone', 'email'];
     
     console.log('Validating address:', shippingAddress);
     
@@ -263,7 +263,21 @@ const Checkout = () => {
     if (step === 2 && !validateAddress()) {
       return;
     }
-    updateCheckoutState({ step: step + 1 });
+    // Validate shipping method selection before moving to review
+    if (step === 3 && !selectedShipping) {
+      toast({
+        title: 'Shipping method required',
+        description: 'Please select a shipping method to continue',
+        variant: 'destructive'
+      });
+      return;
+    }
+    // Clear selectedShipping when entering shipping step to ensure proper initialization
+    const updates: any = { step: step + 1 };
+    if (step === 2) { // Moving from address to shipping step
+      updates.selectedShipping = '';
+    }
+    updateCheckoutState(updates);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -303,6 +317,16 @@ const Checkout = () => {
       // Get selected shipping method data (for FedEx rate info)
       const selectedShippingMethod = shippingOptions.find(opt => opt.id === selectedShipping);
       
+      // Calculate shipping cost
+      const shippingAmount = selectedShippingMethod?.cost || 0;
+      
+      console.log('📦 Shipping data for order:', {
+        selectedShipping,
+        selectedShippingMethod,
+        shippingAmount,
+        'shippingOptions available': shippingOptions.length
+      });
+      
       const orderData = {
         shippingAddress: cleanAddress(shippingAddress),
         billingAddress: cleanAddress(isBillingSameAsShipping ? shippingAddress : billingAddress),
@@ -310,6 +334,8 @@ const Checkout = () => {
         paymentMethodId: 'pending',
         orderNotes: orderNotes || '',
         packageSize: packageSize,
+        shippingAmount: shippingAmount,
+        taxAmount: totals.tax,
         shippingMethodData: selectedShippingMethod ? {
           fedexRateData: selectedShippingMethod.fedexRateData
         } : undefined
@@ -408,7 +434,7 @@ const Checkout = () => {
         phone: '',
         email: ''
       },
-      selectedShipping: 'standard',
+      selectedShipping: '',
       orderNotes: '',
       createdOrder: null,
       isBillingSameAsShipping: true
@@ -433,7 +459,8 @@ const Checkout = () => {
 
   // Calculate shipping
   const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.cost || 0;
-  const orderTotal = totals.total + shippingCost;
+  // Use order total from created order if available, otherwise calculate it
+  const orderTotal = Number(createdOrder?.total_amount || (totals.total + shippingCost) || 0);
 
   // Get image
   const getImageUrl = (item: any) => {
@@ -476,7 +503,7 @@ const Checkout = () => {
 
           {/* Progress Indicator */}
           <div className="mb-8">
-            <div className="flex items-center justify-between max-w-3xl mx-auto">
+            <div className="flex items-center max-w-3xl mx-auto">
               {[
                 { num: 1, label: 'Cart' },
                 { num: 2, label: 'Shipping' },
@@ -491,8 +518,11 @@ const Checkout = () => {
                     </div>
                     <span className="text-xs mt-2 hidden sm:block">{stepInfo.label}</span>
                   </div>
-                  {idx < 4 && (
+                  {/* Add invisible spacer for last item to maintain alignment */}
+                  {idx < 4 ? (
                     <div className={`h-1 flex-1 ${step > stepInfo.num ? 'bg-primary' : 'bg-muted'}`} />
+                  ) : (
+                    <div className="h-1 flex-1 opacity-0 pointer-events-none" aria-hidden="true" />
                   )}
                 </div>
               ))}
@@ -926,7 +956,13 @@ const Checkout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Shipping:</span>
                         <span className="font-medium">
-                          {shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}
+                          {!selectedShipping ? (
+                            <span className="text-muted-foreground">Calculating...</span>
+                          ) : shippingCost === 0 ? (
+                            'FREE'
+                          ) : (
+                            `$${shippingCost.toFixed(2)}`
+                          )}
                         </span>
                       </div>
                     )}

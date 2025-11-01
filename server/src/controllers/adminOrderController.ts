@@ -42,7 +42,7 @@ export class AdminOrderController {
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
         LEFT JOIN order_items oi ON oi.order_id = o.id
-        WHERE 1=1
+        WHERE o.shipping_quote_id IS NULL
       `;
 
       const params: any[] = [];
@@ -66,7 +66,7 @@ export class AdminOrderController {
       params.push(limit, offset);
 
       // Get total count
-      let countSql = `SELECT COUNT(DISTINCT o.id)::int as total FROM orders o WHERE 1=1`;
+      let countSql = `SELECT COUNT(DISTINCT o.id)::int as total FROM orders o WHERE o.shipping_quote_id IS NULL`;
       const countParams: any[] = [];
       let countParamCount = 0;
 

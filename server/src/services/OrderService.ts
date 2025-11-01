@@ -58,12 +58,25 @@ export class OrderService {
         throw new ValidationError('Cart validation failed', { errors: validation.errors });
       }
 
-      // Calculate totals
+      // Calculate totals - use provided shipping/tax if available, otherwise use cart totals
       const subtotal = cart.totals.subtotal;
       const discount = cart.totals.discount;
-      const shipping = cart.totals.shipping;
-      const tax = cart.totals.tax;
-      const total = cart.totals.total;
+      const shipping = orderData.shippingAmount !== undefined ? orderData.shippingAmount : cart.totals.shipping;
+      const tax = orderData.taxAmount !== undefined ? orderData.taxAmount : cart.totals.tax;
+      const total = subtotal - discount + shipping + tax;
+
+      console.log('💰 Order totals calculation:', {
+        subtotal,
+        discount,
+        shipping,
+        tax,
+        total,
+        formula: `${subtotal} - ${discount} + ${shipping} + ${tax} = ${total}`,
+        'orderData.shippingAmount': orderData.shippingAmount,
+        'orderData.taxAmount': orderData.taxAmount,
+        'cart.totals.shipping': cart.totals.shipping,
+        'cart.totals.tax': cart.totals.tax
+      });
 
       // Determine if international shipping
       const isInternational = orderData.shippingAddress.country && 
