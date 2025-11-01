@@ -345,9 +345,6 @@ const Cart = () => {
                   <p className="text-xs text-muted-foreground text-center">
                     Shipping & taxes calculated at checkout
                   </p>
-                  <p className="text-xs text-muted-foreground text-center mt-2">
-                    🚚 Free shipping on orders over $500
-                  </p>
                 </div>
 
                 {/* Trust Badges */}

@@ -7,16 +7,19 @@ import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { OrderService } from '../services/OrderService';
 import { EmailService } from '../services/EmailService';
+import { ShippingQuoteService } from '../services/ShippingQuoteService';
 import { CreateOrderData } from '../types/cart';
 import { successResponse, paginatedResponse } from '../utils/response';
 
 export class OrderController {
   private orderService: OrderService;
   private emailService: EmailService;
+  private shippingQuoteService: ShippingQuoteService;
 
   constructor(pool: Pool) {
     this.orderService = new OrderService(pool);
     this.emailService = new EmailService(pool);
+    this.shippingQuoteService = new ShippingQuoteService(pool);
     this.emailService.initialize();
   }
 
@@ -47,6 +50,64 @@ export class OrderController {
       } catch (error) {
         // If parsing fails, use email as fallback
         console.warn('Could not parse billing address for customer name:', error);
+      }
+
+      // Create shipping quote if international order with 40% rate (no negotiated rate)
+      if (order.is_international_shipping && orderData.shippingMethodData?.fedexRateData) {
+        const fedexData = orderData.shippingMethodData.fedexRateData;
+        
+        // Create quote if charging 40% (no negotiated rate available)
+        if (!fedexData.hasNegotiatedRate && fedexData.discountPercent) {
+          try {
+            const shippingAddress = typeof order.shipping_address === 'string'
+              ? JSON.parse(order.shipping_address)
+              : order.shipping_address;
+
+            await this.shippingQuoteService.createShippingQuote({
+              orderId: order.id,
+              customerEmail: order.customer_email,
+              customerName,
+              shippingAddress: {
+                country: shippingAddress.country,
+                state: shippingAddress.state,
+                city: shippingAddress.city,
+                postalCode: shippingAddress.postalCode
+              },
+              packageSize: (order.package_size as 'S' | 'M' | 'L') || 'M',
+              fedexListRate: fedexData.listRate,
+              fedexNegotiatedRate: fedexData.negotiatedRate,
+              fedexAppliedRate: fedexData.listRate * (1 - (fedexData.discountPercent / 100)),
+              fedexRateDiscountPercent: fedexData.discountPercent,
+              fedexServiceType: 'STANDARD',
+              fedexRateData: orderData.shippingMethodData.fedexRateData
+            });
+
+            // Send admin notification email for shipping quote
+            try {
+              await this.emailService.triggerEvent(
+                'shipping.quote.created',
+                {
+                  order_number: order.order_number,
+                  customer_name: customerName,
+                  customer_email: order.customer_email,
+                  shipping_address: `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}, ${shippingAddress.country}`,
+                  package_size: order.package_size || 'M',
+                  fedex_list_rate: `$${fedexData.listRate.toFixed(2)}`,
+                  fedex_applied_rate: `$${(fedexData.listRate * (1 - (fedexData.discountPercent! / 100))).toFixed(2)}`,
+                  discount_percent: `${fedexData.discountPercent}%`
+                },
+                {
+                  adminEmail: 'info@simfab.com'
+                }
+              );
+            } catch (emailError) {
+              console.error('Failed to send shipping quote notification email:', emailError);
+            }
+          } catch (quoteError) {
+            console.error('Failed to create shipping quote:', quoteError);
+            // Don't fail order creation if quote creation fails
+          }
+        }
       }
 
       // Trigger order.created event - automatically sends emails for all templates registered for this event

@@ -276,7 +276,7 @@ const Profile = () => {
                         <div
                           key={order.id}
                           className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => navigate(`/orders/${order.order_number}`)}
+                          onClick={() => navigate(`/order-confirmation/${order.order_number}`)}
                         >
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>

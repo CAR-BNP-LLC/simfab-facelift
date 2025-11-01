@@ -28,6 +28,8 @@ import { createPhase4Routes } from './routes/admin/phase4';
 import { createLogsRoutes } from './routes/admin/logs';
 import { createWishlistNotificationRoutes } from './routes/admin/wishlist-notifications';
 import { createShipStationRoutes } from './routes/shipstation';
+import { createShippingRoutes } from './routes/shipping';
+import { createAdminShippingQuoteRoutes } from './routes/admin/shippingQuotes';
 import { createPageProductRoutes, createPublicPageProductRoutes } from './routes/pageProducts';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
@@ -188,6 +190,8 @@ app.use('/api/admin/wishlist-notifications', createWishlistNotificationRoutes(po
 app.use('/api/admin/page-products', createPageProductRoutes(pool));
 app.use('/api/page-products', createPublicPageProductRoutes(pool));
 app.use('/api/shipstation', createShipStationRoutes(pool));
+app.use('/api/shipping', createShippingRoutes(pool));
+app.use('/api/admin/shipping-quotes', createAdminShippingQuoteRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

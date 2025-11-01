@@ -1625,6 +1625,58 @@ export interface WishlistItem {
   product: any; // Product type from your types
 }
 
+// ==========================================
+// SHIPPING API
+// ==========================================
+
+export interface ShippingMethod {
+  id: string;
+  name: string;
+  carrier: string;
+  serviceCode: string;
+  cost: number;
+  estimatedDays: {
+    min: number;
+    max: number;
+  };
+  description: string;
+  fedexRateData?: {
+    listRate: number;
+    negotiatedRate?: number;
+    hasNegotiatedRate: boolean;
+    discountPercent?: number;
+  };
+}
+
+export const shippingAPI = {
+  /**
+   * Calculate shipping rates for given address and package
+   */
+  calculateShipping: (data: {
+    shippingAddress: {
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    };
+    packageSize?: 'S' | 'M' | 'L';
+    orderTotal?: number;
+  }) => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        shippingMethods: ShippingMethod[];
+        calculations?: any[];
+      };
+    }>('/api/shipping/calculate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
 export const wishlistAPI = {
   /**
    * Get user's wishlist
