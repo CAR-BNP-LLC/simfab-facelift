@@ -13,7 +13,6 @@ export const addToCartSchema = Joi.object({
   productId: Joi.number().integer().positive().required(),
   quantity: Joi.number().integer().min(1).max(100).required(),
   configuration: Joi.object({
-    colorId: Joi.number().integer().positive().optional(),
     modelVariationId: Joi.number().integer().positive().optional(),
     dropdownSelections: Joi.object().pattern(
       Joi.number().integer().positive(),

@@ -702,7 +702,6 @@ export class CartService {
     const normalized: any = {};
     
     // Copy non-variation fields
-    if (config.colorId !== undefined) normalized.colorId = config.colorId;
     if (config.modelVariationId !== undefined) normalized.modelVariationId = config.modelVariationId;
     
     // Normalize variations object keys

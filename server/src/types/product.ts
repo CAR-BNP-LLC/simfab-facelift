@@ -242,7 +242,6 @@ export interface PaginatedProducts {
 // ============================================================================
 
 export interface ProductConfiguration {
-  colorId?: number;
   modelVariationId?: number;
   dropdownSelections?: Record<number, number>; // variationId -> optionId
   variations?: Record<number, number>; // variationId -> optionId (new variations system)
@@ -254,7 +253,6 @@ export interface ProductConfiguration {
 
 export interface PriceBreakdown {
   basePrice: number;
-  colorAdjustment?: number;
   variationAdjustments: Array<{
     name: string;
     amount: number;

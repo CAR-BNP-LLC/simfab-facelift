@@ -38,18 +38,8 @@ export class PriceCalculatorService {
       console.log('Base Product Price:', product.regular_price, '→', totalPrice);
       
       const variationAdjustments: Array<{ name: string; amount: number }> = [];
-      let colorAdjustment = 0;
 
-      // 1. Calculate color adjustment (usually $0, but supports custom pricing)
-      if (configuration.colorId) {
-        const colorPrice = await this.getColorAdjustment(configuration.colorId);
-        if (colorPrice !== null) {
-          colorAdjustment = Number(colorPrice) || 0;
-          totalPrice += colorAdjustment;
-        }
-      }
-
-      // 2. Calculate model variation adjustment
+      // 1. Calculate model variation adjustment
       if (configuration.modelVariationId) {
         const modelAdjustment = await this.getVariationOptionPrice(configuration.modelVariationId);
         if (modelAdjustment) {
@@ -309,7 +299,6 @@ export class PriceCalculatorService {
 
       const breakdown: PriceBreakdown = {
         basePrice: product.regular_price,
-        colorAdjustment: colorAdjustment > 0 ? colorAdjustment : undefined,
         variationAdjustments,
         subtotal,
         quantity,
@@ -474,20 +463,6 @@ export class PriceCalculatorService {
 
     const result = await this.pool.query(sql, [productId]);
     return result.rows[0] || null;
-  }
-
-  private async getColorAdjustment(colorId: number): Promise<number | null> {
-    const sql = `
-      SELECT color_name
-      FROM product_colors
-      WHERE id = $1 AND is_available = true
-    `;
-
-    const result = await this.pool.query(sql, [colorId]);
-    
-    // Currently colors don't have price adjustments, but structure supports it
-    // Return 0 for now, can be extended later
-    return result.rows.length > 0 ? 0 : null;
   }
 
   private async getVariationOptionPrice(optionId: number) {

@@ -182,7 +182,6 @@ export const productValidation = {
   }),
 
   calculatePrice: Joi.object({
-    colorId: Joi.number().integer().positive().allow(null),
     modelVariationId: Joi.number().integer().positive().allow(null),
     dropdownSelections: Joi.object().pattern(
       Joi.number(),
@@ -200,7 +199,6 @@ export const cartValidation = {
     productId: Joi.number().integer().positive().required(),
     quantity: Joi.number().integer().min(1).max(100).default(1),
     configuration: Joi.object({
-      colorId: Joi.number().integer().positive().allow(null),
       modelVariationId: Joi.number().integer().positive().allow(null),
       dropdownSelections: Joi.object().pattern(
         Joi.number(),
