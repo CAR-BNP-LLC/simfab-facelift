@@ -80,6 +80,29 @@ export class FileUploadService {
   }
 
   /**
+   * Get CSV upload middleware (memory storage)
+   */
+  getCSVUploadMiddleware(): multer.Multer {
+    return multer({
+      storage: multer.memoryStorage(),
+      limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB for CSV files
+      },
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = ['text/csv', 'application/vnd.ms-excel', 'text/plain'];
+        const allowedExtensions = ['.csv'];
+        const ext = path.extname(file.originalname).toLowerCase();
+        
+        if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
+          cb(null, true);
+        } else {
+          cb(new ValidationError('Invalid file type. Only CSV files are allowed.'));
+        }
+      }
+    });
+  }
+
+  /**
    * Get document upload middleware
    */
   getDocumentUploadMiddleware(): multer.Multer {

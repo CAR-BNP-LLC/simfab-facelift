@@ -62,6 +62,7 @@ import ProductGroupRow from '@/components/admin/ProductGroupRow';
 import ProductEditWarningDialog from '@/components/admin/ProductEditWarningDialog';
 import RbacManagement from '@/components/admin/RbacManagement';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
+import CSVImportExportDialog from '@/components/admin/CSVImportExportDialog';
 import CouponList from '@/components/admin/CouponList';
 import CouponForm from '@/components/admin/CouponForm';
 import PermittedFor from '@/components/auth/PermittedFor';
@@ -112,6 +113,9 @@ const Admin = () => {
   // Coupon management state
   const [couponFormOpen, setCouponFormOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<any>(null);
+  
+  // CSV import/export state
+  const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const { handleError, handleSuccess } = useErrorHandler();
@@ -494,36 +498,52 @@ const Admin = () => {
   };
 
   const handleEditProduct = async (product: any) => {
-    // Check if product is in a group
+    // Check if product is in a group AND has an actual paired product
     if (product.product_group_id) {
-      // Find paired product
+      // Find paired product (must exist for it to be truly "linked")
       const paired = products.find(p => 
         p.product_group_id === product.product_group_id && 
         p.id !== product.id &&
         p.region !== product.region
       );
       
-      setPendingEditProduct(product);
-      setPairedProduct(paired);
-      setEditWarningDialogOpen(true);
-    } else {
-      // Not in a group, edit directly
-      setEditingProduct(product);
-      setEditDialogOpen(true);
-      
-      if (product.id) {
-        fetchProductImages(product.id);
-        fetchProductVariations(product.id);
+      // Only show warning if paired product actually exists
+      if (paired) {
+        setPendingEditProduct(product);
+        setPairedProduct(paired);
+        setEditWarningDialogOpen(true);
+        return;
       }
+      // If no paired product exists, treat it as ungrouped (product_group_id is orphaned)
+    }
+    
+    // Not in a group or no paired product found, edit directly
+    setEditingProduct(product);
+    setEditDialogOpen(true);
+    
+    if (product.id) {
+      fetchProductImages(product.id);
+      fetchProductVariations(product.id);
     }
   };
 
   const handleEditProductConfirm = (product: any, breakGroup: boolean) => {
+    // Find paired product for passing to edit dialog (only if not breaking group)
+    let paired: any = null;
+    if (!breakGroup && product.product_group_id) {
+      paired = products.find(p => 
+        p.product_group_id === product.product_group_id && 
+        p.id !== product.id &&
+        p.region !== product.region
+      );
+    }
+    
     if (breakGroup) {
       // Break the group first
       handleBreakGroup(product.product_group_id, () => {
-        // After breaking, edit the product
+        // After breaking, edit the product (no paired product)
         setEditingProduct(product);
+        setPairedProduct(null);
         setEditDialogOpen(true);
         
         if (product.id) {
@@ -534,6 +554,7 @@ const Admin = () => {
     } else {
       // Edit normally (will sync to paired product)
       setEditingProduct(product);
+      setPairedProduct(paired);
       setEditDialogOpen(true);
       
       if (product.id) {
@@ -544,7 +565,6 @@ const Admin = () => {
     
     setEditWarningDialogOpen(false);
     setPendingEditProduct(null);
-    setPairedProduct(null);
   };
 
   const handleEditGroup = (groupProducts: any[]) => {
@@ -1339,9 +1359,9 @@ const Admin = () => {
                     <CardDescription>View and manage products</CardDescription>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => {/* CSV upload functionality */}}>
+                    <Button variant="secondary" onClick={() => setCsvDialogOpen(true)}>
                       <Upload className="mr-2 h-4 w-4" />
-                      Upload CSV
+                      Import/Export CSV
                     </Button>
                     <PermittedFor authority="products:create">
                       <Button onClick={() => setActiveTab('create')}>
@@ -2152,6 +2172,7 @@ const Admin = () => {
           }
         }}
         uploadingImages={uploadingImages}
+        pairedProduct={pairedProduct}
       />
 
       {/* Order Details Modal */}
@@ -2170,6 +2191,19 @@ const Admin = () => {
         }}
         onSave={handleCouponSave}
         coupon={editingCoupon}
+      />
+
+      {/* CSV Import/Export Dialog */}
+      <CSVImportExportDialog
+        open={csvDialogOpen}
+        onClose={() => setCsvDialogOpen(false)}
+        onImportComplete={() => {
+          fetchProducts();
+          toast({
+            title: 'Products refreshed',
+            description: 'Product list has been refreshed after import'
+          });
+        }}
       />
 
       <Footer />

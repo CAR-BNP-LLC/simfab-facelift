@@ -92,10 +92,27 @@ export class ProductService {
    * Get product by ID with all details
    * Optionally filter by region if provided
    */
-  async getProductById(id: number, region?: 'us' | 'eu'): Promise<ProductWithDetails> {
+  async getProductById(id: number | string, region?: 'us' | 'eu'): Promise<ProductWithDetails> {
+    // Validate and convert ID
+    let productId: number;
+    if (typeof id === 'number') {
+      if (isNaN(id) || id <= 0 || !Number.isInteger(id)) {
+        throw new Error(`Invalid product ID: ${id}`);
+      }
+      productId = id;
+    } else {
+      const strId = String(id).trim();
+      if (strId === '' || strId.toLowerCase() === 'nan') {
+        throw new Error(`Invalid product ID: "${strId}"`);
+      }
+      productId = parseInt(strId, 10);
+      if (isNaN(productId) || productId <= 0 || !Number.isInteger(productId)) {
+        throw new Error(`Invalid product ID: "${strId}"`);
+      }
+    }
     try {
       const regionFilter = region ? `AND p.region = $2` : '';
-      const params = region ? [id, region] : [id];
+      const params = region ? [productId, region] : [productId];
       
       const sql = `
         SELECT 
@@ -115,25 +132,25 @@ export class ProductService {
       const result = await this.pool.query(sql, params);
 
       if (result.rows.length === 0) {
-        throw new NotFoundError('Product', { productId: id });
+        throw new NotFoundError('Product', { productId });
       }
 
       const product = result.rows[0];
 
       // Get variations with options
-      const variations = await this.getProductVariations(id);
+      const variations = await this.getProductVariations(productId);
 
       // Get FAQs
-      const faqs = await this.getProductFAQs(id);
+      const faqs = await this.getProductFAQs(productId);
 
       // Get description components
-      const descriptionComponents = await this.getProductDescriptionComponents(id);
+      const descriptionComponents = await this.getProductDescriptionComponents(productId);
 
       // Get assembly manuals
-      const assemblyManuals = await this.getAssemblyManuals(id);
+      const assemblyManuals = await this.getAssemblyManuals(productId);
 
       // Get additional info
-      const additionalInfo = await this.getAdditionalInfo(id);
+      const additionalInfo = await this.getAdditionalInfo(productId);
 
       return {
         ...product,
@@ -201,11 +218,12 @@ export class ProductService {
       if (slugCheck.rows.length > 0) {
         throw new ConflictError(`Product with slug "${slug}" already exists in ${region.toUpperCase()} region`, 'DUPLICATE_ENTRY');
       }
-      // Generate product_group_id if not provided (for single-region products, each gets unique ID)
-      // If product_group_id is provided, use it (for multi-region products)
-      const productGroupId = data.product_group_id !== undefined 
+      // Only set product_group_id if explicitly provided (for multi-region products)
+      // Single-region products should have product_group_id = NULL
+      // This prevents orphaned product_group_ids from showing as "linked" when no paired product exists
+      const productGroupId = data.product_group_id !== undefined && data.product_group_id !== null && data.product_group_id !== ''
         ? data.product_group_id 
-        : null; // Will be set by default in SQL or generate UUID
+        : null;
       
       const sql = `
         INSERT INTO products (
@@ -225,7 +243,7 @@ export class ProductService {
           $18, $19,
           $20, $21, $22,
           $23, $24,
-          $25, COALESCE($26, gen_random_uuid())
+          $25, $26
         )
         RETURNING *
       `;

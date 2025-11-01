@@ -48,6 +48,7 @@ interface ProductEditDialogProps {
   onImageReorder: (imageId: number, newOrder: number) => Promise<void>;
   onSetPrimaryImage: (imageId: number) => Promise<void>;
   uploadingImages: boolean;
+  pairedProduct?: any; // Product paired in opposite region
 }
 
 const ProductEditDialog = ({
@@ -61,7 +62,8 @@ const ProductEditDialog = ({
   onImageDelete,
   onImageReorder,
   onSetPrimaryImage,
-  uploadingImages
+  uploadingImages,
+  pairedProduct
 }: ProductEditDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -580,9 +582,8 @@ const ProductEditDialog = ({
 
   if (!product) return null;
 
-  // Check if product is linked to another region
-  const isLinked = !!product.product_group_id;
-  const oppositeRegion = product.region === 'us' ? 'EU' : 'US';
+  // Check if product is actually linked (has a paired product)
+  const isLinked = !!pairedProduct;
 
   return (
     <>
@@ -923,7 +924,8 @@ const ProductEditDialog = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
+                  {/* Product Type field hidden for now - still defaults to 'simple' in state */}
+                  <div className="hidden">
                     <Label htmlFor="type">Product Type</Label>
                     <Select value={productForm.type} onValueChange={(value) => setProductForm({ ...productForm, type: value })}>
                       <SelectTrigger>
