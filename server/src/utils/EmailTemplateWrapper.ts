@@ -22,17 +22,31 @@ export class EmailTemplateWrapper {
     headerImage?: string
   ): string {
     // Use absolute URL for logo in emails
-    const baseUrl = process.env.FRONTEND_URL || process.env.API_URL?.replace('/api', '') || 'http://localhost:5173';
+    // Try multiple environment variables for frontend URL
+    const baseUrl = process.env.FRONTEND_URL 
+      || process.env.VITE_FRONTEND_URL 
+      || process.env.API_URL?.replace('/api', '') 
+      || (process.env.NODE_ENV === 'production' ? 'https://simfab.com' : 'http://localhost:5173');
+    
     let logoUrl: string;
     
     if (headerImage) {
-      // If header_image starts with /, it's a relative path - make it absolute
-      logoUrl = headerImage.startsWith('http') 
-        ? headerImage 
-        : `${baseUrl}${headerImage.startsWith('/') ? headerImage : '/' + headerImage}`;
+      // If header_image starts with http, use as-is
+      if (headerImage.startsWith('http://') || headerImage.startsWith('https://')) {
+        logoUrl = headerImage;
+      } else {
+        // Make relative paths absolute
+        const cleanPath = headerImage.startsWith('/') ? headerImage : '/' + headerImage;
+        logoUrl = `${baseUrl}${cleanPath}`;
+      }
     } else {
-      // Default logo
+      // Default logo - use absolute URL
       logoUrl = `${baseUrl}${this.LOGO_URL}`;
+    }
+    
+    // Debug: log logo URL construction (remove in production if too verbose)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`📧 [DEBUG] Logo URL: ${logoUrl} (baseUrl: ${baseUrl}, headerImage: ${headerImage || 'default'})`);
     }
     
     const title = headerTitle || 'SimFab';

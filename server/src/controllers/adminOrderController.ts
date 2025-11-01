@@ -212,13 +212,25 @@ export class AdminOrderController {
         }
 
         if (triggerEvent) {
+          // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
+          const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+
+          console.log('📧 [DEBUG] Triggering order status change event:', {
+            event: triggerEvent,
+            order_number: order.order_number,
+            status,
+            customer_email: order.customer_email,
+            customer_name: customerName,
+            total_amount: totalAmount
+          });
+
           await this.emailService.triggerEvent(
             triggerEvent,
             {
               order_number: order.order_number,
               customer_name: customerName,
               customer_email: order.customer_email,
-              order_total: `$${order.total_amount.toFixed(2)}`,
+              order_total: `$${totalAmount.toFixed(2)}`,
               order_date: new Date(order.created_at).toLocaleDateString(),
               tracking_number: trackingNumber || '',
               carrier: carrier || '',
@@ -230,6 +242,8 @@ export class AdminOrderController {
               adminEmail: 'info@simfab.com'
             }
           );
+
+          console.log(`✅ [DEBUG] ${triggerEvent} event triggered successfully`);
         }
       } catch (emailError) {
         console.error(`Failed to trigger ${status} event emails:`, emailError);
