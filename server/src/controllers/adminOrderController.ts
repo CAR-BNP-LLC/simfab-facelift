@@ -151,6 +151,22 @@ export class AdminOrderController {
       const orderId = parseInt(req.params.id);
       const { status, trackingNumber, carrier, notes } = req.body;
 
+      // Get previous order state BEFORE update to check if note is new
+      const previousOrderResult = await this.orderService['pool'].query(
+        'SELECT notes FROM orders WHERE id = $1',
+        [orderId]
+      );
+      
+      if (previousOrderResult.rows.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'ORDER_NOT_FOUND', message: 'Order not found' }
+        });
+      }
+
+      const previousNotes = previousOrderResult.rows[0]?.notes || '';
+      const hasNewNote = notes && notes.trim() && notes !== previousNotes && notes.trim().length > 0;
+
       let sql = 'UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP';
       const params: any[] = [status];
       let paramCount = 1;
@@ -193,6 +209,33 @@ export class AdminOrderController {
       } catch (error) {
         // If parsing fails, use email as fallback
         console.warn('Could not parse billing address for customer name:', error);
+      }
+
+      // Trigger admin note event if a new note was added
+      if (hasNewNote) {
+        try {
+          const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+          
+          await this.emailService.triggerEvent(
+            'admin.note_added',
+            {
+              order_number: order.order_number,
+              customer_name: customerName,
+              customer_email: order.customer_email,
+              order_total: `$${totalAmount.toFixed(2)}`,
+              note: notes
+            },
+            {
+              customerEmail: order.customer_email,
+              customerName: customerName,
+              adminEmail: 'info@simfab.com'
+            }
+          );
+
+          console.log('✅ [DEBUG] admin.note_added event triggered successfully');
+        } catch (emailError) {
+          console.error('❌ [DEBUG] Failed to trigger admin.note_added event:', emailError);
+        }
       }
 
       // Trigger appropriate event based on status change - automatically sends emails for all templates registered for the event
