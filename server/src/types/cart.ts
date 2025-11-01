@@ -163,6 +163,12 @@ export interface Order {
   shipping_method: string | null;
   tracking_number: string | null;
   
+  // Shipping Details
+  package_size?: 'S' | 'M' | 'L' | null;
+  is_international_shipping?: boolean | null;
+  shipping_quote_id?: number | null;
+  fedex_rate_data?: Record<string, any> | null;
+  
   // Metadata
   notes: string | null;
   metadata: Record<string, any> | null;
@@ -214,6 +220,17 @@ export interface CreateOrderData {
   paymentMethodId?: string;
   orderNotes?: string;
   subscribeNewsletter?: boolean;
+  packageSize?: 'S' | 'M' | 'L';
+  shippingAmount?: number;
+  taxAmount?: number;
+  shippingMethodData?: {
+    fedexRateData?: {
+      listRate: number;
+      negotiatedRate?: number;
+      hasNegotiatedRate: boolean;
+      discountPercent?: number;
+    };
+  };
 }
 
 export interface ShippingMethod {

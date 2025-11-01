@@ -27,7 +27,7 @@ import Footer from '@/components/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCheckout } from '@/contexts/CheckoutContext';
-import { orderAPI } from '@/services/api';
+import { orderAPI, shippingAPI, ShippingMethod } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import PayPalProvider from '@/components/PayPalProvider';
 import { AddressForm } from '@/components/checkout/AddressForm';
@@ -43,6 +43,9 @@ const Checkout = () => {
   const [submitting, setSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [shippingOptions, setShippingOptions] = useState<ShippingMethod[]>([]);
+  const [loadingShipping, setLoadingShipping] = useState(false);
+  const [packageSize, setPackageSize] = useState<'S' | 'M' | 'L'>('M');
 
   // Destructure state from context
   const {
@@ -54,6 +57,13 @@ const Checkout = () => {
     createdOrder,
     isBillingSameAsShipping
   } = checkoutState;
+
+  // Get cart data early so it's available for useEffects
+  const items = cart?.items || [];
+  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, currency: 'USD', itemCount: 0 };
+  
+  // Get currency symbol from cart totals
+  const currency = totals.currency === 'EUR' ? '€' : '$';
 
   // Auto-fill from user data when available (only if fields are empty, never overwrite user input)
   const [hasAutoFilled, setHasAutoFilled] = useState(false);
@@ -93,30 +103,69 @@ const Checkout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, hasAutoFilled]);
 
-  // Shipping options
-  const shippingOptions = [
-    {
-      id: 'standard',
-      name: 'Standard Shipping',
-      description: '5-7 business days',
-      price: 0,
-      carrier: 'USPS'
-    },
-    {
-      id: 'express',
-      name: 'Express Shipping',
-      description: '2-3 business days',
-      price: 25.00,
-      carrier: 'FedEx'
-    },
-    {
-      id: 'overnight',
-      name: 'Overnight Shipping',
-      description: 'Next business day',
-      price: 50.00,
-      carrier: 'FedEx'
-    }
-  ];
+  // Fetch shipping rates when address is complete
+  useEffect(() => {
+    const fetchShippingRates = async () => {
+      // Only fetch if we have a complete shipping address
+      // City is optional for countries without city lists (like UK)
+      const hasCompleteAddress = 
+        shippingAddress.addressLine1 &&
+        shippingAddress.state &&
+        shippingAddress.postalCode &&
+        shippingAddress.country;
+
+      if (!hasCompleteAddress || step !== 3) {
+        return;
+      }
+
+      setLoadingShipping(true);
+      try {
+        const response = await shippingAPI.calculateShipping({
+          shippingAddress: {
+            addressLine1: shippingAddress.addressLine1,
+            addressLine2: shippingAddress.addressLine2 || undefined,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            postalCode: shippingAddress.postalCode,
+            country: shippingAddress.country
+          },
+          packageSize,
+          orderTotal: totals.subtotal
+        });
+
+        if (response.success && response.data.shippingMethods) {
+          setShippingOptions(response.data.shippingMethods);
+          // Auto-select first option if none selected
+          if (!selectedShipping && response.data.shippingMethods.length > 0) {
+            updateCheckoutState({ 
+              selectedShipping: response.data.shippingMethods[0].id 
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch shipping rates:', error);
+        toast({
+          title: 'Shipping calculation failed',
+          description: 'Please try again or contact support',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoadingShipping(false);
+      }
+    };
+
+    fetchShippingRates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    shippingAddress.addressLine1,
+    shippingAddress.city,
+    shippingAddress.state,
+    shippingAddress.postalCode,
+    shippingAddress.country,
+    step,
+    packageSize,
+    totals.subtotal
+  ]);
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -182,7 +231,7 @@ const Checkout = () => {
   };
 
   const validateAddress = (): boolean => {
-    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'city', 'postalCode', 'phone', 'email'];
+    const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'postalCode', 'phone', 'email'];
     
     console.log('Validating address:', shippingAddress);
     
@@ -217,7 +266,21 @@ const Checkout = () => {
     if (step === 2 && !validateAddress()) {
       return;
     }
-    updateCheckoutState({ step: step + 1 });
+    // Validate shipping method selection before moving to review
+    if (step === 3 && !selectedShipping) {
+      toast({
+        title: 'Shipping method required',
+        description: 'Please select a shipping method to continue',
+        variant: 'destructive'
+      });
+      return;
+    }
+    // Clear selectedShipping when entering shipping step to ensure proper initialization
+    const updates: any = { step: step + 1 };
+    if (step === 2) { // Moving from address to shipping step
+      updates.selectedShipping = '';
+    }
+    updateCheckoutState(updates);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -254,12 +317,31 @@ const Checkout = () => {
     try {
       setSubmitting(true);
 
+      // Get selected shipping method data (for FedEx rate info)
+      const selectedShippingMethod = shippingOptions.find(opt => opt.id === selectedShipping);
+      
+      // Calculate shipping cost
+      const shippingAmount = selectedShippingMethod?.cost || 0;
+      
+      console.log('📦 Shipping data for order:', {
+        selectedShipping,
+        selectedShippingMethod,
+        shippingAmount,
+        'shippingOptions available': shippingOptions.length
+      });
+      
       const orderData = {
         shippingAddress: cleanAddress(shippingAddress),
         billingAddress: cleanAddress(isBillingSameAsShipping ? shippingAddress : billingAddress),
         shippingMethodId: selectedShipping,
         paymentMethodId: 'pending',
-        orderNotes: orderNotes || ''
+        orderNotes: orderNotes || '',
+        packageSize: packageSize,
+        shippingAmount: shippingAmount,
+        taxAmount: totals.tax,
+        shippingMethodData: selectedShippingMethod ? {
+          fedexRateData: selectedShippingMethod.fedexRateData
+        } : undefined
       };
 
       console.log('Creating order:', orderData);
@@ -355,7 +437,7 @@ const Checkout = () => {
         phone: '',
         email: ''
       },
-      selectedShipping: 'standard',
+      selectedShipping: '',
       orderNotes: '',
       createdOrder: null,
       isBillingSameAsShipping: true
@@ -378,16 +460,10 @@ const Checkout = () => {
     });
   };
 
-  // Get cart data
-  const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, currency: 'USD', itemCount: 0 };
-  
-  // Get currency symbol from cart totals
-  const currency = totals.currency === 'EUR' ? '€' : '$';
-  
   // Calculate shipping
-  const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.price || 0;
-  const orderTotal = totals.total + shippingCost;
+  const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.cost || 0;
+  // Use order total from created order if available, otherwise calculate it
+  const orderTotal = Number(createdOrder?.total_amount || (totals.total + shippingCost) || 0);
 
   // Get image
   const getImageUrl = (item: any) => {
@@ -430,7 +506,7 @@ const Checkout = () => {
 
           {/* Progress Indicator */}
           <div className="mb-8">
-            <div className="flex items-center justify-between max-w-3xl mx-auto">
+            <div className="flex items-center max-w-3xl mx-auto">
               {[
                 { num: 1, label: 'Cart' },
                 { num: 2, label: 'Shipping' },
@@ -445,8 +521,11 @@ const Checkout = () => {
                     </div>
                     <span className="text-xs mt-2 hidden sm:block">{stepInfo.label}</span>
                   </div>
-                  {idx < 4 && (
+                  {/* Add invisible spacer for last item to maintain alignment */}
+                  {idx < 4 ? (
                     <div className={`h-1 flex-1 ${step > stepInfo.num ? 'bg-primary' : 'bg-muted'}`} />
+                  ) : (
+                    <div className="h-1 flex-1 opacity-0 pointer-events-none" aria-hidden="true" />
                   )}
                 </div>
               ))}
@@ -530,40 +609,106 @@ const Checkout = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <RadioGroup value={selectedShipping} onValueChange={handleShippingChange}>
-                      <div className="space-y-3">
-                        {shippingOptions.map((option) => (
-                          <div
-                            key={option.id}
-                            className="flex items-center space-x-3 border border-border rounded-lg p-4 cursor-pointer hover:bg-muted/50"
-                            onClick={() => handleShippingChange(option.id)}
-                          >
-                            <RadioGroupItem value={option.id} id={option.id} />
-                            <div className="flex-1">
-                              <label htmlFor={option.id} className="flex items-center justify-between cursor-pointer">
-                                <div>
-                                  <p className="font-semibold">{option.name}</p>
-                                  <p className="text-sm text-muted-foreground">{option.description}</p>
-                                  <p className="text-xs text-muted-foreground mt-1">via {option.carrier}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="font-semibold">
-                                    {option.price === 0 ? 'FREE' : `${currency}${option.price.toFixed(2)}`}
-                                  </p>
-                                </div>
-                              </label>
+                    {/* Package Size Selection (for international/US territories/Canada) */}
+                    {['CA', 'US'].includes(shippingAddress.country) || 
+                     (shippingAddress.country === 'US' && ['AK', 'HI'].includes(shippingAddress.state)) ? (
+                      <div className="mb-6">
+                        <Label htmlFor="packageSize">Package Size</Label>
+                        <RadioGroup value={packageSize} onValueChange={(value) => setPackageSize(value as 'S' | 'M' | 'L')}>
+                          <div className="flex gap-4 mt-2">
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="S" id="package-s" />
+                              <Label htmlFor="package-s" className="cursor-pointer">Small (S)</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="M" id="package-m" />
+                              <Label htmlFor="package-m" className="cursor-pointer">Medium (M)</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="L" id="package-l" />
+                              <Label htmlFor="package-l" className="cursor-pointer">Large (L)</Label>
                             </div>
                           </div>
-                        ))}
+                        </RadioGroup>
                       </div>
-                    </RadioGroup>
+                    ) : null}
 
-                    <Alert className="mt-6">
-                      <Package className="h-4 w-4" />
-                      <AlertDescription>
-                        Free standard shipping on orders over {currency}500
-                      </AlertDescription>
-                    </Alert>
+                    {loadingShipping ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+                        <span className="text-muted-foreground">Calculating shipping rates...</span>
+                      </div>
+                    ) : shippingOptions.length === 0 ? (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          Please complete your shipping address to see shipping options.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <RadioGroup value={selectedShipping} onValueChange={handleShippingChange}>
+                        <div className="space-y-3">
+                          {shippingOptions.map((option) => (
+                            <div
+                              key={option.id}
+                              className="flex items-center space-x-3 border border-border rounded-lg p-4 cursor-pointer hover:bg-muted/50"
+                              onClick={() => handleShippingChange(option.id)}
+                            >
+                              <RadioGroupItem value={option.id} id={option.id} />
+                              <div className="flex-1">
+                                <label htmlFor={option.id} className="flex items-center justify-between cursor-pointer">
+                                  <div>
+                                    <p className="font-semibold">{option.name}</p>
+                                    <p className="text-sm text-muted-foreground">{option.description}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">via {option.carrier}</p>
+                                    {option.fedexRateData && (
+                                      <div className="mt-1 space-y-1">
+                                        {option.fedexRateData.hasNegotiatedRate ? (
+                                          <span className="text-xs text-green-600">Special rate available</span>
+                                        ) : option.fedexRateData.discountPercent ? (
+                                          <div className="text-xs">
+                                            <div className="text-green-600 font-medium">
+                                              SimFab team saves you {option.fedexRateData.discountPercent}% on delivery!
+                                            </div>
+                                            <div className="text-muted-foreground">
+                                              <span className="line-through">{currency}{option.fedexRateData.listRate.toFixed(2)}</span>
+                                              {' '}→{' '}
+                                              <span className="font-semibold text-foreground">{currency}{option.cost.toFixed(2)}</span>
+                                            </div>
+                                          </div>
+                                        ) : null}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="font-semibold">
+                                      {option.cost === 0 && option.id === 'international_quote'
+                                        ? 'Quote Required'
+                                        : option.cost === 0
+                                        ? 'FREE'
+                                        : `${currency}${option.cost.toFixed(2)}`}
+                                    </p>
+                                  </div>
+                                </label>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </RadioGroup>
+                    )}
+
+                    {!loadingShipping && shippingOptions.length > 0 && (
+                      <Alert className="mt-6">
+                        <Package className="h-4 w-4" />
+                        <AlertDescription>
+                          {shippingAddress.country === 'US' && 
+                           shippingAddress.state && 
+                           !['AK', 'HI'].includes(shippingAddress.state) 
+                            ? `Free shipping on orders over ${currency}50`
+                            : 'Shipping rates are calculated based on package size and destination'}
+                        </AlertDescription>
+                      </Alert>
+                    )}
 
                     <div className="mt-6 flex justify-between">
                       <Button variant="outline" onClick={handleBack}>
@@ -622,13 +767,17 @@ const Checkout = () => {
                     <CardContent>
                       <div className="text-sm">
                         <p className="font-semibold">
-                          {shippingOptions.find(opt => opt.id === selectedShipping)?.name}
+                          {shippingOptions.find(opt => opt.id === selectedShipping)?.name || 'Shipping'}
                         </p>
                         <p className="text-muted-foreground">
-                          {shippingOptions.find(opt => opt.id === selectedShipping)?.description}
+                          {shippingOptions.find(opt => opt.id === selectedShipping)?.description || 'Calculating...'}
                         </p>
                         <p className="font-semibold mt-2">
-                          {shippingCost === 0 ? 'FREE' : `${currency}${shippingCost.toFixed(2)}`}
+                          {shippingCost === 0 && shippingOptions.find(opt => opt.id === selectedShipping)?.id === 'international_quote' 
+                            ? 'Quote Required' 
+                            : shippingCost === 0 
+                            ? 'FREE' 
+                            : `${currency}${shippingCost.toFixed(2)}`}
                         </p>
                       </div>
                     </CardContent>
@@ -810,7 +959,13 @@ const Checkout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Shipping:</span>
                         <span className="font-medium">
-                          {shippingCost === 0 ? 'FREE' : `${currency}${shippingCost.toFixed(2)}`}
+                          {!selectedShipping ? (
+                            <span className="text-muted-foreground">Calculating...</span>
+                          ) : shippingCost === 0 ? (
+                            'FREE'
+                          ) : (
+                            `${currency}${shippingCost.toFixed(2)}`
+                          )}
                         </span>
                       </div>
                     )}
@@ -832,23 +987,6 @@ const Checkout = () => {
 
                   <div className="mt-4 pt-4 border-t border-border text-sm text-muted-foreground">
                     {totals.itemCount} item{totals.itemCount !== 1 ? 's' : ''} in your order
-                  </div>
-
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <div className="space-y-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        Secure checkout
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        Free shipping over {currency}500
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        Money-back guarantee
-                      </div>
-                    </div>
                   </div>
                 </CardContent>
               </Card>

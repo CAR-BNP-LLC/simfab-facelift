@@ -66,11 +66,15 @@ export const commonSchemas = {
       'string.pattern.base': 'Invalid phone number format'
     }),
 
-  // US Postal Code
+  // Postal Code (international format - accepts various formats)
   postalCode: Joi.string()
-    .pattern(/^\d{5}(-\d{4})?$/)
+    .min(3)
+    .max(20)
+    .pattern(/^[A-Z0-9\s-]+$/)
     .messages({
-      'string.pattern.base': 'Invalid postal code format'
+      'string.pattern.base': 'Invalid postal code format',
+      'string.min': 'Postal code must be at least 3 characters',
+      'string.max': 'Postal code must be at most 20 characters'
     }),
 
   // URL
@@ -220,10 +224,12 @@ export const cartValidation = {
       addressLine1: Joi.string().required(),
       addressLine2: Joi.string().allow('', null),
       city: Joi.string().required(),
-      state: Joi.string().required(),
+      state: Joi.string().allow('', null), // Optional for international addresses
       postalCode: commonSchemas.postalCode.required(),
       country: Joi.string().length(2).uppercase().default('US')
-    }).required()
+    }).required(),
+    packageSize: Joi.string().valid('S', 'M', 'L').default('M'),
+    orderTotal: Joi.number().min(0).default(0)
   })
 };
 

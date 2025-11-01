@@ -58,9 +58,11 @@ export default function OrderConfirmation() {
 
       console.log('Order API response:', response);
 
-      if (response.success && response.data?.order) {
-        setOrder(response.data.order);
-        console.log('Order loaded successfully:', response.data.order);
+      if (response.success && response.data) {
+        // Handle both response.data (direct order) and response.data.order (nested)
+        const orderData = response.data.order || response.data;
+        setOrder(orderData);
+        console.log('Order loaded successfully:', orderData);
       } else {
         console.error('Order API error:', response);
         setError('Failed to load order details');
@@ -357,7 +359,7 @@ export default function OrderConfirmation() {
                 </button>
                 
                 <button
-                  onClick={() => navigate('/orders')}
+                  onClick={() => navigate('/profile?tab=orders')}
                   className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   View All Orders

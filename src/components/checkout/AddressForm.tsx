@@ -309,21 +309,30 @@ export const AddressForm: React.FC<AddressFormProps> = ({
 
           {/* City Selection */}
           <div>
-            <Label htmlFor="city">City {required && '*'}</Label>
-            <SearchableSelect
-              options={cities.map(city => ({
-                value: city.name,
-                label: city.name
-              }))}
-              value={address.city || ''}  // Use address.city directly
-              onChange={(cityName) => {
-                onAddressChange('city', cityName);
-                setSelectedCity(cityName);
-              }}
-              placeholder="Select city"
-              disabled={!address.state || cities.length === 0}  // Check address.state instead of selectedState
-              required={required}
-            />
+            <Label htmlFor="city">City {required && cities.length > 0 && '*'}</Label>
+            {cities.length > 0 ? (
+              <SearchableSelect
+                options={cities.map(city => ({
+                  value: city.name,
+                  label: city.name
+                }))}
+                value={address.city || ''}  // Use address.city directly
+                onChange={(cityName) => {
+                  onAddressChange('city', cityName);
+                  setSelectedCity(cityName);
+                }}
+                placeholder="Select city"
+                disabled={!address.state || cities.length === 0}  // Check address.state instead of selectedState
+                required={required}
+              />
+            ) : (
+              <Input
+                id="city"
+                value={address.city || ''}
+                onChange={(e) => onAddressChange('city', e.target.value)}
+                placeholder="Enter city (optional)"
+              />
+            )}
           </div>
 
           {/* Postal Code */}

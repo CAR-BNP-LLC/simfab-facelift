@@ -38,7 +38,8 @@ import {
   Mail,
   FileText,
   LayoutGrid,
-  AlertTriangle
+  AlertTriangle,
+  Truck
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -68,6 +69,7 @@ import PermittedFor from '@/components/auth/PermittedFor';
 import EmailTemplatesTab from '@/components/admin/EmailTemplatesTab';
 import ErrorLogsTab from '@/components/admin/ErrorLogsTab';
 import PageProductsTab from '@/components/admin/PageProductsTab';
+import ShippingQuotes from '@/components/admin/ShippingQuotes';
 import { AnalyticsDashboard } from '@/components/admin/analytics/AnalyticsDashboard';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
@@ -991,7 +993,7 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-11">
+          <TabsList className="grid w-full grid-cols-12">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -1015,6 +1017,10 @@ const Admin = () => {
             <TabsTrigger value="coupons" className="flex items-center gap-2">
               <Ticket className="h-4 w-4" />
               <span className="hidden sm:inline">Coupons</span>
+            </TabsTrigger>
+            <TabsTrigger value="shipping-quotes" className="flex items-center gap-2">
+              <Truck className="h-4 w-4" />
+              <span className="hidden sm:inline">Shipping Quotes</span>
             </TabsTrigger>
             <TabsTrigger value="email-templates" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
@@ -2001,6 +2007,13 @@ const Admin = () => {
                 onEditClick={handleEditCoupon}
                 onDeleteClick={handleDeleteCoupon}
               />
+            </PermittedFor>
+          </TabsContent>
+
+          {/* Shipping Quotes Tab */}
+          <TabsContent value="shipping-quotes" className="space-y-6">
+            <PermittedFor authority="orders:view">
+              <ShippingQuotes />
             </PermittedFor>
           </TabsContent>
 

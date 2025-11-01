@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,11 +21,15 @@ import { Link } from "react-router-dom";
 
 const Profile = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAuthenticated, loading, logout } = useAuth();
   const { wishlist, wishlistCount } = useWishlist();
   const { addToCart } = useCart();
   const [orders, setOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  
+  // Get default tab from URL params
+  const defaultTab = searchParams.get('tab') || 'profile';
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -103,7 +107,7 @@ const Profile = () => {
           </div>
 
           {/* Tabs */}
-          <Tabs defaultValue="profile" className="space-y-6">
+          <Tabs defaultValue={defaultTab} className="space-y-6">
             <TabsList className="grid w-full grid-cols-5 lg:w-auto">
               <TabsTrigger value="profile" className="flex items-center gap-2">
                 <User className="h-4 w-4" />
@@ -279,7 +283,7 @@ const Profile = () => {
                         <div
                           key={order.id}
                           className="border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => navigate(`/orders/${order.order_number}`)}
+                          onClick={() => navigate(`/order-confirmation/${order.order_number}`)}
                         >
                           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                             <div>
