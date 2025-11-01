@@ -21,7 +21,8 @@ const Cart = () => {
 
   // Get cart data safely
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, itemCount: 0 };
+  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, currency: 'USD', itemCount: 0 };
+  const currency = totals.currency === 'EUR' ? '€' : '$';
 
   // Handle quantity update
   const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
@@ -174,7 +175,7 @@ const Cart = () => {
                         <div className="md:col-span-2 text-left md:text-center">
                           <span className="md:hidden font-semibold mr-2">Price:</span>
                           <span className="font-medium">
-                            ${parseFloat(item.unit_price).toFixed(2)}
+                            {currency}{parseFloat(item.unit_price).toFixed(2)}
                           </span>
                         </div>
 
@@ -207,7 +208,7 @@ const Cart = () => {
                           <span className="md:hidden font-semibold">Total:</span>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-lg">
-                              ${parseFloat(item.total_price).toFixed(2)}
+                              {currency}{parseFloat(item.total_price).toFixed(2)}
                             </span>
                             {/* Remove button for desktop */}
                             <button
@@ -255,7 +256,7 @@ const Cart = () => {
                             <span className="font-mono font-semibold text-sm text-green-700 dark:text-green-300">{coupon?.code || 'Coupon'}</span>
                           </div>
                           <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                            -${discount.toFixed(2)}
+                            -{currency}{discount.toFixed(2)}
                           </span>
                         </div>
                       );
@@ -295,14 +296,14 @@ const Cart = () => {
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
+                    <span className="font-medium">{currency}{totals.subtotal.toFixed(2)}</span>
                   </div>
                   
                   {totals.discount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Discount:</span>
                       <span className="font-medium text-green-600">
-                        -${totals.discount.toFixed(2)}
+                        -{currency}{totals.discount.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -310,14 +311,14 @@ const Cart = () => {
                   {totals.shipping > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Shipping:</span>
-                      <span className="font-medium">${totals.shipping.toFixed(2)}</span>
+                      <span className="font-medium">{currency}{totals.shipping.toFixed(2)}</span>
                     </div>
                   )}
 
                   {totals.tax > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Tax:</span>
-                      <span className="font-medium">${totals.tax.toFixed(2)}</span>
+                      <span className="font-medium">{currency}{totals.tax.toFixed(2)}</span>
                     </div>
                   )}
 
@@ -325,7 +326,7 @@ const Cart = () => {
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-bold">Total:</span>
                       <span className="text-2xl font-bold text-primary">
-                        ${totals.total.toFixed(2)}
+                        {currency}{totals.total.toFixed(2)}
                       </span>
                     </div>
                   </div>

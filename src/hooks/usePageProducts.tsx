@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { pageProductsAPI, PageSectionProducts } from '@/services/api';
+import { useRegion } from '@/contexts/RegionContext';
 
 interface UsePageProductsResult {
   products: PageSectionProducts['products'];
@@ -17,6 +18,7 @@ export function usePageProducts(pageRoute: string, section: string): UsePageProd
   const [products, setProducts] = useState<PageSectionProducts['products']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { region } = useRegion();
 
   const fetchProducts = async () => {
     try {
@@ -39,7 +41,7 @@ export function usePageProducts(pageRoute: string, section: string): UsePageProd
 
   useEffect(() => {
     fetchProducts();
-  }, [pageRoute, section]);
+  }, [pageRoute, section, region]); // Refetch when region changes
 
   return {
     products,

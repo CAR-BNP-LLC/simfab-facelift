@@ -58,9 +58,31 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // Detect region from hostname/query params (same logic as api.ts)
+  const hostname = window.location.hostname;
+  const urlParams = new URLSearchParams(window.location.search);
+  const queryRegion = urlParams.get('region');
+  
+  let region: string = 'us';
+  
+  // 1. Check hostname (production: eu.simfab.com -> 'eu')
+  if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
+    region = 'eu';
+  }
+  // 2. Check query parameter
+  else if (queryRegion === 'eu' || queryRegion === 'us') {
+    region = queryRegion;
+  }
+  // 3. Check env var (development)
+  else if (import.meta.env.VITE_DEFAULT_REGION) {
+    region = import.meta.env.VITE_DEFAULT_REGION;
+  }
+
+  const currency = region === 'eu' ? 'EUR' : 'USD';
+
   const paypalOptions = {
     clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
-    currency: 'USD',
+    currency,
     intent: 'capture',
     components: 'buttons,marks,messages', // Include more components for better UX
     enableFunding: 'paylater,card,credit', // Enable PayPal Pay Later, card, and credit payments

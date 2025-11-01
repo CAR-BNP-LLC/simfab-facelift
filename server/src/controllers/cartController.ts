@@ -29,9 +29,21 @@ export class CartController {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
 
-      console.log('Getting cart for session:', sessionId, 'user:', userId);
+      console.log('📦 Getting cart for session:', sessionId, 'user:', userId, 'region:', req.region);
+      console.log('📦 Request details:', {
+        method: req.method,
+        path: req.path,
+        'X-Region header': req.get('X-Region'),
+        'query.region': req.query.region,
+        'req.region': req.region
+      });
 
-      const cart = await this.cartService.getCartWithItems(sessionId, userId);
+      // Get region from request (set by middleware)
+      const region = req.region;
+      // Don't create cart if it doesn't exist - just find it
+      const cart = await this.cartService.getCartWithItems(sessionId, userId, region, undefined, false);
+      
+      console.log('📦 getCart result:', cart ? `Found cart ${cart.id} with ${cart.items?.length || 0} items, region: ${cart.region}, currency: ${cart.totals?.currency}` : 'No cart found');
 
       // Return null if cart is empty or doesn't exist
       if (!cart || !cart.items || cart.items.length === 0) {
@@ -112,8 +124,9 @@ export class CartController {
 
       const cartItem = await this.cartService.addItem(sessionId, userId, data);
 
-      // Get updated cart
-      const cart = await this.cartService.getCartWithItems(sessionId, userId);
+      // Get the cart by the cart_id from the added item (most reliable)
+      // This ensures we get the exact cart that was just modified, with correct region
+      const cart = await this.cartService.getCartWithItems(sessionId, userId, undefined, cartItem.cart_id);
 
       res.status(201).json(successResponse({
         cartItem,

@@ -95,8 +95,13 @@ export const createErrorHandler = (loggerService?: LoggerService) => {
     // Handle known operational errors
     if (err instanceof AppError) {
       statusCode = err.statusCode;
-      errorCode = err.code;
+      // Use details.code if provided (for cases like REGION_MISMATCH)
+      errorCode = (err.details?.code as string) || err.code;
       const response = formatErrorResponse(err, requestId);
+      // Override code in response if details.code was provided
+      if (err.details?.code) {
+        response.error.code = err.details.code as string;
+      }
       
       // Log server errors (5xx) to database
       if (loggerService) {

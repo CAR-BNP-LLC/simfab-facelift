@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { CheckoutProvider } from "@/contexts/CheckoutContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
+import { RegionProvider } from "@/contexts/RegionContext";
 import PayPalProvider from "@/components/PayPalProvider";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
@@ -40,11 +41,12 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <CartProvider>
-        <WishlistProvider>
-          <CheckoutProvider>
-            <PayPalProvider>
+    <RegionProvider>
+      <AuthProvider>
+        <CartProvider>
+          <WishlistProvider>
+            <CheckoutProvider>
+              <PayPalProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -63,6 +65,7 @@ const App = () => (
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
+            <Route path="/orders/:orderNumber" element={<OrderConfirmation />} />
             <Route path="/monitor-stands" element={<MonitorStands />} />
             <Route path="/services" element={<Services />} />
             <Route path="/assembly-manuals" element={<AssemblyManuals />} />
@@ -81,11 +84,12 @@ const App = () => (
           <CookieNotice />
           </BrowserRouter>
           </TooltipProvider>
-        </PayPalProvider>
-        </CheckoutProvider>
-        </WishlistProvider>
-      </CartProvider>
-    </AuthProvider>
+              </PayPalProvider>
+            </CheckoutProvider>
+          </WishlistProvider>
+        </CartProvider>
+      </AuthProvider>
+    </RegionProvider>
   </QueryClientProvider>
 );
 

@@ -30,6 +30,7 @@ export class AdminOrderController {
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as string;
       const search = req.query.search as string;
+      const region = req.query.region as string;
 
       const offset = (page - 1) * limit;
 
@@ -54,6 +55,12 @@ export class AdminOrderController {
         params.push(status);
       }
 
+      if (region && (region === 'us' || region === 'eu')) {
+        paramCount++;
+        sql += ` AND o.region = $${paramCount}`;
+        params.push(region);
+      }
+
       if (search) {
         paramCount++;
         sql += ` AND (o.order_number ILIKE $${paramCount} OR o.customer_email ILIKE $${paramCount})`;
@@ -74,6 +81,12 @@ export class AdminOrderController {
         countParamCount++;
         countSql += ` AND o.status = $${countParamCount}`;
         countParams.push(status);
+      }
+
+      if (region && (region === 'us' || region === 'eu')) {
+        countParamCount++;
+        countSql += ` AND o.region = $${countParamCount}`;
+        countParams.push(region);
       }
 
       if (search) {

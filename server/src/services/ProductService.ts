@@ -173,17 +173,27 @@ export class ProductService {
 
   /**
    * Get product by slug
+   * @param slug - Product slug
+   * @param region - Region filter ('us' | 'eu'). If provided, only returns products from that region.
    */
-  async getProductBySlug(slug: string): Promise<ProductWithDetails> {
+  async getProductBySlug(slug: string, region?: 'us' | 'eu'): Promise<ProductWithDetails> {
     try {
-      const sql = 'SELECT id FROM products WHERE slug = $1 AND status = $2';
-      const result = await this.pool.query(sql, [slug, ProductStatus.ACTIVE]);
+      let sql = 'SELECT id FROM products WHERE slug = $1 AND status = $2';
+      const params: any[] = [slug, ProductStatus.ACTIVE];
+      
+      // Filter by region if provided
+      if (region) {
+        sql += ' AND region = $3';
+        params.push(region);
+      }
+      
+      const result = await this.pool.query(sql, params);
 
       if (result.rows.length === 0) {
-        throw new NotFoundError('Product', { slug });
+        throw new NotFoundError('Product', { slug, region });
       }
 
-      return this.getProductById(result.rows[0].id);
+      return this.getProductById(result.rows[0].id, region);
     } catch (error) {
       if (error instanceof NotFoundError) throw error;
       console.error('Error getting product by slug:', error);
@@ -328,17 +338,20 @@ export class ProductService {
         }
       }
 
-      // Fields that should be synced to paired product (everything except stock)
+      // Fields that should be synced to paired product (everything except stock, pricing, and SKU)
       const sharedFields = [
         'name', 'slug', 'description', 'short_description', 'type', 'status', 'featured',
-        'regular_price', 'sale_price', 'is_on_sale', 'sale_start_date', 'sale_end_date', 'sale_label',
         'weight_lbs', 'length_in', 'width_in', 'height_in',
         'tax_class', 'shipping_class', 'categories', 'tags', 'meta_data',
         'seo_title', 'seo_description'
       ];
 
       // Fields that are region-specific (should NOT be synced)
-      const regionSpecificFields = ['stock', 'stock_quantity', 'low_stock_amount', 'low_stock_threshold', 'in_stock', 'sku', 'region'];
+      // Pricing is region-specific because US uses USD and EU uses EUR
+      const regionSpecificFields = [
+        'stock', 'stock_quantity', 'low_stock_amount', 'low_stock_threshold', 'in_stock', 'sku', 'region',
+        'regular_price', 'sale_price', 'is_on_sale', 'sale_start_date', 'sale_end_date', 'sale_label'
+      ];
 
       // Build dynamic update query for the main product
       const updateFields: string[] = [];
@@ -393,31 +406,32 @@ export class ProductService {
         addField('featured', data.featured);
         if (hasGroup) sharedFieldsToSync['featured'] = data.featured;
       }
+      // Pricing fields - region-specific (USD for US, EUR for EU), NOT synced
       if (data.regular_price !== undefined) {
         addField('regular_price', data.regular_price);
-        if (hasGroup) sharedFieldsToSync['regular_price'] = data.regular_price;
+        // Do NOT sync prices - they are region-specific
       }
       if (data.sale_price !== undefined) {
         addField('sale_price', data.sale_price);
-        if (hasGroup) sharedFieldsToSync['sale_price'] = data.sale_price;
+        // Do NOT sync prices - they are region-specific
       }
       
-      // Discount fields
+      // Discount fields - region-specific (sale can be active in one region but not the other)
       if (data.is_on_sale !== undefined) {
         forceAddField('is_on_sale', data.is_on_sale);
-        if (hasGroup) sharedFieldsToSync['is_on_sale'] = data.is_on_sale;
+        // Do NOT sync sale status - it's region-specific
       }
       if ('sale_start_date' in data) {
         forceAddField('sale_start_date', data.sale_start_date);
-        if (hasGroup) sharedFieldsToSync['sale_start_date'] = data.sale_start_date;
+        // Do NOT sync sale dates - they are region-specific
       }
       if ('sale_end_date' in data) {
         forceAddField('sale_end_date', data.sale_end_date);
-        if (hasGroup) sharedFieldsToSync['sale_end_date'] = data.sale_end_date;
+        // Do NOT sync sale dates - they are region-specific
       }
       if ('sale_label' in data) {
         forceAddField('sale_label', data.sale_label);
-        if (hasGroup) sharedFieldsToSync['sale_label'] = data.sale_label;
+        // Do NOT sync sale label - it's region-specific
       }
       
       if (data.weight_lbs !== undefined) {

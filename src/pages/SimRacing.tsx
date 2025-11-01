@@ -25,18 +25,19 @@ const SimRacing = () => {
 
     const imageUrl = productImage?.image_url || racingImage;
 
+    const currency = product.region === 'eu' ? '€' : '$';
     return {
       id: product.id,
       name: product.name,
       description: '', // Product might have short_description
-      originalPrice: product.regular_price ? `$${product.regular_price}` : null,
+      originalPrice: product.regular_price ? `${currency}${product.regular_price}` : null,
       currentPrice: product.sale_price 
-        ? `$${product.sale_price}` 
+        ? `${currency}${product.sale_price}` 
         : product.regular_price 
-          ? `$${product.regular_price}` 
+          ? `${currency}${product.regular_price}` 
           : product.price_min 
-            ? `$${product.price_min}` 
-            : '$0',
+            ? `${currency}${product.price_min}` 
+            : `${currency}0`,
       image: imageUrl,
       slug: product.slug,
     };

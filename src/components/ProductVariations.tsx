@@ -2,6 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { getCurrencySymbol } from "@/utils/currency";
 
 interface VariationOption {
   id: string;
@@ -55,6 +56,7 @@ interface ProductVariationsProps {
   onImageChange?: (variationId: string, optionId: string) => void;
   onBooleanChange?: (variationId: string, value: boolean) => void;
   variationStock?: Array<{ variationName: string; optionName: string; available: number }>;
+  productRegion?: 'us' | 'eu'; // Product region for currency display
 }
 
 const ProductVariations = ({
@@ -70,7 +72,8 @@ const ProductVariations = ({
   onDropdownChange,
   onImageChange,
   onBooleanChange,
-  variationStock = []
+  variationStock = [],
+  productRegion
 }: ProductVariationsProps) => {
   return (
     <div className="space-y-4">
@@ -126,11 +129,14 @@ const ProductVariations = ({
                       <SelectItem key={option.id} value={option.id}>
                         <div className="flex items-center justify-between w-full">
                           <span>{option.name}</span>
-                          {hasPrice && (
-                            <span className="ml-2 font-bold">
-                              {price > 0 ? '+' : ''}${Math.abs(price).toFixed(2)}
-                            </span>
-                          )}
+                          {hasPrice && (() => {
+                            const currency = getCurrencySymbol(productRegion);
+                            return (
+                              <span className="ml-2 font-bold">
+                                {price > 0 ? '+' : ''}{currency}{Math.abs(price).toFixed(2)}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </SelectItem>
                     );
@@ -175,11 +181,14 @@ const ProductVariations = ({
                     </div>
                     <div className="text-center">
                       <span className="text-xs font-medium">{option.name}</span>
-                      {option.price && option.price !== 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          {option.price > 0 ? '+' : ''}${option.price.toFixed(2)}
-                        </p>
-                      )}
+                      {option.price && option.price !== 0 && (() => {
+                        const currency = getCurrencySymbol(productRegion);
+                        return (
+                          <p className="text-xs text-muted-foreground">
+                            {option.price > 0 ? '+' : ''}{currency}{option.price.toFixed(2)}
+                          </p>
+                        );
+                      })()}
                     </div>
                     {selectedImageValues[variation.id] === option.id && (
                       <div className="absolute top-2 right-2 w-4 h-4 bg-primary rounded-full"></div>

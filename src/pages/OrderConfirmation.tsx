@@ -150,6 +150,9 @@ export default function OrderConfirmation() {
     );
   }
 
+  // Get currency symbol from order (calculate inside render to ensure it updates when order loads)
+  const currency = order?.currency === 'EUR' ? '€' : '$';
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -181,8 +184,8 @@ export default function OrderConfirmation() {
                         <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-gray-900">${Number(item.total_price).toFixed(2)}</p>
-                        <p className="text-sm text-gray-500">${Number(item.unit_price).toFixed(2)} each</p>
+                        <p className="font-medium text-gray-900">{currency}{Number(item.total_price).toFixed(2)}</p>
+                        <p className="text-sm text-gray-500">{currency}{Number(item.unit_price).toFixed(2)} each</p>
                       </div>
                     </div>
                   ))
@@ -195,29 +198,29 @@ export default function OrderConfirmation() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal:</span>
-                    <span className="text-gray-900">${Number(order.subtotal).toFixed(2)}</span>
+                    <span className="text-gray-900">{currency}{Number(order.subtotal).toFixed(2)}</span>
                   </div>
                   {parseFloat(order.tax_amount) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Tax:</span>
-                      <span className="text-gray-900">${Number(order.tax_amount).toFixed(2)}</span>
+                      <span className="text-gray-900">{currency}{Number(order.tax_amount).toFixed(2)}</span>
                     </div>
                   )}
                   {parseFloat(order.shipping_amount) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Shipping:</span>
-                      <span className="text-gray-900">${Number(order.shipping_amount).toFixed(2)}</span>
+                      <span className="text-gray-900">{currency}{Number(order.shipping_amount).toFixed(2)}</span>
                     </div>
                   )}
                   {parseFloat(order.discount_amount) > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Discount:</span>
-                      <span className="text-gray-900">-${Number(order.discount_amount).toFixed(2)}</span>
+                      <span className="text-gray-900">-{currency}{Number(order.discount_amount).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-lg font-semibold pt-2 border-t border-gray-200">
                     <span className="text-gray-900">Total:</span>
-                    <span className="text-gray-900">${Number(order.total_amount).toFixed(2)}</span>
+                    <span className="text-gray-900">{currency}{Number(order.total_amount).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -333,7 +336,7 @@ export default function OrderConfirmation() {
                 
                 <div>
                   <p className="text-sm text-gray-600">Amount Paid</p>
-                  <p className="font-medium text-gray-900">${Number(order.total_amount).toFixed(2)}</p>
+                  <p className="font-medium text-gray-900">{currency}{Number(order.total_amount).toFixed(2)}</p>
                 </div>
                 
                 <div>

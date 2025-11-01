@@ -102,13 +102,14 @@ const MonitorStands = () => {
                         product.images?.[0] || 
                         { image_url: "/placeholder.svg" };
 
+    const currency = product.region === 'eu' ? '€' : '$';
     const price = product.sale_price 
-      ? `$${product.sale_price}` 
+      ? `${currency}${product.sale_price}` 
       : product.regular_price 
-        ? `$${product.regular_price}` 
+        ? `${currency}${product.regular_price}` 
         : product.price_min 
-          ? `$${product.price_min}` 
-          : '$0';
+          ? `${currency}${product.price_min}` 
+          : `${currency}0`;
 
     return {
       id: product.id,
@@ -128,13 +129,14 @@ const MonitorStands = () => {
                         product.images?.[0] || 
                         { image_url: "/placeholder.svg" };
 
+    const currency = product.region === 'eu' ? '€' : '$';
     const price = product.sale_price 
-      ? `$${product.sale_price}` 
+      ? `${currency}${product.sale_price}` 
       : product.regular_price 
-        ? `$${product.regular_price}` 
+        ? `${currency}${product.regular_price}` 
         : product.price_min 
-          ? `$${product.price_min}` 
-          : '$0';
+          ? `${currency}${product.price_min}` 
+          : `${currency}0`;
 
     return {
       id: product.id,

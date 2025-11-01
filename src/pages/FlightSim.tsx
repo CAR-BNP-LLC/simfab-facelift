@@ -106,13 +106,14 @@ const FlightSim = () => {
 
     const imageUrl = productImage?.image_url || flightSimImage;
 
+    const currency = product.region === 'eu' ? '€' : '$';
     const price = product.sale_price 
-      ? `$${product.sale_price}` 
+      ? `${currency}${product.sale_price}` 
       : product.regular_price 
-        ? `$${product.regular_price}` 
+        ? `${currency}${product.regular_price}` 
         : product.price_min 
-          ? `$${product.price_min}` 
-          : 'from $0';
+          ? `${currency}${product.price_min}` 
+          : `from ${currency}0`;
 
     return {
       id: product.id,

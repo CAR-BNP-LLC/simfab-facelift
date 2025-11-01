@@ -149,20 +149,23 @@ const Wishlist: React.FC = () => {
                     </Link>
 
                     <div className="flex items-center gap-2 mb-4">
-                      {product.sale_price ? (
-                        <>
-                          <span className="text-lg font-bold text-destructive">
-                            ${product.sale_price.toFixed(2)}
+                      {(() => {
+                        const currency = product.region === 'eu' ? '€' : '$';
+                        return product.sale_price ? (
+                          <>
+                            <span className="text-lg font-bold text-destructive">
+                              {currency}{product.sale_price.toFixed(2)}
+                            </span>
+                            <span className="text-sm line-through text-muted-foreground">
+                              {currency}{product.regular_price?.toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-lg font-bold">
+                            {currency}{product.regular_price?.toFixed(2) || '0.00'}
                           </span>
-                          <span className="text-sm line-through text-muted-foreground">
-                            ${product.regular_price?.toFixed(2)}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-lg font-bold">
-                          ${product.regular_price?.toFixed(2) || '0.00'}
-                        </span>
-                      )}
+                        );
+                      })()}
                     </div>
 
                     {/* Stock Status */}

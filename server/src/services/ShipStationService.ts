@@ -51,11 +51,12 @@ export class ShipStationService {
     try {
       const offset = (page - 1) * limit;
 
-      // Get total count for pagination
+      // Get total count for pagination (only US orders - ShipStation is US only)
       const countSql = `
         SELECT COUNT(*)::int as total
         FROM orders o
         WHERE o.payment_status = 'paid'
+        AND o.region = 'us'
         AND o.created_at >= $1
         AND o.created_at <= $2
       `;
@@ -104,6 +105,7 @@ export class ShipStationService {
         FROM orders o
         LEFT JOIN order_items oi ON oi.order_id = o.id
         WHERE o.payment_status = 'paid'
+        AND o.region = 'us'
         AND o.created_at >= $1
         AND o.created_at <= $2
         GROUP BY o.id, o.order_number, o.created_at, o.status, o.payment_status, 
@@ -327,6 +329,7 @@ export class ShipStationService {
         FROM orders o
         LEFT JOIN order_items oi ON oi.order_id = o.id
         WHERE o.order_number = $1
+        AND o.region = 'us'
         GROUP BY o.id, o.order_number, o.created_at, o.status, o.payment_status, 
                  o.shipping_status, o.subtotal, o.tax_amount, o.shipping_amount, 
                  o.discount_amount, o.total_amount, o.currency, o.customer_email, 

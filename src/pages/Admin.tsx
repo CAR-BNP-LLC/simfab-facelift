@@ -59,7 +59,6 @@ import VariationsList from '@/components/admin/VariationsList';
 import VariationManagementDialog from '@/components/admin/VariationManagementDialog';
 import ProductEditDialog from '@/components/admin/ProductEditDialog';
 import ProductGroupRow from '@/components/admin/ProductGroupRow';
-import ProductEditWarningDialog from '@/components/admin/ProductEditWarningDialog';
 import RbacManagement from '@/components/admin/RbacManagement';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
 import CSVImportExportDialog from '@/components/admin/CSVImportExportDialog';
@@ -95,8 +94,7 @@ const Admin = () => {
   const [productImages, setProductImages] = useState<any[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editWarningDialogOpen, setEditWarningDialogOpen] = useState(false);
-  const [pendingEditProduct, setPendingEditProduct] = useState<any>(null);
+  const [editMode, setEditMode] = useState<'group' | 'individual'>('individual');
   const [pairedProduct, setPairedProduct] = useState<any>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
@@ -138,6 +136,7 @@ const Admin = () => {
   const [featuredFilter, setFeaturedFilter] = useState<string>('all');
   const [regionFilter, setRegionFilter] = useState<string>('all'); // 'all', 'us', 'eu'
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [orderRegionFilter, setOrderRegionFilter] = useState<string>('all'); // 'all', 'us', 'eu' - for orders
 
   // Product form state
   const [productForm, setProductForm] = useState({
@@ -179,7 +178,8 @@ const Admin = () => {
     } else if (activeTab === 'orders') {
       fetchOrders();
     }
-  }, [activeTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, orderRegionFilter]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -237,7 +237,11 @@ const Admin = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/admin/orders?limit=50`, {
+      const params = new URLSearchParams({ limit: '50' });
+      if (orderRegionFilter && orderRegionFilter !== 'all') {
+        params.append('region', orderRegionFilter);
+      }
+      const response = await fetch(`${API_URL}/api/admin/orders?${params.toString()}`, {
         credentials: 'include'
       });
       const data = await response.json();
@@ -498,27 +502,18 @@ const Admin = () => {
   };
 
   const handleEditProduct = async (product: any) => {
-    // Check if product is in a group AND has an actual paired product
-    if (product.product_group_id) {
-      // Find paired product (must exist for it to be truly "linked")
-      const paired = products.find(p => 
-        p.product_group_id === product.product_group_id && 
-        p.id !== product.id &&
-        p.region !== product.region
-      );
-      
-      // Only show warning if paired product actually exists
-      if (paired) {
-        setPendingEditProduct(product);
-        setPairedProduct(paired);
-        setEditWarningDialogOpen(true);
-        return;
-      }
-      // If no paired product exists, treat it as ungrouped (product_group_id is orphaned)
-    }
+    // Individual product editing mode - show only region-specific fields
+    setEditMode('individual');
     
-    // Not in a group or no paired product found, edit directly
+    // Find paired product if it exists (for reference, but we're editing individual)
+    const paired = product.product_group_id ? products.find(p => 
+      p.product_group_id === product.product_group_id && 
+      p.id !== product.id &&
+      p.region !== product.region
+    ) : null;
+    
     setEditingProduct(product);
+    setPairedProduct(paired); // Pass for reference but mode is individual
     setEditDialogOpen(true);
     
     if (product.id) {
@@ -527,51 +522,17 @@ const Admin = () => {
     }
   };
 
-  const handleEditProductConfirm = (product: any, breakGroup: boolean) => {
-    // Find paired product for passing to edit dialog (only if not breaking group)
-    let paired: any = null;
-    if (!breakGroup && product.product_group_id) {
-      paired = products.find(p => 
-        p.product_group_id === product.product_group_id && 
-        p.id !== product.id &&
-        p.region !== product.region
-      );
-    }
-    
-    if (breakGroup) {
-      // Break the group first
-      handleBreakGroup(product.product_group_id, () => {
-        // After breaking, edit the product (no paired product)
-        setEditingProduct(product);
-        setPairedProduct(null);
-        setEditDialogOpen(true);
-        
-        if (product.id) {
-          fetchProductImages(product.id);
-          fetchProductVariations(product.id);
-        }
-      });
-    } else {
-      // Edit normally (will sync to paired product)
-      setEditingProduct(product);
-      setPairedProduct(paired);
-      setEditDialogOpen(true);
-      
-      if (product.id) {
-        fetchProductImages(product.id);
-        fetchProductVariations(product.id);
-      }
-    }
-    
-    setEditWarningDialogOpen(false);
-    setPendingEditProduct(null);
-  };
-
   const handleEditGroup = (groupProducts: any[]) => {
+    // Group editing mode - show only shared fields
+    setEditMode('group');
     setEditingProductGroup(groupProducts);
+    
     // Use the first product as the base for editing
     const mainProduct = groupProducts[0];
+    const paired = groupProducts.find(p => p.id !== mainProduct.id && p.region !== mainProduct.region);
+    
     setEditingProduct(mainProduct);
+    setPairedProduct(paired);
     setEditDialogOpen(true);
     
     if (mainProduct.id) {
@@ -627,8 +588,11 @@ const Admin = () => {
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
     setEditingProduct(null);
+    setEditingProductGroup(null);
     setProductImages([]);
     setProductVariations([]);
+    setPairedProduct(null);
+    setEditMode('individual');
   };
 
   const handleSaveFromDialog = async (formData: any) => {
@@ -1240,6 +1204,19 @@ const Admin = () => {
                 <CardDescription>View and manage all orders</CardDescription>
               </CardHeader>
               <CardContent>
+                {/* Filters */}
+                <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <Select value={orderRegionFilter} onValueChange={setOrderRegionFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Filter by region" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Regions</SelectItem>
+                      <SelectItem value="us">US</SelectItem>
+                      <SelectItem value="eu">EU</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 {loading ? (
                   <div className="flex justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1256,6 +1233,7 @@ const Admin = () => {
                         <tr className="border-b border-border">
                           <th className="text-left py-3 px-2">Order #</th>
                           <th className="text-left py-3 px-2">Customer</th>
+                          <th className="text-left py-3 px-2">Region</th>
                           <th className="text-left py-3 px-2">Items</th>
                           <th className="text-left py-3 px-2">Total</th>
                           <th className="text-left py-3 px-2">Status</th>
@@ -1286,10 +1264,25 @@ const Admin = () => {
                               </div>
                             </td>
                             <td className="py-3 px-2">
+                              {order.region && (
+                                <Badge 
+                                  className={`text-xs font-semibold cursor-default pointer-events-none ${
+                                    order.region === 'us' 
+                                      ? 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:border-blue-700' 
+                                      : 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900 dark:text-amber-200 dark:border-amber-700'
+                                  }`}
+                                >
+                                  {order.region.toUpperCase()}
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="py-3 px-2">
                               <Badge variant="outline">{order.item_count || 0}</Badge>
                             </td>
                             <td className="py-3 px-2">
-                              <span className="font-semibold">${parseFloat(order.total_amount).toFixed(2)}</span>
+                              <span className="font-semibold">
+                                {order.currency === 'EUR' ? '€' : '$'}{parseFloat(order.total_amount).toFixed(2)}
+                              </span>
                             </td>
                             <td className="py-3 px-2" onClick={(e) => e.stopPropagation()}>
                               <PermittedFor 
@@ -1587,18 +1580,21 @@ const Admin = () => {
                             </td>
                             <td className="py-3 px-2">
                               <div className="flex flex-col gap-1">
-                                {product.is_on_sale && product.sale_price ? (
-                                  <>
-                                    <span className="font-bold text-destructive">
-                                      ${parseFloat(product.sale_price.toString()).toFixed(2)}
-                                    </span>
-                                    <span className="text-xs line-through text-muted-foreground">
-                                      ${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
-                                    </span>
-                                  </>
-                                ) : (
-                                  <span>${product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}</span>
-                                )}
+                                {(() => {
+                                  const currency = product.region === 'eu' ? '€' : '$';
+                                  return product.is_on_sale && product.sale_price ? (
+                                    <>
+                                      <span className="font-bold text-destructive">
+                                        {currency}{parseFloat(product.sale_price.toString()).toFixed(2)}
+                                      </span>
+                                      <span className="text-xs line-through text-muted-foreground">
+                                        {currency}{product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span>{currency}{product.regular_price ? parseFloat(product.regular_price.toString()).toFixed(2) : '0.00'}</span>
+                                  );
+                                })()}
                               </div>
                             </td>
                             <td className="py-3 px-2">
@@ -2069,33 +2065,6 @@ const Admin = () => {
         productId={editingProduct?.id || 0}
       />
 
-      {/* Product Edit Warning Dialog */}
-      <ProductEditWarningDialog
-        open={editWarningDialogOpen}
-        onClose={() => {
-          setEditWarningDialogOpen(false);
-          setPendingEditProduct(null);
-          setPairedProduct(null);
-        }}
-        onCancel={() => {
-          setEditWarningDialogOpen(false);
-          setPendingEditProduct(null);
-          setPairedProduct(null);
-        }}
-        onEditBoth={() => {
-          if (pendingEditProduct) {
-            handleEditProductConfirm(pendingEditProduct, false);
-          }
-        }}
-        onEditOnlyThis={() => {
-          if (pendingEditProduct) {
-            handleEditProductConfirm(pendingEditProduct, true);
-          }
-        }}
-        product={pendingEditProduct}
-        pairedProduct={pairedProduct}
-      />
-
       {/* Product Edit Dialog */}
       <ProductEditDialog
         open={editDialogOpen}
@@ -2104,6 +2073,7 @@ const Admin = () => {
         product={editingProduct}
         productImages={productImages}
         productVariations={productVariations}
+        mode={editMode}
         onImageUpload={async (file, productId) => {
           setUploadingImages(true);
           try {

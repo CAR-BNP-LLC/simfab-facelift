@@ -5,6 +5,7 @@ import { paymentAPI } from '@/services/api';
 interface PayPalButtonProps {
   amount: number;
   orderId: number;
+  currency?: string; // Currency code (USD or EUR) - if not provided, detects from region
   paymentMethod?: 'paypal_account' | 'guest_card';
   billingAddress?: {
     firstName: string;
@@ -37,6 +38,7 @@ interface PayPalButtonProps {
 export const PayPalButton: React.FC<PayPalButtonProps> = ({
   amount,
   orderId,
+  currency,
   paymentMethod = 'paypal_account',
   billingAddress,
   shippingAddress,
@@ -45,12 +47,34 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
 }) => {
   const { toast } = useToast();
 
+  // Detect currency if not provided
+  const getCurrency = (): string => {
+    if (currency) return currency;
+    
+    // Detect region from hostname/query params
+    const hostname = window.location.hostname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryRegion = urlParams.get('region');
+    
+    let region: string = 'us';
+    
+    if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
+      region = 'eu';
+    } else if (queryRegion === 'eu' || queryRegion === 'us') {
+      region = queryRegion;
+    } else if (import.meta.env.VITE_DEFAULT_REGION) {
+      region = import.meta.env.VITE_DEFAULT_REGION;
+    }
+    
+    return region === 'eu' ? 'EUR' : 'USD';
+  };
+
   const createOrder = async () => {
     try {
       const response = await paymentAPI.createPayment({
         orderId,
         amount,
-        currency: 'USD',
+        currency: getCurrency(),
         paymentMethod,
         returnUrl: `${window.location.origin}/checkout/success`,
         cancelUrl: `${window.location.origin}/checkout/cancel`,

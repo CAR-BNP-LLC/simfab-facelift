@@ -380,7 +380,10 @@ const Checkout = () => {
 
   // Get cart data
   const items = cart?.items || [];
-  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, itemCount: 0 };
+  const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, currency: 'USD', itemCount: 0 };
+  
+  // Get currency symbol from cart totals
+  const currency = totals.currency === 'EUR' ? '€' : '$';
   
   // Calculate shipping
   const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.price || 0;
@@ -475,7 +478,7 @@ const Checkout = () => {
                           <div className="flex-1">
                             <h3 className="font-semibold">{item.product_name}</h3>
                             <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
-                            <p className="font-semibold mt-2">${parseFloat(item.total_price).toFixed(2)}</p>
+                            <p className="font-semibold mt-2">{currency}{parseFloat(item.total_price).toFixed(2)}</p>
                           </div>
                         </div>
                       ))}
@@ -545,7 +548,7 @@ const Checkout = () => {
                                 </div>
                                 <div className="text-right">
                                   <p className="font-semibold">
-                                    {option.price === 0 ? 'FREE' : `$${option.price.toFixed(2)}`}
+                                    {option.price === 0 ? 'FREE' : `${currency}${option.price.toFixed(2)}`}
                                   </p>
                                 </div>
                               </label>
@@ -558,7 +561,7 @@ const Checkout = () => {
                     <Alert className="mt-6">
                       <Package className="h-4 w-4" />
                       <AlertDescription>
-                        Free standard shipping on orders over $500
+                        Free standard shipping on orders over {currency}500
                       </AlertDescription>
                     </Alert>
 
@@ -625,7 +628,7 @@ const Checkout = () => {
                           {shippingOptions.find(opt => opt.id === selectedShipping)?.description}
                         </p>
                         <p className="font-semibold mt-2">
-                          {shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}
+                          {shippingCost === 0 ? 'FREE' : `${currency}${shippingCost.toFixed(2)}`}
                         </p>
                       </div>
                     </CardContent>
@@ -658,7 +661,7 @@ const Checkout = () => {
                               <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold">${parseFloat(item.total_price).toFixed(2)}</p>
+                              <p className="font-semibold">{currency}{parseFloat(item.total_price).toFixed(2)}</p>
                             </div>
                           </div>
                         ))}
@@ -751,7 +754,7 @@ const Checkout = () => {
                             <div key={idx} className="flex items-center justify-between bg-green-50 dark:bg-green-950 p-2 rounded mb-1">
                               <div>
                                 <span className="font-mono font-semibold text-sm text-green-700 dark:text-green-300">{coupon?.code || 'Coupon'}</span>
-                                <p className="text-xs text-green-600 dark:text-green-400">-${discount.toFixed(2)}</p>
+                                <p className="text-xs text-green-600 dark:text-green-400">-{currency}{discount.toFixed(2)}</p>
                               </div>
                             </div>
                           );
@@ -793,13 +796,13 @@ const Checkout = () => {
 
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal:</span>
-                      <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
+                      <span className="font-medium">{currency}{totals.subtotal.toFixed(2)}</span>
                     </div>
 
                     {totals.discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Discount:</span>
-                        <span className="font-medium text-green-600">-${totals.discount.toFixed(2)}</span>
+                        <span className="font-medium text-green-600">-{currency}{totals.discount.toFixed(2)}</span>
                       </div>
                     )}
 
@@ -807,21 +810,21 @@ const Checkout = () => {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Shipping:</span>
                         <span className="font-medium">
-                          {shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}
+                          {shippingCost === 0 ? 'FREE' : `${currency}${shippingCost.toFixed(2)}`}
                         </span>
                       </div>
                     )}
 
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Tax:</span>
-                      <span className="font-medium">${totals.tax.toFixed(2)}</span>
+                      <span className="font-medium">{currency}{totals.tax.toFixed(2)}</span>
                     </div>
 
                     <div className="border-t border-border pt-3">
                       <div className="flex justify-between items-center">
                         <span className="font-bold">Total:</span>
                         <span className="text-xl font-bold text-primary">
-                          ${orderTotal.toFixed(2)}
+                          {currency}{orderTotal.toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -839,7 +842,7 @@ const Checkout = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />
-                        Free shipping over $500
+                        Free shipping over {currency}500
                       </div>
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-4 w-4 text-green-600" />

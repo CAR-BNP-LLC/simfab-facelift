@@ -15,8 +15,10 @@ import ProductDescriptionBuilder from "@/components/ProductDescriptionBuilder";
 import { productsAPI, ProductWithDetails, ProductConfiguration } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
+import { useRegion } from "@/contexts/RegionContext";
 import { calculateTotalPrice } from "@/utils/priceCalculator";
 import { Badge } from "@/components/ui/badge";
+import { getCurrencySymbol } from "@/utils/currency";
 
 const ProductDetail = () => {
   const params = useParams();
@@ -50,6 +52,7 @@ const ProductDetail = () => {
   
   const { toast } = useToast();
   const { addToCart } = useCart();
+  const { region } = useRegion();
 
   // Helper function to check if product is in stock
   const isProductInStock = (product: any): boolean => {
@@ -64,16 +67,15 @@ const ProductDetail = () => {
     return inStock === '1' || inStock === true;
   };
 
-  // Fetch product on mount
+  // Fetch product on mount and when region changes
   useEffect(() => {
-    
     if (productSlug) {
       fetchProduct(productSlug);
     } else {
       setError('No product identifier provided');
       setLoading(false);
     }
-  }, [productSlug]);
+  }, [productSlug, region]); // Refetch when region changes
 
   // Fetch bundle items if product is a bundle
   useEffect(() => {
@@ -831,11 +833,12 @@ const ProductDetail = () => {
               
               {(() => {
                 const priceData = getDisplayPrice();
+                const currency = getCurrencySymbol((product as any)?.region);
                 if (priceData.range) {
                   return (
                     <div className="flex items-baseline gap-3">
                       <p className="text-4xl font-bold">
-                        ${priceData.price.toFixed(2)} - ${priceData.original.toFixed(2)}
+                        {currency}{priceData.price.toFixed(2)} - {currency}{priceData.original.toFixed(2)}
                       </p>
                       {calculating && (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -847,11 +850,11 @@ const ProductDetail = () => {
                   <div className="space-y-2">
                     <div className="flex items-baseline gap-3">
                       <p className={`text-4xl font-bold ${priceData.onSale ? 'text-destructive' : ''}`}>
-                        ${priceData.price.toFixed(2)}
+                        {currency}{priceData.price.toFixed(2)}
                       </p>
                       {priceData.original && (
                         <p className="text-xl line-through text-muted-foreground">
-                          ${priceData.original.toFixed(2)}
+                          {currency}{priceData.original.toFixed(2)}
                         </p>
                       )}
                       {calculating && (
@@ -860,7 +863,7 @@ const ProductDetail = () => {
                     </div>
                     {priceData.onSale && priceData.original && (
                       <p className="text-sm text-green-600 font-medium">
-                        Save ${(priceData.original - priceData.price).toFixed(2)}
+                        Save {currency}{(priceData.original - priceData.price).toFixed(2)}
                       </p>
                     )}
                   </div>
@@ -936,6 +939,7 @@ const ProductDetail = () => {
                       return newValues;
                     });
                   }}
+                  productRegion={(product as any)?.region}
                 />
               </div>
             )}
@@ -1124,9 +1128,10 @@ const ProductDetail = () => {
                                       {variation.options.map((option: any) => {
                                         const priceAdj = option.price_adjustment ?? 0;
                                         const hasPrice = priceAdj !== 0 && priceAdj !== null && priceAdj !== undefined;
+                                        const currency = getCurrencySymbol((product as any)?.region);
                                         return (
                                           <option key={option.id} value={option.id}>
-                                            {option.option_name}{hasPrice ? ` (${priceAdj > 0 ? '+' : ''}$${Math.abs(priceAdj).toFixed(2)})` : ''}
+                                            {option.option_name}{hasPrice ? ` (${priceAdj > 0 ? '+' : ''}${currency}${Math.abs(priceAdj).toFixed(2)})` : ''}
                                           </option>
                                         );
                                       })}

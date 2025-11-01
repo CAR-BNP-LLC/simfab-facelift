@@ -218,14 +218,17 @@ const Profile = () => {
                               {product.name}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {product.sale_price ? (
-                                <>
-                                  <span className="text-destructive">${product.sale_price.toFixed(2)}</span>
-                                  <span className="line-through ml-1">${product.regular_price?.toFixed(2)}</span>
-                                </>
-                              ) : (
-                                `$${product.regular_price?.toFixed(2) || '0.00'}`
-                              )}
+                              {(() => {
+                                const currency = product.region === 'eu' ? '€' : '$';
+                                return product.sale_price ? (
+                                  <>
+                                    <span className="text-destructive">{currency}{product.sale_price.toFixed(2)}</span>
+                                    <span className="line-through ml-1">{currency}{product.regular_price?.toFixed(2)}</span>
+                                  </>
+                                ) : (
+                                  `${currency}${product.regular_price?.toFixed(2) || '0.00'}`
+                                );
+                              })()}
                             </p>
                           </Link>
                         );

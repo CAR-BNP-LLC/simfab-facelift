@@ -47,6 +47,9 @@ const PaymentConfirmation = () => {
     );
   }
 
+  // Get currency symbol from order (calculate inside render to ensure it updates when order loads)
+  const currency = order?.currency === 'EUR' ? '€' : '$';
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -80,7 +83,7 @@ const PaymentConfirmation = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Total Amount:</span>
-                  <span className="font-bold">${order.total_amount}</span>
+                  <span className="font-bold">{currency}{order.total_amount}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Payment Status:</span>
@@ -149,7 +152,7 @@ const PaymentConfirmation = () => {
               Continue Shopping
             </Button>
             <Button
-              onClick={() => navigate(`/orders/${orderId}`)}
+              onClick={() => navigate(`/orders/${order?.order_number || orderId}`)}
               className="flex-1"
             >
               View Order Details

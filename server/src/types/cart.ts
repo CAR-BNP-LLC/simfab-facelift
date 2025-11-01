@@ -13,6 +13,7 @@ export interface Cart {
   id: number;
   user_id: number | null;
   session_id: string | null;
+  region: 'us' | 'eu'; // Cart region (us or eu). Cart region must match the region of all products in the cart.
   status?: string; // Cart status: 'active', 'checkout', 'converted', etc.
   created_at: Date;
   updated_at: Date;

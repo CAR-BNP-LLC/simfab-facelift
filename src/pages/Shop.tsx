@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { productsAPI, Product } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { WishlistButton } from '@/components/WishlistButton';
+import { useRegion } from '@/contexts/RegionContext';
 
 const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -21,23 +22,24 @@ const Shop = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const { toast } = useToast();
+  const { region } = useRegion();
 
   // Fetch products
   useEffect(() => {
     fetchProducts();
-  }, [selectedCategory, page]);
+  }, [selectedCategory, page, region]); // Refetch when region changes
 
-  // Fetch categories on mount
+  // Fetch categories on mount and when region changes
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [region]);
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching products...', { page, selectedCategory, searchQuery });
+      console.log('🛒 Shop: Fetching products...', { page, selectedCategory, searchQuery, currentRegion: region });
 
       const params: any = {
         page,
@@ -111,12 +113,13 @@ const Shop = () => {
   const getProductPrice = (product: any) => {
     try {
       const onSale = isSaleActive(product);
+      const currency = product.region === 'eu' ? '€' : '$';
       
       // Handle both nested and flat price structures
       if (product.price && typeof product.price === 'object') {
         // New API structure
         if (product.price.min !== undefined && product.price.max !== undefined && product.price.min !== product.price.max) {
-          return `$${product.price.min.toFixed(2)} - $${product.price.max.toFixed(2)}`;
+          return `${currency}${product.price.min.toFixed(2)} - ${currency}${product.price.max.toFixed(2)}`;
         }
         if (onSale && product.price.sale) {
           return { price: product.price.sale, original: product.price.regular, onSale: true };
@@ -131,7 +134,7 @@ const Shop = () => {
       
       // Database structure (flat fields)
       if (product.price_min !== undefined && product.price_max !== undefined && product.price_min !== product.price_max) {
-        return `$${product.price_min.toFixed(2)} - $${product.price_max.toFixed(2)}`;
+        return `${currency}${product.price_min.toFixed(2)} - ${currency}${product.price_max.toFixed(2)}`;
       }
       
       if (onSale && product.sale_price !== undefined && product.sale_price !== null) {
@@ -330,21 +333,22 @@ const Shop = () => {
                           if (typeof priceData === 'string') {
                             return <span className="text-lg font-bold text-foreground">{priceData}</span>;
                           }
+                          const currency = product.region === 'eu' ? '€' : '$';
                           return (
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <span className="text-lg font-bold text-destructive">
-                                  ${priceData.price.toFixed(2)}
+                                  {currency}{priceData.price.toFixed(2)}
                                 </span>
                                 {priceData.original && (
                                   <span className="text-sm line-through text-muted-foreground">
-                                    ${priceData.original.toFixed(2)}
+                                    {currency}{priceData.original.toFixed(2)}
                                   </span>
                                 )}
                               </div>
                               {priceData.onSale && priceData.original && (
                                 <span className="text-xs text-green-600 font-medium">
-                                  Save ${(priceData.original - priceData.price).toFixed(2)}
+                                  Save {currency}{(priceData.original - priceData.price).toFixed(2)}
                                 </span>
                               )}
                             </div>
