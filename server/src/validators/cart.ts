@@ -73,7 +73,18 @@ export const createOrderSchema = Joi.object({
   shippingMethodId: Joi.string().max(100).optional(),
   paymentMethodId: Joi.string().max(100).optional(),
   orderNotes: Joi.string().max(1000).allow('', null).optional(),
-  subscribeNewsletter: Joi.boolean().optional()
+  subscribeNewsletter: Joi.boolean().optional(),
+  packageSize: Joi.string().valid('S', 'M', 'L').optional(),
+  shippingAmount: Joi.number().min(0).optional(),
+  taxAmount: Joi.number().min(0).optional(),
+  shippingMethodData: Joi.object({
+    fedexRateData: Joi.object({
+      listRate: Joi.number().optional(),
+      negotiatedRate: Joi.number().optional(),
+      hasNegotiatedRate: Joi.boolean().optional(),
+      discountPercent: Joi.number().optional()
+    }).optional()
+  }).optional()
 });
 
 export const cancelOrderSchema = Joi.object({

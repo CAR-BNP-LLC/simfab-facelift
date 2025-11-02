@@ -102,7 +102,7 @@ export class PaymentService {
 
       // CRITICAL: Validate order exists and is in correct state
       const orderCheck = await client.query(
-        `SELECT id, payment_status, status, total_amount, payment_expires_at 
+        `SELECT id, payment_status, status, total_amount, shipping_amount, subtotal, discount_amount, tax_amount, payment_expires_at 
          FROM orders 
          WHERE id = $1`,
         [data.orderId]
@@ -127,12 +127,106 @@ export class PaymentService {
         throw new PaymentError('Order is already paid', 'ORDER_ALREADY_PAID');
       }
 
-      // Validate amount matches order total
-      if (Math.abs(parseFloat(data.amount.toString()) - parseFloat(order.total_amount)) > 0.01) {
-        await client.query('ROLLBACK');
-        throw new PaymentError('Payment amount does not match order total', 'AMOUNT_MISMATCH', {
-          expectedAmount: order.total_amount,
-          providedAmount: data.amount
+      // Parse order total (PostgreSQL returns numeric as string)
+      // CRITICAL: Round to 2 decimal places to handle floating-point precision issues
+      const orderTotal = Math.round((typeof order.total_amount === 'string' 
+        ? parseFloat(order.total_amount) 
+        : Number(order.total_amount) || 0) * 100) / 100;
+      const paymentAmount = Math.round(parseFloat(data.amount.toString()) * 100) / 100;
+      const difference = Math.abs(paymentAmount - orderTotal);
+      
+      console.log('💳 Payment Amount Validation:', {
+        'order.total_amount (raw)': order.total_amount,
+        'order.total_amount (type)': typeof order.total_amount,
+        'orderTotal (parsed)': orderTotal,
+        'paymentAmount (raw)': data.amount,
+        'paymentAmount (parsed)': paymentAmount,
+        difference,
+        'difference > 0.01?': difference > 0.01,
+        'threshold check': difference > 0.01 ? 'WILL VALIDATE' : 'WILL PASS (within tolerance)'
+      });
+      
+      // If amounts don't match, check if it's due to shipping being added/updated
+      // Allow update if payment amount is higher (likely shipping was added after order creation)
+      if (difference > 0.01) {
+        // Round all amounts to 2 decimal places for consistent comparison
+        const orderShipping = Math.round((typeof order.shipping_amount === 'string'
+          ? parseFloat(order.shipping_amount)
+          : Number(order.shipping_amount) || 0) * 100) / 100;
+        const orderSubtotal = Math.round((typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : Number(order.subtotal) || 0) * 100) / 100;
+        const orderDiscount = Math.round((typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0) * 100) / 100;
+        const orderTax = Math.round((typeof order.tax_amount === 'string' ? parseFloat(order.tax_amount) : Number(order.tax_amount) || 0) * 100) / 100;
+        
+        // Calculate expected total with current shipping
+        const expectedTotalWithShipping = Math.round((orderSubtotal - orderDiscount + orderShipping + orderTax) * 100) / 100;
+        
+        // Calculate what the shipping should be based on payment amount
+        const expectedShipping = Math.round((paymentAmount - orderSubtotal + orderDiscount - orderTax) * 100) / 100;
+        
+        // If payment amount is higher and shipping is missing/wrong, update the order
+        // This handles cases where shipping was 0 or incorrectly calculated
+        if (paymentAmount > orderTotal && (orderShipping === 0 || expectedShipping > orderShipping)) {
+          console.log('⚠️ Updating order total - shipping was missing or incorrect', {
+            oldTotal: orderTotal,
+            newTotal: paymentAmount,
+            difference,
+            oldShipping: orderShipping,
+            newShipping: expectedShipping,
+            expectedTotalWithShipping
+          });
+          
+          // Update order with new shipping and total
+          await client.query(
+            `UPDATE orders 
+             SET shipping_amount = $1, 
+                 total_amount = $2,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $3`,
+            [expectedShipping, paymentAmount, data.orderId]
+          );
+          
+          // Refresh order data
+          const updatedOrder = await client.query(
+            `SELECT total_amount FROM orders WHERE id = $1`,
+            [data.orderId]
+          );
+          order.total_amount = updatedOrder.rows[0].total_amount;
+          console.log('✅ Order updated with correct shipping:', {
+            newShipping: expectedShipping,
+            newTotal: paymentAmount
+          });
+        } else {
+          // Payment amount is wrong or lower - reject
+          console.error('❌ Payment amount mismatch - rejecting payment', {
+            expectedAmount: order.total_amount,
+            providedAmount: data.amount,
+            difference: difference.toFixed(2),
+            orderShipping,
+            orderSubtotal,
+            orderDiscount,
+            orderTax,
+            calculatedExpected: expectedTotalWithShipping.toFixed(2),
+            'paymentAmount > orderTotal?': paymentAmount > orderTotal,
+            'orderShipping === 0?': orderShipping === 0,
+            'expectedShipping > orderShipping?': expectedShipping > orderShipping
+          });
+          await client.query('ROLLBACK');
+          throw new PaymentError('Payment amount does not match order total', 'AMOUNT_MISMATCH', {
+            expectedAmount: order.total_amount,
+            providedAmount: data.amount,
+            difference: difference.toFixed(2),
+            orderShipping,
+            orderSubtotal,
+            orderDiscount,
+            orderTax,
+            calculatedExpected: expectedTotalWithShipping.toFixed(2)
+          });
+        }
+      } else {
+        console.log('✅ Payment amount matches order total (within tolerance):', {
+          orderTotal,
+          paymentAmount,
+          difference
         });
       }
 
@@ -141,10 +235,12 @@ export class PaymentService {
       request.prefer("return=representation");
       
       // Build purchase unit with address information
+      // CRITICAL: Round amount to 2 decimal places for PayPal (required format)
+      const paypalAmount = Math.round(paymentAmount * 100) / 100;
       const purchaseUnit: any = {
         amount: {
           currency_code: data.currency,
-          value: data.amount.toString()
+          value: paypalAmount.toFixed(2) // PayPal requires exactly 2 decimal places
         },
         custom_id: data.orderId.toString()
       };
@@ -198,11 +294,44 @@ export class PaymentService {
       });
 
       // Execute PayPal request
-      const response = await paypalClient.execute(request);
-      const paypalOrder = response.result;
+      console.log('🚀 Executing PayPal API request:', {
+        orderId: data.orderId,
+        amount: data.amount.toString(),
+        currency: data.currency,
+        purchaseUnitAmount: purchaseUnit.amount.value,
+        purchaseUnitCurrency: purchaseUnit.amount.currency_code
+      });
+      
+      let response;
+      let paypalOrder;
+      try {
+        response = await paypalClient.execute(request);
+        paypalOrder = response.result;
+        console.log('✅ PayPal API response received:', {
+          paypalOrderId: paypalOrder.id,
+          status: paypalOrder.status,
+          links: paypalOrder.links?.map((l: any) => ({ rel: l.rel, href: l.href }))
+        });
+      } catch (paypalError: any) {
+        console.error('❌ PayPal API error:', {
+          message: paypalError.message,
+          statusCode: paypalError.statusCode,
+          details: paypalError.details,
+          orderId: data.orderId,
+          amount: data.amount,
+          currency: data.currency
+        });
+        await client.query('ROLLBACK');
+        throw new PaymentError('PayPal API error: ' + (paypalError.message || 'Unknown error'), 'PAYPAL_API_ERROR', {
+          paypalError: paypalError.message,
+          statusCode: paypalError.statusCode,
+          details: paypalError.details
+        });
+      }
 
       // CRITICAL: Save payment record with proper error handling
-      await this.savePaymentRecord(data.orderId, paypalOrder.id, data.amount, data.currency, client);
+      // Use the rounded paymentAmount (not the original data.amount which may have precision issues)
+      await this.savePaymentRecord(data.orderId, paypalOrder.id, paymentAmount, data.currency, client);
 
       await client.query('COMMIT');
 

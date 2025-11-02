@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CreditCard, Shield } from 'lucide-react';
@@ -45,6 +45,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isPayPalReady, setIsPayPalReady] = useState(false);
+  const [key, setKey] = useState(0);
 
   useEffect(() => {
     // Set PayPal as ready after a short delay to ensure it's loaded
@@ -55,15 +56,26 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
     return () => clearTimeout(timer);
   }, []);
 
-  const handlePaymentSuccess = (paymentId: string) => {
+  // Reset key when orderId or orderTotal changes to force clean remount
+  useEffect(() => {
+    setKey(prev => prev + 1);
+    setIsPayPalReady(false);
+    const timer = setTimeout(() => {
+      setIsPayPalReady(true);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [orderId, orderTotal]);
+
+  // Memoize callbacks to prevent unnecessary re-renders
+  const handlePaymentSuccess = useCallback((paymentId: string) => {
     setIsProcessing(false);
     onPaymentSuccess(paymentId);
-  };
+  }, [onPaymentSuccess]);
 
-  const handlePaymentError = (error: any) => {
+  const handlePaymentError = useCallback((error: any) => {
     setIsProcessing(false);
     onPaymentError(error);
-  };
+  }, [onPaymentError]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -104,6 +116,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             
             {isPayPalReady ? (
               <PayPalButton
+                key={`paypal-${orderId}-${orderTotal}-${key}`}
                 amount={orderTotal}
                 orderId={orderId}
                 paymentMethod="paypal_account"

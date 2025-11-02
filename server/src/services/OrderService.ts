@@ -32,15 +32,16 @@ export class OrderService {
   async createOrder(
     sessionId: string | undefined,
     userId: number | undefined,
-    orderData: CreateOrderData
+    orderData: CreateOrderData,
+    region?: 'us' | 'eu'
   ): Promise<OrderWithItems> {
     const client = await this.pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Get cart with items
-      const cart = await this.cartService.getCartWithItems(sessionId, userId);
+      // Get cart with items, passing region if available
+      const cart = await this.cartService.getCartWithItems(sessionId, userId, region);
 
       if (!cart || cart.items.length === 0) {
         throw new ValidationError('Cannot create order with empty cart');
@@ -65,8 +66,27 @@ export class OrderService {
       // Calculate totals - use provided shipping/tax if available, otherwise use cart totals
       const subtotal = cart.totals.subtotal;
       const discount = cart.totals.discount;
-      const shipping = orderData.shippingAmount !== undefined ? orderData.shippingAmount : cart.totals.shipping;
-      const tax = orderData.taxAmount !== undefined ? orderData.taxAmount : cart.totals.tax;
+      
+      // CRITICAL: Parse shipping amount (may come as string or number from validation/JSON)
+      let shipping: number;
+      if (orderData.shippingAmount !== undefined && orderData.shippingAmount !== null) {
+        shipping = typeof orderData.shippingAmount === 'string'
+          ? parseFloat(orderData.shippingAmount)
+          : Number(orderData.shippingAmount) || 0;
+      } else {
+        shipping = cart.totals.shipping || 0;
+      }
+
+      // CRITICAL: Parse tax amount (may come as string or number from validation/JSON)
+      let tax: number;
+      if (orderData.taxAmount !== undefined && orderData.taxAmount !== null) {
+        tax = typeof orderData.taxAmount === 'string'
+          ? parseFloat(orderData.taxAmount)
+          : Number(orderData.taxAmount) || 0;
+      } else {
+        tax = cart.totals.tax || 0;
+      }
+
       const total = subtotal - discount + shipping + tax;
       const currency = cart.totals.currency || (cart.region === 'eu' ? 'EUR' : 'USD');
 
@@ -78,10 +98,14 @@ export class OrderService {
         total,
         currency,
         formula: `${subtotal} - ${discount} + ${shipping} + ${tax} = ${total}`,
-        'orderData.shippingAmount': orderData.shippingAmount,
-        'orderData.taxAmount': orderData.taxAmount,
+        'orderData.shippingAmount (raw)': orderData.shippingAmount,
+        'orderData.shippingAmount (type)': typeof orderData.shippingAmount,
+        'orderData.taxAmount (raw)': orderData.taxAmount,
+        'orderData.taxAmount (type)': typeof orderData.taxAmount,
         'cart.totals.shipping': cart.totals.shipping,
-        'cart.totals.tax': cart.totals.tax
+        'cart.totals.tax': cart.totals.tax,
+        '⚠️ Using shipping from': orderData.shippingAmount !== undefined ? 'orderData' : 'cart.totals',
+        '⚠️ Using tax from': orderData.taxAmount !== undefined ? 'orderData' : 'cart.totals'
       });
 
       // Determine if international shipping
