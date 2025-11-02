@@ -36,7 +36,7 @@ export interface ShippingQuote {
 }
 
 export interface CreateShippingQuoteData {
-  orderId: number;
+  orderId?: number; // Optional - can create quote without order
   customerEmail: string;
   customerName: string;
   shippingAddress: {
@@ -44,14 +44,23 @@ export interface CreateShippingQuoteData {
     state?: string;
     city?: string;
     postalCode?: string;
+    addressLine1?: string;
+    addressLine2?: string;
   };
   packageSize: 'S' | 'M' | 'L';
-  fedexListRate: number;
+  fedexListRate?: number;
   fedexNegotiatedRate?: number;
-  fedexAppliedRate: number;
+  fedexAppliedRate?: number;
   fedexRateDiscountPercent?: number;
   fedexServiceType?: string;
   fedexRateData?: any;
+  cartItems?: Array<{
+    productId: number;
+    productName: string;
+    quantity: number;
+    unitPrice: number;
+    productImage?: string;
+  }>;
 }
 
 export class ShippingQuoteService {
@@ -72,15 +81,20 @@ export class ShippingQuoteService {
           country, state, city, postal_code,
           package_size, fedex_list_rate, fedex_negotiated_rate,
           fedex_applied_rate, fedex_rate_discount_percent,
-          fedex_service_type, fedex_rate_data, status
+          fedex_service_type, fedex_rate_data, status, notes
         ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
         )
         RETURNING *
       `;
 
+      // Store cart items in notes if provided
+      const notes = data.cartItems 
+        ? JSON.stringify({ cartItems: data.cartItems })
+        : null;
+
       const result = await client.query(sql, [
-        data.orderId,
+        data.orderId || null,
         data.customerEmail,
         data.customerName,
         data.shippingAddress.country,
@@ -88,20 +102,23 @@ export class ShippingQuoteService {
         data.shippingAddress.city || null,
         data.shippingAddress.postalCode || null,
         data.packageSize,
-        data.fedexListRate,
+        data.fedexListRate || null,
         data.fedexNegotiatedRate || null,
-        data.fedexAppliedRate,
+        data.fedexAppliedRate || null,
         data.fedexRateDiscountPercent || null,
         data.fedexServiceType || null,
         JSON.stringify(data.fedexRateData || {}),
-        'pending'
+        'pending',
+        notes
       ]);
 
-      // Update order with shipping_quote_id
-      await client.query(
-        'UPDATE orders SET shipping_quote_id = $1 WHERE id = $2',
-        [result.rows[0].id, data.orderId]
-      );
+      // Update order with shipping_quote_id if orderId exists
+      if (data.orderId) {
+        await client.query(
+          'UPDATE orders SET shipping_quote_id = $1 WHERE id = $2',
+          [result.rows[0].id, data.orderId]
+        );
+      }
 
       await client.query('COMMIT');
 

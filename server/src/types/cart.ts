@@ -234,6 +234,7 @@ export interface CreateOrderData {
 }
 
 export interface ShippingMethod {
+  requiresManualQuote?: boolean;
   id: string;
   name: string;
   carrier: string;

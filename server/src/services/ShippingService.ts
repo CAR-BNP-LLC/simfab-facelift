@@ -10,7 +10,7 @@ import { ShippingMethod } from '../types/cart';
 
 export interface ShippingCalculation {
   method: string;
-  price: number;
+  price: number | null; // null indicates quote required (no price to display)
   estimatedDays: string;
   isAvailable: boolean;
   carrier?: string;
@@ -129,7 +129,7 @@ export class ShippingService {
           console.log('ℹ️ FedEx account number not configured or not linked. Showing quote required option.');
           return [{
             method: 'international_quote',
-            price: 0,
+            price: null, // Use null instead of 0 to indicate no price should be shown
             estimatedDays: 'Contact for quote',
             isAvailable: true,
             carrier: 'FedEx',
@@ -144,7 +144,7 @@ export class ShippingService {
           console.log('ℹ️ FedEx postal code/address not found. This may be a sandbox limitation. Showing quote required option.');
           return [{
             method: 'international_quote',
-            price: 0,
+            price: null, // Use null instead of 0 to indicate no price should be shown
             estimatedDays: 'Contact for quote',
             isAvailable: true,
             carrier: 'FedEx',
@@ -157,11 +157,12 @@ export class ShippingService {
         // Other errors - still show quote required
         return [{
           method: 'international_quote',
-          price: 0,
+          price: null, // Use null instead of 0 to indicate no price should be shown
           estimatedDays: 'Contact for quote',
           isAvailable: true,
           carrier: 'FedEx',
-          fedexRateData: undefined
+          fedexRateData: undefined,
+          requiresManualQuote: true
         }];
       }
 
@@ -169,11 +170,12 @@ export class ShippingService {
         // No rates returned - show quote required
         return [{
           method: 'international_quote',
-          price: 0,
+          price: null, // Use null instead of 0 to indicate no price should be shown
           estimatedDays: 'Contact for quote',
           isAvailable: true,
           carrier: 'FedEx',
-          fedexRateData: undefined
+          fedexRateData: undefined,
+          requiresManualQuote: true
         }];
       }
 
@@ -203,11 +205,12 @@ export class ShippingService {
       // Return quote required option on error
       return [{
         method: 'international_quote',
-        price: 0,
+        price: null, // Use null instead of 0 to indicate no price should be shown
         estimatedDays: 'Contact for quote',
         isAvailable: true,
         carrier: 'FedEx',
-        fedexRateData: undefined
+        fedexRateData: undefined,
+        requiresManualQuote: true
       }];
     }
   }
@@ -267,10 +270,11 @@ export class ShippingService {
     // Fallback if address not provided
     return [{
       method: 'international_quote',
-      price: 0,
+      price: null, // Use null instead of 0 to indicate no price should be shown
       estimatedDays: 'Contact for quote',
       isAvailable: true,
-      carrier: 'FedEx'
+      carrier: 'FedEx',
+      requiresManualQuote: true
     }];
   }
 
@@ -289,9 +293,10 @@ export class ShippingService {
       name: this.getShippingMethodName(calculation.method),
       carrier: calculation.carrier || 'Unknown',
       serviceCode: calculation.serviceType || calculation.method,
-      cost: calculation.price,
+      cost: calculation.price ?? 0, // Use 0 if price is null, but we'll check requiresManualQuote in frontend
       estimatedDays,
-      description: calculation.estimatedDays
+      description: calculation.estimatedDays,
+      requiresManualQuote: calculation.requiresManualQuote || false
     };
   }
 

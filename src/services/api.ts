@@ -1761,6 +1761,7 @@ export interface ShippingMethod {
     max: number;
   };
   description: string;
+  requiresManualQuote?: boolean;
   fedexRateData?: {
     listRate: number;
     negotiatedRate?: number;
@@ -1792,6 +1793,43 @@ export const shippingAPI = {
         calculations?: any[];
       };
     }>('/api/shipping/calculate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Request shipping quote for international shipping
+   */
+  requestQuote: (data: {
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      state?: string;
+      postalCode: string;
+      country: string;
+      phone?: string;
+    };
+    packageSize: 'S' | 'M' | 'L';
+    cartItems: Array<{
+      productId: number;
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+      productImage?: string;
+    }>;
+  }) => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        quote: any;
+        message: string;
+      };
+    }>('/api/shipping/request-quote', {
       method: 'POST',
       body: JSON.stringify(data),
     });
