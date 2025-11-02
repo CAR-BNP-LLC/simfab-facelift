@@ -375,9 +375,29 @@ const Checkout = () => {
       console.log('Order creation response:', response);
 
       if (response.success && response.data.order) {
-        console.log('Order created successfully:', response.data.order);
+        const createdOrderData = response.data.order;
+        console.log('Order created successfully:', createdOrderData);
+        
+        // Parse amounts (PostgreSQL returns numeric as strings)
+        const subtotal = typeof createdOrderData.subtotal === 'string' ? parseFloat(createdOrderData.subtotal) : Number(createdOrderData.subtotal) || 0;
+        const discount = typeof createdOrderData.discount_amount === 'string' ? parseFloat(createdOrderData.discount_amount) : Number(createdOrderData.discount_amount) || 0;
+        const shipping = typeof createdOrderData.shipping_amount === 'string' ? parseFloat(createdOrderData.shipping_amount) : Number(createdOrderData.shipping_amount) || 0;
+        const tax = typeof createdOrderData.tax_amount === 'string' ? parseFloat(createdOrderData.tax_amount) : Number(createdOrderData.tax_amount) || 0;
+        const total = typeof createdOrderData.total_amount === 'string' ? parseFloat(createdOrderData.total_amount) : Number(createdOrderData.total_amount) || 0;
+        const expectedTotal = subtotal - discount + shipping + tax;
+        
+        console.log('💰 Order totals verification:', {
+          subtotal,
+          discount,
+          shipping,
+          tax,
+          'Expected total': expectedTotal.toFixed(2),
+          'Actual total_amount': total.toFixed(2),
+          'Match': Math.abs(expectedTotal - total) < 0.01 ? '✓ CORRECT' : '✗ MISMATCH',
+          'difference': Math.abs(expectedTotal - total).toFixed(2)
+        });
         updateCheckoutState({ 
-          createdOrder: response.data.order,
+          createdOrder: createdOrderData,
           step: 5 // Move to payment step
         });
       } else {
@@ -462,8 +482,54 @@ const Checkout = () => {
 
   // Calculate shipping
   const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.cost || 0;
-  // Use order total from created order if available, otherwise calculate it
-  const orderTotal = Number(createdOrder?.total_amount || (totals.total + shippingCost) || 0);
+  
+  // Calculate order total - ALWAYS use current shipping cost, not stale order data
+  // If order exists, we still need to recalculate because shipping may have changed
+  // Formula: subtotal - discount + current_shipping + tax
+  let orderTotal = Number((totals.subtotal - totals.discount + shippingCost + totals.tax) || 0);
+  
+  // Ensure we have a valid number
+  if (isNaN(orderTotal) || orderTotal < 0) {
+    console.error('Invalid orderTotal calculated:', orderTotal);
+    // Fallback: use createdOrder total if available, but try to add current shipping
+    if (createdOrder?.total_amount) {
+      const fallbackTotal = typeof createdOrder.total_amount === 'string' 
+        ? parseFloat(createdOrder.total_amount) 
+        : Number(createdOrder.total_amount);
+      
+      // If order has shipping but current shipping is different, adjust
+      const orderShipping = createdOrder?.shipping_amount 
+        ? (typeof createdOrder.shipping_amount === 'string' ? parseFloat(createdOrder.shipping_amount) : Number(createdOrder.shipping_amount))
+        : 0;
+      
+      // Replace old shipping with new shipping
+      orderTotal = fallbackTotal - orderShipping + shippingCost;
+      console.error('Using adjusted fallback total:', orderTotal, '(was', fallbackTotal, 'with shipping', orderShipping, 'now using shipping', shippingCost, ')');
+    } else {
+      orderTotal = 0;
+    }
+  }
+  
+  // CRITICAL: Round to 2 decimal places to avoid floating-point precision issues
+  // This ensures we send exactly what's in the database (which is stored with 2 decimals)
+  orderTotal = Math.round(orderTotal * 100) / 100;
+  
+  // Debug logging
+  console.log('💰 Payment Total Calculation:', {
+    createdOrder: !!createdOrder,
+    'createdOrder.total_amount (raw)': createdOrder?.total_amount,
+    'createdOrder.shipping_amount (raw)': createdOrder?.shipping_amount,
+    'cart.totals.subtotal': totals.subtotal,
+    'cart.totals.discount': totals.discount,
+    'cart.totals.tax': totals.tax,
+    'cart.totals.shipping': totals.shipping,
+    'cart.totals.total': totals.total,
+    'current shippingCost': shippingCost,
+    'selectedShipping': selectedShipping,
+    calculatedOrderTotal: totals.subtotal - totals.discount + shippingCost + totals.tax,
+    finalOrderTotal: orderTotal,
+    formula: `${totals.subtotal} - ${totals.discount} + ${shippingCost} + ${totals.tax} = ${orderTotal}`
+  });
 
   // Get image
   const getImageUrl = (item: any) => {
@@ -982,6 +1048,16 @@ const Checkout = () => {
                           {currency}{orderTotal.toFixed(2)}
                         </span>
                       </div>
+                      {/* Show breakdown for debugging - remove in production if desired */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Breakdown: {totals.subtotal.toFixed(2)} - {totals.discount.toFixed(2)} + {shippingCost.toFixed(2)} + {totals.tax.toFixed(2)} = {orderTotal.toFixed(2)}
+                          <br />
+                          <span className={orderTotal === (totals.subtotal - totals.discount + shippingCost + totals.tax) ? 'text-green-600' : 'text-red-600'}>
+                            ✓ Calculation verified: {orderTotal === (totals.subtotal - totals.discount + shippingCost + totals.tax) ? 'CORRECT' : 'MISMATCH'}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

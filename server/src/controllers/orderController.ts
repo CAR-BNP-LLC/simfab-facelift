@@ -31,12 +31,16 @@ export class OrderController {
     try {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
+      const region = req.region; // Get region from middleware
       const orderData: CreateOrderData = req.body;
 
-      console.log('Creating order for session:', sessionId, 'user:', userId);
+      console.log('Creating order for session:', sessionId, 'user:', userId, 'region:', region);
       console.log('Order data received:', JSON.stringify(orderData, null, 2));
+      console.log('🔍 CRITICAL: shippingAmount received:', orderData.shippingAmount, typeof orderData.shippingAmount);
+      console.log('🔍 CRITICAL: taxAmount received:', orderData.taxAmount, typeof orderData.taxAmount);
+      console.log('🔍 CRITICAL: packageSize received:', orderData.packageSize);
 
-      const order = await this.orderService.createOrder(sessionId, userId, orderData);
+      const order = await this.orderService.createOrder(sessionId, userId, orderData, region);
 
       // Get customer name from billing address (handle JSONB parsing)
       let customerName = order.customer_email;

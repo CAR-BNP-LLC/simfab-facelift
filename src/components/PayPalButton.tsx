@@ -71,6 +71,14 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
 
   const createOrder = async () => {
     try {
+      console.log('💳 PayPal Payment Creation:', {
+        orderId,
+        amount,
+        currency: getCurrency(),
+        'amount type': typeof amount,
+        'amount value': amount.toString()
+      });
+      
       const response = await paymentAPI.createPayment({
         orderId,
         amount,
@@ -81,6 +89,8 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
         billingAddress,
         shippingAddress
       });
+      
+      console.log('💳 PayPal Payment Created:', response.data);
 
       if (response.success) {
         return response.data.payment.paymentId;
@@ -147,8 +157,13 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
     }
   };
 
+  // Use orderId and amount as key to force remount when they change
+  // This prevents "zoid destroyed" errors when component updates
+  const buttonKey = `${orderId}-${amount.toFixed(2)}`;
+
   return (
     <PayPalButtons
+      key={buttonKey}
       createOrder={createOrder}
       onApprove={onApprove}
       onError={handlePayPalError}
