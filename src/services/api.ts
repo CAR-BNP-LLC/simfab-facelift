@@ -1761,6 +1761,7 @@ export interface ShippingMethod {
     max: number;
   };
   description: string;
+  requiresManualQuote?: boolean;
   fedexRateData?: {
     listRate: number;
     negotiatedRate?: number;
@@ -1792,6 +1793,43 @@ export const shippingAPI = {
         calculations?: any[];
       };
     }>('/api/shipping/calculate', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Request shipping quote for international shipping
+   */
+  requestQuote: (data: {
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      state?: string;
+      postalCode: string;
+      country: string;
+      phone?: string;
+    };
+    packageSize: 'S' | 'M' | 'L';
+    cartItems: Array<{
+      productId: number;
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+      productImage?: string;
+    }>;
+  }) => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        quote: any;
+        message: string;
+      };
+    }>('/api/shipping/request-quote', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1901,6 +1939,89 @@ export const wishlistAPI = {
       success: boolean;
       data: Record<string, boolean>;
     }>(`/api/wishlist/bulk-check?productIds=${productIds.join(',')}`);
+  },
+};
+
+// ==========================================
+// REGION SETTINGS API
+// ==========================================
+
+export const regionSettingsAPI = {
+  /**
+   * Get public settings for a region (no auth required)
+   */
+  async getPublicSettings(region: 'us' | 'eu') {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        region: 'us' | 'eu';
+        settings: Record<string, any>;
+      };
+    }>(`/api/admin/settings/regions/${region}/public`);
+  },
+
+  /**
+   * Get contact information for a region
+   */
+  async getContactInfo(region: 'us' | 'eu') {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        email: string;
+        phone: string;
+        phone_display: string;
+      };
+    }>(`/api/settings/${region}/contact`);
+  },
+
+  /**
+   * Get all settings for a region (admin only)
+   */
+  async getSettings(region: 'us' | 'eu') {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        region: 'us' | 'eu';
+        settings: Record<string, any>;
+      };
+    }>(`/api/admin/settings/regions/${region}`, {
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Update settings for a region (admin only)
+   */
+  async updateSettings(region: 'us' | 'eu', settings: Record<string, any>) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        message: string;
+        region: 'us' | 'eu';
+      };
+    }>(`/api/admin/settings/regions/${region}`, {
+      method: 'PUT',
+      body: JSON.stringify({ settings }),
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Update a single setting (admin only)
+   */
+  async updateSetting(region: 'us' | 'eu', key: string, value: any) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        message: string;
+        region: 'us' | 'eu';
+        key: string;
+      };
+    }>(`/api/admin/settings/regions/${region}/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+      credentials: 'include',
+    });
   },
 };
 

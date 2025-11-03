@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +35,8 @@ import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { cart, loading: cartLoading, applyCoupon, refreshCart } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { cart, loading: cartLoading, applyCoupon, refreshCart, clearCart } = useCart();
   const { user } = useAuth();
   const { checkoutState, updateCheckoutState, clearStorage } = useCheckout();
   const { toast } = useToast();
@@ -46,10 +47,12 @@ const Checkout = () => {
   const [shippingOptions, setShippingOptions] = useState<ShippingMethod[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [packageSize, setPackageSize] = useState<'S' | 'M' | 'L'>('M');
+  const [quoteRequested, setQuoteRequested] = useState(false);
+  const [requestingQuote, setRequestingQuote] = useState(false);
 
   // Destructure state from context
   const {
-    step,
+    step: contextStep,
     shippingAddress,
     billingAddress,
     selectedShipping,
@@ -57,6 +60,38 @@ const Checkout = () => {
     createdOrder,
     isBillingSameAsShipping
   } = checkoutState;
+
+  // Sync step with URL query parameter for browser navigation
+  const urlStep = searchParams.get('step') ? parseInt(searchParams.get('step')!, 10) : null;
+  const step = urlStep && urlStep >= 1 && urlStep <= 5 ? urlStep : contextStep;
+
+  // Sync step from URL when browser back/forward is used
+  useEffect(() => {
+    const currentUrlStep = searchParams.get('step') ? parseInt(searchParams.get('step')!, 10) : null;
+    // Only sync if URL step is different from context step (browser navigation)
+    if (currentUrlStep !== null && currentUrlStep !== contextStep && currentUrlStep >= 1 && currentUrlStep <= 5) {
+      updateCheckoutState({ step: currentUrlStep });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Only depend on searchParams to detect URL changes (contextStep and updateCheckoutState intentionally excluded)
+
+  // Update URL when step changes from context (for cases where step changes programmatically)
+  // This won't run when URL already matches, avoiding loops
+  useEffect(() => {
+    const currentUrlStep = searchParams.get('step') ? parseInt(searchParams.get('step')!, 10) : null;
+    // Only update URL if context step differs from URL step and it's not already being handled by handleNext/handleBack
+    if (contextStep !== currentUrlStep) {
+      const newParams = new URLSearchParams(searchParams);
+      if (contextStep === 1) {
+        newParams.delete('step'); // Remove step param for step 1 to keep URL clean
+      } else if (contextStep >= 2 && contextStep <= 5) {
+        newParams.set('step', contextStep.toString());
+      }
+      // Use replace for automatic sync to avoid cluttering history
+      setSearchParams(newParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextStep]); // Only depend on contextStep (searchParams and setSearchParams intentionally excluded to avoid loops)
 
   // Get cart data early so it's available for useEffects
   const items = cart?.items || [];
@@ -276,16 +311,39 @@ const Checkout = () => {
       return;
     }
     // Clear selectedShipping when entering shipping step to ensure proper initialization
-    const updates: any = { step: step + 1 };
+    const nextStep = step + 1;
+    
+    const updates: any = { step: nextStep };
     if (step === 2) { // Moving from address to shipping step
       updates.selectedShipping = '';
     }
+    
+    // Update URL with new step FIRST (push to create history entry for back button)
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('step', nextStep.toString());
+    setSearchParams(newParams, { replace: false }); // Use push for forward navigation
+    
+    // Then update state (the useEffect will see URL already matches, so it won't update again)
     updateCheckoutState(updates);
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBack = () => {
-    updateCheckoutState({ step: step - 1 });
+    const prevStep = step - 1;
+    
+    // Update URL with previous step FIRST (push to create history entry)
+    const newParams = new URLSearchParams(searchParams);
+    if (prevStep === 1) {
+      newParams.delete('step');
+    } else {
+      newParams.set('step', prevStep.toString());
+    }
+    setSearchParams(newParams, { replace: false }); // Use push so browser back works
+    
+    // Then update state (the useEffect will see URL already matches, so it won't update again)
+    updateCheckoutState({ step: prevStep });
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -480,6 +538,73 @@ const Checkout = () => {
     });
   };
 
+  // Check if quote is required
+  const isQuoteRequired = selectedShipping === 'international_quote' || 
+    shippingOptions.find(opt => opt.id === selectedShipping)?.requiresManualQuote === true;
+
+  // Handler for quote request
+  const handleRequestQuote = async () => {
+    try {
+      setRequestingQuote(true);
+
+      // Prepare cart items
+      const cartItems = items.map((item: any) => ({
+        productId: item.product_id,
+        productName: item.product_name,
+        quantity: item.quantity,
+        unitPrice: parseFloat(item.unit_price),
+        productImage: item.product_image
+      }));
+
+      // Request quote
+      const response = await shippingAPI.requestQuote({
+        shippingAddress: {
+          firstName: shippingAddress.firstName,
+          lastName: shippingAddress.lastName,
+          email: shippingAddress.email,
+          addressLine1: shippingAddress.addressLine1,
+          addressLine2: shippingAddress.addressLine2,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country,
+          phone: shippingAddress.phone
+        },
+        packageSize: packageSize,
+        cartItems
+      });
+
+      if (response.success) {
+        // Clear cart
+        try {
+          await clearCart();
+          await refreshCart(); // Refresh to update state
+        } catch (clearError) {
+          console.error('Error clearing cart:', clearError);
+          // Don't fail the request if cart clearing fails
+        }
+
+        // Show success
+        setQuoteRequested(true);
+        toast({
+          title: 'Quote Request Submitted',
+          description: 'We have received your shipping quote request. You will receive an email confirmation shortly.',
+        });
+      } else {
+        throw new Error(response.error?.message || 'Failed to submit quote request');
+      }
+    } catch (error) {
+      console.error('Quote request failed:', error);
+      toast({
+        title: 'Quote Request Failed',
+        description: error instanceof Error ? error.message : 'Failed to submit quote request. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setRequestingQuote(false);
+    }
+  };
+
   // Calculate shipping
   const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.cost || 0;
   
@@ -665,13 +790,38 @@ const Checkout = () => {
                 </div>
               )}
 
-              {/* Step 3: Shipping Method */}
-              {step === 3 && (
+              {/* Quote Requested Success Screen */}
+              {quoteRequested && (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold mb-2">Quote Request Received!</h2>
+                    <p className="text-muted-foreground mb-6">
+                      We have received your shipping quote request. You will receive a confirmation email shortly, and our team will contact you with a shipping quote as soon as possible.
+                    </p>
+                    <Button onClick={() => navigate('/')}>
+                      Return to Shop
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Step 3: Shipping Method or Quote Request */}
+              {step === 3 && !quoteRequested && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Truck className="h-5 w-5" />
-                      Shipping Method
+                      {isQuoteRequired ? (
+                        <>
+                          <Package className="h-5 w-5" />
+                          Contact for Shipping Quote
+                        </>
+                      ) : (
+                        <>
+                          <Truck className="h-5 w-5" />
+                          Shipping Method
+                        </>
+                      )}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -748,8 +898,8 @@ const Checkout = () => {
                                   </div>
                                   <div className="text-right">
                                     <p className="font-semibold">
-                                      {option.cost === 0 && option.id === 'international_quote'
-                                        ? 'Quote Required'
+                                      {option.requiresManualQuote || option.id === 'international_quote'
+                                        ? '' // Don't show price for quote required
                                         : option.cost === 0
                                         ? 'FREE'
                                         : `${currency}${option.cost.toFixed(2)}`}
@@ -763,7 +913,7 @@ const Checkout = () => {
                       </RadioGroup>
                     )}
 
-                    {!loadingShipping && shippingOptions.length > 0 && (
+                    {!loadingShipping && shippingOptions.length > 0 && !isQuoteRequired && (
                       <Alert className="mt-6">
                         <Package className="h-4 w-4" />
                         <AlertDescription>
@@ -776,21 +926,93 @@ const Checkout = () => {
                       </Alert>
                     )}
 
-                    <div className="mt-6 flex justify-between">
-                      <Button variant="outline" onClick={handleBack}>
-                        ← Back to Address
-                      </Button>
-                      <Button onClick={handleNext}>
-                        Review Order
-                        <ChevronRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
+                    {/* Show quote request form if quote is required */}
+                    {!loadingShipping && isQuoteRequired && selectedShipping && (
+                      <div className="mt-6 space-y-6">
+                        <Alert>
+                          <Package className="h-4 w-4" />
+                          <AlertDescription>
+                            Shipping to {shippingAddress.country} requires a custom quote. Please submit your request below and we'll calculate the exact shipping cost for you.
+                          </AlertDescription>
+                        </Alert>
+
+                        {/* Order Summary */}
+                        <div className="border rounded-lg p-4 space-y-3">
+                          <h3 className="font-semibold mb-3">Order Summary</h3>
+                          {items.map((item: any) => (
+                            <div key={item.id} className="flex gap-3">
+                              <img
+                                src={getImageUrl(item)}
+                                alt={item.product_name}
+                                className="w-16 h-16 object-cover rounded"
+                                onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.svg'; }}
+                              />
+                              <div className="flex-1">
+                                <h4 className="font-medium text-sm">{item.product_name}</h4>
+                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">{currency}{parseFloat(item.total_price).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="pt-3 border-t">
+                            <div className="flex justify-between text-sm">
+                              <span>Subtotal:</span>
+                              <span className="font-semibold">{currency}{totals.subtotal.toFixed(2)}</span>
+                            </div>
+                            {totals.discount > 0 && (
+                              <div className="flex justify-between text-sm text-green-600">
+                                <span>Discount:</span>
+                                <span className="font-semibold">-{currency}{totals.discount.toFixed(2)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between text-lg font-bold mt-2">
+                              <span>Total:</span>
+                              <span>{currency}{(totals.subtotal - totals.discount).toFixed(2)}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">Shipping cost will be calculated separately</p>
+                          </div>
+                        </div>
+
+                        <Button 
+                          onClick={handleRequestQuote}
+                          disabled={requestingQuote}
+                          className="w-full"
+                          size="lg"
+                        >
+                          {requestingQuote ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Submitting Quote Request...
+                            </>
+                          ) : (
+                            <>
+                              Contact Us for Shipping Quote
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Regular shipping buttons - only show if not quote required */}
+                    {!isQuoteRequired && (
+                      <div className="mt-6 flex justify-between">
+                        <Button variant="outline" onClick={handleBack}>
+                          ← Back to Address
+                        </Button>
+                        <Button onClick={handleNext}>
+                          Review Order
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
 
-              {/* Step 4: Review & Submit */}
-              {step === 4 && (
+              {/* Step 4: Review & Submit - Skip if quote required */}
+              {step === 4 && !isQuoteRequired && (
                 <div className="space-y-6">
                   <Card>
                     <CardHeader>
@@ -839,8 +1061,8 @@ const Checkout = () => {
                           {shippingOptions.find(opt => opt.id === selectedShipping)?.description || 'Calculating...'}
                         </p>
                         <p className="font-semibold mt-2">
-                          {shippingCost === 0 && shippingOptions.find(opt => opt.id === selectedShipping)?.id === 'international_quote' 
-                            ? 'Quote Required' 
+                          {isQuoteRequired || shippingOptions.find(opt => opt.id === selectedShipping)?.requiresManualQuote
+                            ? 'Quote Required - No payment needed' 
                             : shippingCost === 0 
                             ? 'FREE' 
                             : `${currency}${shippingCost.toFixed(2)}`}
@@ -1048,16 +1270,6 @@ const Checkout = () => {
                           {currency}{orderTotal.toFixed(2)}
                         </span>
                       </div>
-                      {/* Show breakdown for debugging - remove in production if desired */}
-                      {process.env.NODE_ENV === 'development' && (
-                        <div className="text-xs text-muted-foreground mt-2">
-                          Breakdown: {totals.subtotal.toFixed(2)} - {totals.discount.toFixed(2)} + {shippingCost.toFixed(2)} + {totals.tax.toFixed(2)} = {orderTotal.toFixed(2)}
-                          <br />
-                          <span className={orderTotal === (totals.subtotal - totals.discount + shippingCost + totals.tax) ? 'text-green-600' : 'text-red-600'}>
-                            ✓ Calculation verified: {orderTotal === (totals.subtotal - totals.discount + shippingCost + totals.tax) ? 'CORRECT' : 'MISMATCH'}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
 

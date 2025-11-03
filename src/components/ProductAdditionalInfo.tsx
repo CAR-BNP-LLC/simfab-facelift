@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface AdditionalDescription {
@@ -11,9 +11,12 @@ interface AdditionalDescription {
 
 
 interface AssemblyManual {
+  id?: number;
   name: string;
-  image: string;
+  image?: string | null;
   fileUrl: string;
+  viewUrl?: string; // URL for online viewing (/manuals/:id)
+  description?: string;
 }
 
 interface ProductAdditionalInfoProps {
@@ -120,25 +123,43 @@ const ProductAdditionalInfo = ({
           <h2 className="text-3xl font-bold text-primary">Assembly Manuals</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {assemblyManuals.map((manual, index) => (
-              <div key={index} className="bg-muted rounded-lg p-4 space-y-4">
-                <div className="aspect-video bg-background rounded-lg overflow-hidden">
+              <div key={manual.id || index} className="bg-muted rounded-lg p-4 space-y-4 border">
+                {manual.image && (
+                <div className="bg-background rounded-lg overflow-hidden" style={{ aspectRatio: '210 / 297' }}>
                   <img
                     src={manual.image}
                     alt={manual.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
+                )}
                 <div className="space-y-2">
                   <h4 className="font-semibold">{manual.name}</h4>
+                  {manual.description && (
+                    <p className="text-sm text-muted-foreground">{manual.description}</p>
+                  )}
+                  <div className="flex gap-2">
+                    {manual.viewUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => window.open(manual.viewUrl, '_blank')}
+                      >
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Online
+                      </Button>
+                    )}
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                      className={manual.viewUrl ? "flex-1" : "w-full"}
                     onClick={() => window.open(manual.fileUrl, '_blank')}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Download Manual
+                      Download
                   </Button>
+                  </div>
                 </div>
               </div>
             ))}

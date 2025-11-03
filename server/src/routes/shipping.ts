@@ -26,6 +26,17 @@ export const createShippingRoutes = (pool: Pool): Router => {
     controller.calculate
   );
 
+  /**
+   * @route   POST /api/shipping/request-quote
+   * @desc    Request shipping quote for international shipping
+   * @access  Public
+   * @body    { shippingAddress: {...}, packageSize: 'S'|'M'|'L', cartItems: [...] }
+   */
+  router.post(
+    '/request-quote',
+    controller.requestQuote
+  );
+
   return router;
 };
 

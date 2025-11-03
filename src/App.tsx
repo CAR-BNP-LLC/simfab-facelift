@@ -8,6 +8,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { CheckoutProvider } from "@/contexts/CheckoutContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { RegionProvider } from "@/contexts/RegionContext";
+import { RegionSettingsProvider } from "@/contexts/RegionSettingsContext";
 import PayPalProvider from "@/components/PayPalProvider";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
@@ -22,6 +23,7 @@ import OrderConfirmation from "./pages/OrderConfirmation";
 import MonitorStands from "./pages/MonitorStands";
 import Services from "./pages/Services";
 import AssemblyManuals from "./pages/AssemblyManuals";
+import ManualView from "./pages/ManualView";
 import CompatibleBrands from "./pages/CompatibleBrands";
 import Gallery from "./pages/Gallery";
 import Blog from "./pages/Blog";
@@ -42,11 +44,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <RegionProvider>
-      <AuthProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <CheckoutProvider>
-              <PayPalProvider>
+      <RegionSettingsProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <CheckoutProvider>
+                <PayPalProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -69,6 +72,7 @@ const App = () => (
             <Route path="/monitor-stands" element={<MonitorStands />} />
             <Route path="/services" element={<Services />} />
             <Route path="/assembly-manuals" element={<AssemblyManuals />} />
+            <Route path="/manuals/:id" element={<ManualView />} />
             <Route path="/compatible-brands" element={<CompatibleBrands />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/blog" element={<Blog />} />
@@ -89,6 +93,7 @@ const App = () => (
           </WishlistProvider>
         </CartProvider>
       </AuthProvider>
+      </RegionSettingsProvider>
     </RegionProvider>
   </QueryClientProvider>
 );
