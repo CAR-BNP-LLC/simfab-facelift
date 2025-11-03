@@ -50,57 +50,100 @@ class Database {
       connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
     });
     
-    // Initialize database tables
-    this.initDatabase().catch(err => {
-      console.error('Failed to initialize database:', err);
+    // Start initialization with retry logic (don't await - let it run in background)
+    this.initDatabaseWithRetry().catch(err => {
+      console.error('Failed to initialize Database tables after retries:', err);
+      // Don't throw - let the app continue and retry on next request
     });
   }
 
-  async initDatabase(): Promise<void> {
-    try {
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS products (
-          id SERIAL PRIMARY KEY,
-          type TEXT,
-          sku TEXT UNIQUE NOT NULL,
-          gtin_upc_ean_isbn TEXT,
-          name TEXT NOT NULL,
-          published TEXT,
-          is_featured TEXT,
-          visibility_in_catalog TEXT,
-          short_description TEXT,
-          description TEXT,
-          date_sale_price_starts TEXT,
-          date_sale_price_ends TEXT,
-          tax_status TEXT,
-          tax_class TEXT,
-          in_stock TEXT,
-          stock INTEGER DEFAULT 0,
-          low_stock_amount INTEGER,
-          backorders_allowed TEXT,
-          sold_individually TEXT,
-          weight_lbs REAL,
-          length_in REAL,
-          width_in REAL,
-          height_in REAL,
-          allow_customer_reviews TEXT,
-          purchase_note TEXT,
-          sale_price REAL,
-          regular_price REAL,
-          categories TEXT,
-          tags TEXT,
-          shipping_class TEXT,
-          images TEXT,
-          brands TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('PostgreSQL database initialized successfully');
-    } catch (err) {
-      console.error('Error initializing PostgreSQL database:', err);
-      throw err;
+  /**
+   * Retry helper with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 10,
+    initialDelay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+        const delay = initialDelay * Math.pow(2, attempt);
+        
+        // Only retry on connection errors
+        if (error instanceof Error && (
+          error.message.includes('connection') ||
+          error.message.includes('timeout') ||
+          error.message.includes('ECONNREFUSED') ||
+          error.message.includes('terminated')
+        )) {
+          console.log(`⚠️  Database connection attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // For non-connection errors, throw immediately
+        throw error;
+      }
     }
+    
+    throw lastError!;
+  }
+
+  private async initDatabaseWithRetry(): Promise<void> {
+    await this.retryWithBackoff(async () => {
+      await this.initDatabase();
+    }, 10, 2000); // 10 retries, starting with 2 second delay
+  }
+
+  async initDatabase(): Promise<void> {
+    // Test connection first
+    await this.pool.query('SELECT 1');
+    
+    // Create products table
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        type TEXT,
+        sku TEXT UNIQUE NOT NULL,
+        gtin_upc_ean_isbn TEXT,
+        name TEXT NOT NULL,
+        published TEXT,
+        is_featured TEXT,
+        visibility_in_catalog TEXT,
+        short_description TEXT,
+        description TEXT,
+        date_sale_price_starts TEXT,
+        date_sale_price_ends TEXT,
+        tax_status TEXT,
+        tax_class TEXT,
+        in_stock TEXT,
+        stock INTEGER DEFAULT 0,
+        low_stock_amount INTEGER,
+        backorders_allowed TEXT,
+        sold_individually TEXT,
+        weight_lbs REAL,
+        length_in REAL,
+        width_in REAL,
+        height_in REAL,
+        allow_customer_reviews TEXT,
+        purchase_note TEXT,
+        sale_price REAL,
+        regular_price REAL,
+        categories TEXT,
+        tags TEXT,
+        shipping_class TEXT,
+        images TEXT,
+        brands TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ PostgreSQL database initialized successfully');
   }
 
   async dropProductsTable(): Promise<void> {

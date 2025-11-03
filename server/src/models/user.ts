@@ -44,55 +44,100 @@ class UserModel {
       connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
     });
     
-    this.initTables();
+    // Start initialization with retry logic (don't await - let it run in background)
+    this.initTablesWithRetry().catch(err => {
+      console.error('Failed to initialize UserModel tables after retries:', err);
+      // Don't throw - let the app continue and retry on next request
+    });
+  }
+
+  /**
+   * Retry helper with exponential backoff
+   */
+  private async retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 10,
+    initialDelay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error) {
+        lastError = error as Error;
+        const delay = initialDelay * Math.pow(2, attempt);
+        
+        // Only retry on connection errors
+        if (error instanceof Error && (
+          error.message.includes('connection') ||
+          error.message.includes('timeout') ||
+          error.message.includes('ECONNREFUSED') ||
+          error.message.includes('terminated')
+        )) {
+          console.log(`⚠️  Database connection attempt ${attempt + 1}/${maxRetries} failed, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // For non-connection errors, throw immediately
+        throw error;
+      }
+    }
+    
+    throw lastError!;
+  }
+
+  private async initTablesWithRetry(): Promise<void> {
+    await this.retryWithBackoff(async () => {
+      await this.initTables();
+    }, 10, 2000); // 10 retries, starting with 2 second delay
   }
 
   private async initTables(): Promise<void> {
-    try {
-      // Create users table
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          email TEXT UNIQUE NOT NULL,
-          password TEXT NOT NULL,
-          first_name TEXT NOT NULL,
-          last_name TEXT NOT NULL,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('Users table created successfully');
+    // Test connection first
+    await this.pool.query('SELECT 1');
+    
+    // Create users table
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Users table created successfully');
 
-      // Create password_resets table
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS password_resets (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL,
-          reset_code TEXT NOT NULL,
-          expires_at TIMESTAMP NOT NULL,
-          used BOOLEAN DEFAULT false,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )
-      `);
-      console.log('Password resets table created successfully');
+    // Create password_resets table
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS password_resets (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        reset_code TEXT NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ Password resets table created successfully');
 
-      // Create newsletter_subscriptions table
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS newsletter_subscriptions (
-          id SERIAL PRIMARY KEY,
-          email TEXT UNIQUE NOT NULL,
-          subscribed_at TIMESTAMP NOT NULL,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('Newsletter subscriptions table created successfully');
-    } catch (err) {
-      console.error('Error creating tables:', err);
-      throw err;
-    }
+    // Create newsletter_subscriptions table
+    await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS newsletter_subscriptions (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        subscribed_at TIMESTAMP NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Newsletter subscriptions table created successfully');
   }
 
   // User methods

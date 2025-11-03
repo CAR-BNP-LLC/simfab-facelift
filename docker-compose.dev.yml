@@ -52,7 +52,7 @@ services:
     container_name: simfab-frontend-dev
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost:3001
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
       CHOKIDAR_USEPOLLING: true
       WATCHPACK_POLLING: true
       # Region Configuration
