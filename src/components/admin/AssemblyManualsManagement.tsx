@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Download, QrCode, Search, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2, Download, QrCode, Search, ExternalLink, Image as ImageIcon, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,6 +55,8 @@ const AssemblyManualsManagement = () => {
     sort_order: 0
   });
   const [file, setFile] = useState<File | null>(null);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
   const { toast } = useToast();
@@ -90,22 +92,65 @@ const AssemblyManualsManagement = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/admin/products?limit=1000`, {
-        credentials: 'include'
-      });
-      const data = await response.json();
-      if (data.success) {
-        // Handle paginated response
-        const productList = data.data?.products || data.data || [];
-        setProducts(productList);
+      // Fetch products with pagination (max limit is 100 per API)
+      const allProducts: any[] = [];
+      let page = 1;
+      let hasMore = true;
+      const limit = 100; // Max allowed by API validation
+
+      while (hasMore) {
+        const response = await fetch(`${API_URL}/api/admin/products?page=${page}&limit=${limit}`, {
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`Products API response (page ${page}):`, data);
+        
+        if (data.success && data.data) {
+          // Handle paginated response structure: { success: true, data: { products: [...], pagination: {...} } }
+          const productList = data.data.products || data.data.items || [];
+          
+          if (Array.isArray(productList)) {
+            allProducts.push(...productList);
+          }
+          
+          // Check if there are more pages
+          const pagination = data.data.pagination;
+          if (pagination && pagination.hasNext) {
+            page++;
+          } else {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+          if (!data.success) {
+            console.error('API returned error:', data);
+          }
+        }
       }
+      
+      // Map to the expected format
+      const formattedProducts = allProducts.map((product: any) => ({
+        id: product.id,
+        name: product.name || product.title,
+        slug: product.slug
+      }));
+      
+      console.log(`Fetched ${formattedProducts.length} products:`, formattedProducts);
+      setProducts(formattedProducts);
+      
     } catch (error) {
       console.error('Failed to fetch products:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load products',
+        description: 'Failed to load products. Please refresh the page.',
         variant: 'destructive'
       });
+      setProducts([]);
     }
   };
 
@@ -119,6 +164,8 @@ const AssemblyManualsManagement = () => {
     });
     setSelectedProducts([]);
     setFile(null);
+    setThumbnailFile(null);
+    setThumbnailPreview(null);
     setIsDialogOpen(true);
   };
 
@@ -132,7 +179,22 @@ const AssemblyManualsManagement = () => {
     });
     setSelectedProducts(manual.assigned_products?.map(p => p.id) || []);
     setFile(null);
+    setThumbnailFile(null);
+    setThumbnailPreview(manual.thumbnail_url || null);
     setIsDialogOpen(true);
+  };
+
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setThumbnailFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -158,6 +220,10 @@ const AssemblyManualsManagement = () => {
         formDataToSend.append('is_public', formData.is_public.toString());
         formDataToSend.append('sort_order', formData.sort_order.toString());
         formDataToSend.append('file', file!);
+        
+        if (thumbnailFile) {
+          formDataToSend.append('thumbnail', thumbnailFile);
+        }
 
         if (selectedProducts.length > 0) {
           selectedProducts.forEach(id => {
@@ -181,19 +247,31 @@ const AssemblyManualsManagement = () => {
           setFormData({ name: '', description: '', is_public: true, sort_order: 0 });
           setSelectedProducts([]);
           setFile(null);
+          setThumbnailFile(null);
+          setThumbnailPreview(null);
           await fetchManuals();
         } else {
           throw new Error(data.error?.message || 'Failed to create manual');
         }
       } else {
         // Update existing manual
+        const formDataToSend = new FormData();
+        formDataToSend.append('name', formData.name);
+        formDataToSend.append('description', formData.description);
+        formDataToSend.append('is_public', formData.is_public.toString());
+        formDataToSend.append('sort_order', formData.sort_order.toString());
+        
+        if (thumbnailFile) {
+          formDataToSend.append('thumbnail', thumbnailFile);
+        } else if (editingManual.thumbnail_url && !thumbnailPreview) {
+          // Keep existing thumbnail if not changed
+          formDataToSend.append('thumbnail_url', editingManual.thumbnail_url);
+        }
+
         const response = await fetch(`${API_URL}/api/admin/assembly-manuals/${editingManual.id}`, {
           method: 'PUT',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(formData)
+          body: formDataToSend
         });
 
         const data = await response.json();
@@ -331,6 +409,21 @@ const AssemblyManualsManagement = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredManuals.map((manual) => (
             <Card key={manual.id}>
+              {manual.thumbnail_url && (
+                <div className="w-full overflow-hidden bg-muted" style={{ aspectRatio: '210 / 297' }}>
+                  <img
+                    src={manual.thumbnail_url.startsWith('http') 
+                      ? manual.thumbnail_url 
+                      : `${API_URL}${manual.thumbnail_url}`}
+                    alt={manual.name}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      console.error('Failed to load thumbnail:', manual.thumbnail_url);
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-lg">{manual.name}</CardTitle>
@@ -481,6 +574,59 @@ const AssemblyManualsManagement = () => {
                 </p>
               </div>
             )}
+
+            <div>
+              <Label htmlFor="thumbnail">Preview Image (Optional)</Label>
+              <div className="space-y-2">
+                <Input
+                  id="thumbnail"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailChange}
+                />
+                {thumbnailPreview && (
+                  <div className="relative w-full border rounded overflow-hidden bg-muted" style={{ aspectRatio: '210 / 297' }}>
+                    <img
+                      src={thumbnailPreview}
+                      alt="Thumbnail preview"
+                      className="w-full h-full object-contain"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setThumbnailFile(null);
+                        setThumbnailPreview(null);
+                        const input = document.getElementById('thumbnail') as HTMLInputElement;
+                        if (input) input.value = '';
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+                {editingManual?.thumbnail_url && !thumbnailPreview && !thumbnailFile && (
+                  <div className="relative w-full border rounded overflow-hidden bg-muted" style={{ aspectRatio: '210 / 297' }}>
+                    <img
+                      src={editingManual.thumbnail_url.startsWith('http') 
+                        ? editingManual.thumbnail_url 
+                        : `${API_URL}${editingManual.thumbnail_url}`}
+                      alt="Current thumbnail"
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        console.error('Failed to load thumbnail:', editingManual.thumbnail_url);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Recommended: A4 format (portrait) or landscape. Images will be used as previews for the manual.
+                </p>
+              </div>
+            </div>
 
             <div>
               <Label>Assign to Products</Label>

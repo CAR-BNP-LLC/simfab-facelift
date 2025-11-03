@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Package, 
@@ -72,6 +72,7 @@ import PageProductsTab from '@/components/admin/PageProductsTab';
 import ShippingQuotes from '@/components/admin/ShippingQuotes';
 import { AnalyticsDashboard } from '@/components/admin/analytics/AnalyticsDashboard';
 import AssemblyManualsManagement from '@/components/admin/AssemblyManualsManagement';
+import SettingsTab from '@/components/admin/SettingsTab';
 import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
@@ -86,7 +87,32 @@ interface DashboardStats {
 }
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Sync activeTab with URL query parameter
+  const urlTab = searchParams.get('tab') || 'dashboard';
+  const [activeTab, setActiveTabState] = useState(urlTab);
+  
+  // Update URL when tab changes
+  const setActiveTab = (tab: string) => {
+    setActiveTabState(tab);
+    const newParams = new URLSearchParams(searchParams);
+    if (tab === 'dashboard') {
+      newParams.delete('tab'); // Remove tab param for dashboard to keep URL clean
+    } else {
+      newParams.set('tab', tab);
+    }
+    // Use replace: false to create history entry for back button
+    setSearchParams(newParams, { replace: false });
+  };
+  
+  // Sync tab from URL when browser back/forward is used
+  useEffect(() => {
+    const currentUrlTab = searchParams.get('tab') || 'dashboard';
+    if (currentUrlTab !== activeTab) {
+      setActiveTabState(currentUrlTab);
+    }
+  }, [searchParams, activeTab]);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -1015,10 +1041,12 @@ const Admin = () => {
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Create Product</span>
             </TabsTrigger>
-            <TabsTrigger value="email-templates" className="flex items-center justify-center gap-2">
-              <Mail className="h-4 w-4" />
-              <span className="hidden sm:inline">Emails</span>
-            </TabsTrigger>
+            <PermittedFor authority="emails:view">
+              <TabsTrigger value="email-templates" className="flex items-center justify-center gap-2">
+                <Mail className="h-4 w-4" />
+                <span className="hidden sm:inline">Emails</span>
+              </TabsTrigger>
+            </PermittedFor>
             <TabsTrigger value="analytics" className="flex items-center justify-center gap-2">
               <TrendingUp className="h-4 w-4" />
               <span className="hidden sm:inline">Analytics</span>
@@ -1114,18 +1142,20 @@ const Admin = () => {
                 </Card>
 
                 {/* Email Templates Card - Communication */}
-                <Card
-                  className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
-                  onClick={() => setActiveTab('email-templates')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
-                    <Mail className="h-12 w-12 text-primary mb-4" />
-                    <CardTitle className="text-xl font-bold mb-2">Emails</CardTitle>
-                    <p className="text-sm text-muted-foreground text-center">
-                      Manage email templates and settings
-                    </p>
-                  </CardContent>
-                </Card>
+                <PermittedFor authority="emails:view">
+                  <Card
+                    className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                    onClick={() => setActiveTab('email-templates')}
+                  >
+                    <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                      <Mail className="h-12 w-12 text-primary mb-4" />
+                      <CardTitle className="text-xl font-bold mb-2">Emails</CardTitle>
+                      <p className="text-sm text-muted-foreground text-center">
+                        Manage email templates and settings
+                      </p>
+                    </CardContent>
+                  </Card>
+                </PermittedFor>
 
                 {/* Analytics Card - Insights */}
                 <Card
@@ -2033,7 +2063,9 @@ const Admin = () => {
 
           {/* Email Templates Tab */}
           <TabsContent value="email-templates" className="space-y-6 pb-24">
-            <EmailTemplatesTab />
+            <PermittedFor authority="emails:view">
+              <EmailTemplatesTab />
+            </PermittedFor>
           </TabsContent>
 
           {/* Error Logs Tab */}
@@ -2054,30 +2086,7 @@ const Admin = () => {
 
           <TabsContent value="settings" className="space-y-6">
             <PermittedFor authority="rbac:manage">
-            <Card>
-              <CardHeader>
-                <CardTitle>Admin Settings</CardTitle>
-                <CardDescription>System configuration</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Settings panel coming soon. This will include site configuration, email settings, and more.
-                  </AlertDescription>
-                </Alert>
-                
-                <div className="pt-4">
-                  <h3 className="font-semibold mb-2">Quick Info:</h3>
-                  <div className="text-sm space-y-1 text-muted-foreground">
-                    <p>• Admin authentication is currently bypassed for testing</p>
-                    <p>• All users have admin access</p>
-                    <p>• Payment integration coming in Phase 4</p>
-                    <p>• Shipping integration coming in Phase 5</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+              <SettingsTab />
             </PermittedFor>
           </TabsContent>
         </Tabs>

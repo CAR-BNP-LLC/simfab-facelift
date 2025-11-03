@@ -33,6 +33,8 @@ import { createAdminShippingQuoteRoutes } from './routes/admin/shippingQuotes';
 import { createPageProductRoutes, createPublicPageProductRoutes } from './routes/pageProducts';
 import { createAdminAssemblyManualRoutes } from './routes/admin/assemblyManuals';
 import { createAssemblyManualRoutes } from './routes/assemblyManuals';
+import { createAdminSettingsRoutes } from './routes/admin/settings';
+import { createSettingsRoutes } from './routes/settings';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
 import { regionDetection } from './middleware/regionDetection';
@@ -96,7 +98,8 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
     if (filePath.endsWith('.pdf')) {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'inline; filename="manual.pdf"');
-      // Allow PDFs to be embedded in iframes
+      // Allow PDFs to be embedded in iframes (remove X-Frame-Options if set elsewhere)
+      res.removeHeader('X-Frame-Options');
       res.setHeader('X-Content-Type-Options', 'nosniff');
     }
   }
@@ -209,6 +212,8 @@ app.use('/api/shipping', createShippingRoutes(pool));
 app.use('/api/admin/shipping-quotes', createAdminShippingQuoteRoutes(pool));
 app.use('/api/admin/assembly-manuals', createAdminAssemblyManualRoutes(pool));
 app.use('/api/manuals', createAssemblyManualRoutes(pool));
+app.use('/api/admin/settings', createAdminSettingsRoutes(pool));
+app.use('/api/settings', createSettingsRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

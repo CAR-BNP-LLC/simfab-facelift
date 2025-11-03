@@ -31,21 +31,28 @@ export const createAdminAssemblyManualRoutes = (pool: Pool): Router => {
 
   /**
    * @route   POST /api/admin/assembly-manuals
-   * @desc    Create new manual (with PDF file upload)
+   * @desc    Create new manual (with PDF file upload and optional thumbnail)
    * @access  Admin
    */
   router.post(
     '/',
-    fileUploadService.getDocumentUploadMiddleware().single('file'),
+    fileUploadService.getDocumentUploadMiddleware().fields([
+      { name: 'file', maxCount: 1 },
+      { name: 'thumbnail', maxCount: 1 }
+    ]),
     controller.createManual
   );
 
   /**
    * @route   PUT /api/admin/assembly-manuals/:id
-   * @desc    Update manual details
+   * @desc    Update manual details (with optional thumbnail upload)
    * @access  Admin
    */
-  router.put('/:id', controller.updateManual);
+  router.put(
+    '/:id',
+    fileUploadService.getImageUploadMiddleware().single('thumbnail'),
+    controller.updateManual
+  );
 
   /**
    * @route   DELETE /api/admin/assembly-manuals/:id

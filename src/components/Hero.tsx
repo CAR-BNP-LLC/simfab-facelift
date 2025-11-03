@@ -37,14 +37,6 @@ const Hero = () => {
 
         </div>
       </div>
-
-      {/* Floating Elements - Hidden on mobile for performance */}
-      <div className="hidden lg:block absolute top-1/4 right-16 opacity-60">
-        <div className="w-32 h-24 bg-card/20 rounded-lg border border-border/30 backdrop-blur-sm animate-pulse"></div>
-      </div>
-      <div className="hidden lg:block absolute top-2/3 right-32 opacity-40">
-        <div className="w-24 h-16 bg-card/20 rounded-lg border border-border/30 backdrop-blur-sm animate-pulse" style={{animationDelay: '1s'}}></div>
-      </div>
     </section>
   );
 };

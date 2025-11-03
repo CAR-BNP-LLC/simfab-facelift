@@ -66,13 +66,22 @@ export class AssemblyManualController {
    */
   createManual = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const file = req.file;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const file = files?.file?.[0];
+      
       if (!file) {
         return res.status(400).json(errorResponse('PDF file is required', 'NO_FILE'));
       }
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       const fileUrl = this.fileUploadService.getFileUrl(file.filename, baseUrl);
+      
+      // Handle thumbnail upload if provided
+      let thumbnailUrl = req.body.thumbnail_url || null;
+      if (files?.thumbnail?.[0]) {
+        const thumbnailFile = files.thumbnail[0];
+        thumbnailUrl = this.fileUploadService.getFileUrl(thumbnailFile.filename, baseUrl);
+      }
 
       const manual = await this.service.createManual({
         name: req.body.name || file.originalname,
@@ -80,7 +89,7 @@ export class AssemblyManualController {
         file_url: fileUrl,
         file_type: 'pdf',
         file_size: file.size,
-        thumbnail_url: req.body.thumbnail_url || null,
+        thumbnail_url: thumbnailUrl,
         is_public: req.body.is_public !== 'false',
         sort_order: parseInt(req.body.sort_order || '0')
       });
@@ -107,13 +116,26 @@ export class AssemblyManualController {
   updateManual = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const id = parseInt(req.params.id);
-      const manual = await this.service.updateManual(id, {
+      
+      // Handle thumbnail upload if provided
+      let thumbnailUrl = req.body.thumbnail_url;
+      if (req.file) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        thumbnailUrl = this.fileUploadService.getFileUrl(req.file.filename, baseUrl);
+      }
+      
+      const updateData: any = {
         name: req.body.name,
         description: req.body.description,
-        thumbnail_url: req.body.thumbnail_url,
-        is_public: req.body.is_public,
-        sort_order: req.body.sort_order
-      });
+        is_public: req.body.is_public !== undefined ? req.body.is_public !== 'false' : undefined,
+        sort_order: req.body.sort_order ? parseInt(req.body.sort_order) : undefined
+      };
+      
+      if (thumbnailUrl !== undefined) {
+        updateData.thumbnail_url = thumbnailUrl;
+      }
+      
+      const manual = await this.service.updateManual(id, updateData);
 
       res.json(successResponse(manual, 'Manual updated successfully'));
     } catch (error) {

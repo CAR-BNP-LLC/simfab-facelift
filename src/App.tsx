@@ -8,6 +8,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { CheckoutProvider } from "@/contexts/CheckoutContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { RegionProvider } from "@/contexts/RegionContext";
+import { RegionSettingsProvider } from "@/contexts/RegionSettingsContext";
 import PayPalProvider from "@/components/PayPalProvider";
 import Index from "./pages/Index";
 import Shop from "./pages/Shop";
@@ -43,11 +44,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <RegionProvider>
-      <AuthProvider>
-        <CartProvider>
-          <WishlistProvider>
-            <CheckoutProvider>
-              <PayPalProvider>
+      <RegionSettingsProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WishlistProvider>
+              <CheckoutProvider>
+                <PayPalProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
@@ -91,6 +93,7 @@ const App = () => (
           </WishlistProvider>
         </CartProvider>
       </AuthProvider>
+      </RegionSettingsProvider>
     </RegionProvider>
   </QueryClientProvider>
 );

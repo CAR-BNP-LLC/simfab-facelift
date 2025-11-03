@@ -2,8 +2,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Facebook, Instagram, Youtube, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useRegionSettings } from '@/contexts/RegionSettingsContext';
 
 const Footer = () => {
+  const { contactInfo, loading: settingsLoading } = useRegionSettings();
+  
   const quickLinks = [
     'SERVICES', 'ASSEMBLY MANUALS', 'COMPATIBLE BRANDS', 'GALLERY', 
     'BLOG', 'BUNDLES'
@@ -63,9 +66,21 @@ const Footer = () => {
             
             <div className="mb-3 sm:mb-4">
               <h4 className="text-xs sm:text-sm font-semibold text-card-foreground mb-2">Contact Info</h4>
-              <p className="text-foreground/70 text-xs sm:text-sm mb-1">Email: info@simfab.com</p>
-              <p className="text-foreground/70 text-xs sm:text-sm">Toll free for USA and Canada:</p>
-              <p className="text-foreground/70 text-xs sm:text-sm">1-888-299-2746</p>
+              {!settingsLoading && contactInfo.email && (
+                <p className="text-foreground/70 text-xs sm:text-sm mb-1">
+                  Email: <a href={`mailto:${contactInfo.email}`} className="hover:text-primary transition-colors">{contactInfo.email}</a>
+                </p>
+              )}
+              {!settingsLoading && contactInfo.phone_display && (
+                <>
+                  <p className="text-foreground/70 text-xs sm:text-sm">{contactInfo.phone_display.split(':')[0]}:</p>
+                  <p className="text-foreground/70 text-xs sm:text-sm">
+                    <a href={`tel:${contactInfo.phone}`} className="hover:text-primary transition-colors">
+                      {contactInfo.phone_display.split(':').slice(1).join(':').trim() || contactInfo.phone}
+                    </a>
+                  </p>
+                </>
+              )}
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Download, ArrowLeft, Loader2, FileText } from 'lucide-react';
+import { Download, ArrowLeft, Loader2, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -21,12 +21,14 @@ const ManualView = () => {
   const [manual, setManual] = useState<Manual | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLoadError, setPdfLoadError] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchManual();
     }
   }, [id]);
+
 
   const fetchManual = async () => {
     try {
@@ -36,7 +38,10 @@ const ManualView = () => {
       const data = await response.json();
       
       if (data.success) {
-        setManual(data.data);
+        const manualData = data.data;
+        console.log('Manual loaded:', manualData);
+        console.log('PDF URL:', manualData.file_url);
+        setManual(manualData);
       } else {
         setError(data.error?.message || 'Manual not found');
       }
@@ -123,37 +128,99 @@ const ManualView = () => {
 
           {/* PDF Viewer */}
           <div className="bg-card rounded-lg p-6 border">
-            <div className="w-full bg-muted rounded overflow-hidden" style={{ minHeight: '600px' }}>
-              <embed
-                src={`${API_URL}${manual.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
-                type="application/pdf"
-                className="w-full"
-                style={{ minHeight: '600px', height: 'calc(100vh - 300px)' }}
-                title={manual.name}
-              />
+            {(() => {
+              const pdfUrl = manual.file_url.startsWith('http') 
+                ? manual.file_url 
+                : `${API_URL}${manual.file_url}`;
+              
+              console.log('Rendering PDF with URL:', pdfUrl);
+              
+              return (
+                <div className="w-full bg-muted rounded overflow-hidden" style={{ minHeight: '600px', position: 'relative' }}>
+                  {pdfLoadError ? (
+                    <div className="flex flex-col items-center justify-center h-[600px] p-8 text-center">
+                      <FileText className="w-16 h-16 text-muted-foreground mb-4" />
+                      <p className="text-lg font-semibold mb-2">PDF cannot be displayed</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Your browser may be blocking the PDF display. Please use the buttons below to view or download.
+                      </p>
+                      <div className="flex gap-4">
+                        <Button
+                          onClick={() => window.open(pdfUrl, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Open in New Tab
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = pdfUrl;
+                            link.download = `${manual.name}.pdf`;
+                            link.click();
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <iframe
+                      src={pdfUrl}
+                      className="w-full border-0"
+                      style={{ minHeight: '600px', height: 'calc(100vh - 300px)', width: '100%' }}
+                      title={manual.name}
+                      allow="fullscreen"
+                      onLoad={() => {
+                        console.log('PDF iframe loaded');
+                        setPdfLoadError(false);
+                      }}
+                      onError={() => {
+                        console.error('PDF iframe load error');
+                        setPdfLoadError(true);
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })()}
+            <div className="mt-4 p-4 bg-muted rounded text-center">
+              <p className="text-sm text-muted-foreground mb-2">
+                Having trouble viewing the PDF?
+              </p>
+              <div className="flex gap-4 justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const pdfUrl = manual.file_url.startsWith('http') 
+                      ? manual.file_url 
+                      : `${API_URL}${manual.file_url}`;
+                    window.open(pdfUrl, '_blank');
+                  }}
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Open in New Tab
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const pdfUrl = manual.file_url.startsWith('http') 
+                      ? manual.file_url 
+                      : `${API_URL}${manual.file_url}`;
+                    const link = document.createElement('a');
+                    link.href = pdfUrl;
+                    link.download = `${manual.name}.pdf`;
+                    link.click();
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download PDF
+                </Button>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground mt-4 text-center">
-              Having trouble viewing?{' '}
-              <button 
-                onClick={() => window.open(`${API_URL}${manual.file_url}`, '_blank')}
-                className="text-primary hover:underline font-medium"
-              >
-                Open in new tab
-              </button>
-              {' or '}
-              <button 
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.href = `${API_URL}${manual.file_url}`;
-                  link.download = `${manual.name}.pdf`;
-                  link.click();
-                }}
-                className="text-primary hover:underline font-medium"
-              >
-                download the PDF
-              </button>
-              .
-            </p>
           </div>
         </div>
       </main>

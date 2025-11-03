@@ -125,13 +125,13 @@ const ProductAdditionalInfo = ({
             {assemblyManuals.map((manual, index) => (
               <div key={manual.id || index} className="bg-muted rounded-lg p-4 space-y-4 border">
                 {manual.image && (
-                  <div className="aspect-video bg-background rounded-lg overflow-hidden">
-                    <img
-                      src={manual.image}
-                      alt={manual.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                <div className="bg-background rounded-lg overflow-hidden" style={{ aspectRatio: '210 / 297' }}>
+                  <img
+                    src={manual.image}
+                    alt={manual.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
                 )}
                 <div className="space-y-2">
                   <h4 className="font-semibold">{manual.name}</h4>
@@ -150,15 +150,15 @@ const ProductAdditionalInfo = ({
                         View Online
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
+                  <Button
+                    variant="outline"
+                    size="sm"
                       className={manual.viewUrl ? "flex-1" : "w-full"}
-                      onClick={() => window.open(manual.fileUrl, '_blank')}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
+                    onClick={() => window.open(manual.fileUrl, '_blank')}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
                       Download
-                    </Button>
+                  </Button>
                   </div>
                 </div>
               </div>

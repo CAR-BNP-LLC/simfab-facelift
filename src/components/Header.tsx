@@ -6,6 +6,7 @@ import { RegionToggle } from './RegionToggle';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useRegionSettings } from '@/contexts/RegionSettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { productsAPI } from '@/services/api';
 
@@ -23,13 +24,16 @@ const Header = () => {
   const { wishlistCount } = useWishlist();
   
   // Use auth from context
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, hasAnyAuthority } = useAuth();
+  const { contactInfo, loading: settingsLoading } = useRegionSettings();
   const navigate = useNavigate();
   
-  // Check if user has a role other than "customer"
-  const isNotCustomer = isAuthenticated && user && (
-    user.roles?.some(role => role.name?.toLowerCase() !== 'customer') ||
-    (user.authorities && user.authorities.length > 0)
+  // Check if user is admin or staff (has any admin/staff authority)
+  // This is safer than checking roles as it uses the authority system
+  const isNotCustomer = isAuthenticated && (
+    hasAnyAuthority('dashboard:view', 'orders:manage', 'products:manage', 'users:manage') ||
+    user?.roles?.some(role => role.name?.toLowerCase() !== 'customer') ||
+    (user?.authorities && user.authorities.length > 0)
   );
   
   // Handle account button click
@@ -275,41 +279,77 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 relative">
       {/* Utility Bar */}
-      <div className="bg-secondary text-text-muted text-xs py-2 px-4">
+      <div className="bg-secondary text-foreground text-sm py-3 px-4">
         <div className="container mx-auto flex items-center justify-between">
-          <span className="text-center flex-1 hidden sm:block">
-            Toll free for USA & Canada:{' '}
-            <a href="tel:1-888-299-2746" className="text-primary hover:underline">
-              1-888-299-2746
-            </a>
-            {' | '}
+          {/* Contact Info */}
+          <span className="text-center flex-1">
+            {contactInfo?.phone_display ? (
+              <>
+                {contactInfo.phone_display.split(':')[0]}:{' '}
+                <a href={`tel:${contactInfo.phone}`} className="text-primary hover:underline">
+                  {contactInfo.phone_display.split(':').slice(1).join(':').trim() || contactInfo.phone}
+                </a>
+                {' | '}
+              </>
+            ) : (
+              <>
+                Toll free for USA & Canada:{' '}
+                <a href="tel:1-888-299-2746" className="text-primary hover:underline">
+                  1-888-299-2746
+                </a>
+                {' | '}
+              </>
+            )}
             <a href="/international-shipping" className="text-primary hover:underline">
               We ship worldwide
             </a>
           </span>
-          {/* Buttons in Utility Bar for Medium Screens */}
-          <div className="flex items-center gap-2 ml-auto sm:ml-4">
-            {/* Admin Button - Visible in utility bar for all screens except 2xl+, only for non-customer users */}
-            {isNotCustomer && (
-              <Button 
-                variant="outline"
-                size="sm"
-                className="inline-flex 2xl:hidden border-destructive text-destructive hover:bg-destructive hover:text-white w-[70px] text-xs"
-                onClick={() => window.location.href = '/admin'}
-                title="Admin Dashboard"
-              >
-                ADMIN
-              </Button>
-            )}
-            {/* SHOP Button - Visible in utility bar for lg-xl screens to prevent overflow */}
-            <Button 
-              size="sm"
-              variant="default"
-              className="hidden lg:inline-flex 2xl:hidden w-[70px] text-xs"
-              onClick={() => window.location.href = '/shop'}
+          
+          {/* Action Buttons - Desktop only */}
+          <div className="hidden lg:flex items-center space-x-3 md:space-x-4 ml-auto">
+            <button 
+              className="text-foreground hover:text-primary transition-colors"
+              title="Search"
             >
-              SHOP
-            </Button>
+              <Search className="w-5 h-5" />
+            </button>
+            <button 
+              className="text-foreground hover:text-primary transition-colors"
+              onClick={handleAccountClick}
+              title={isAuthenticated ? 'My Account' : 'Login'}
+            >
+              <User className="w-5 h-5" />
+            </button>
+            {isAuthenticated && (
+              <button 
+                className="text-foreground hover:text-primary transition-colors relative"
+                onClick={() => navigate('/wishlist')}
+                title="My Wishlist"
+              >
+                <div className="relative">
+                  <Heart className="w-5 h-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                      {wishlistCount > 99 ? '99' : wishlistCount}
+                    </span>
+                  )}
+                </div>
+              </button>
+            )}
+            <button 
+              className="text-foreground hover:text-primary transition-colors relative"
+              onClick={() => setIsCartOpen(true)}
+              title="Shopping Cart"
+            >
+              <div className="relative">
+                <ShoppingCart className="w-5 h-5" />
+                {itemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                    {itemCount > 99 ? '99' : itemCount}
+                  </span>
+                )}
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -452,58 +492,65 @@ const Header = () => {
             </nav>
 
             {/* Right Side Actions */}
-            <div className="flex items-center space-x-1 xl:space-x-2 flex-shrink-0">
-              <button className="text-foreground hover:text-primary transition-colors">
-                <Search className="w-4 h-4 lg:w-5 lg:h-5" />
-              </button>
-              <button 
-                className="text-foreground hover:text-primary transition-colors"
-                onClick={handleAccountClick}
-                title={isAuthenticated ? 'My Account' : 'Login'}
-              >
-                <User className="w-4 h-4 lg:w-5 lg:h-5" />
-              </button>
-              {isAuthenticated && (
+            <div className="flex items-center space-x-1 md:space-x-2 flex-shrink-0">
+              {/* Action Buttons - Mobile only */}
+              <div className="flex items-center space-x-2 mr-4 lg:hidden">
                 <button 
-                  className="text-foreground hover:text-primary transition-colors relative pr-3"
-                  onClick={() => navigate('/wishlist')}
-                  title="My Wishlist"
+                  className="text-foreground hover:text-primary transition-colors"
+                  title="Search"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+                <button 
+                  className="text-foreground hover:text-primary transition-colors"
+                  onClick={handleAccountClick}
+                  title={isAuthenticated ? 'My Account' : 'Login'}
+                >
+                  <User className="w-5 h-5" />
+                </button>
+                {isAuthenticated && (
+                  <button 
+                    className="text-foreground hover:text-primary transition-colors relative"
+                    onClick={() => navigate('/wishlist')}
+                    title="My Wishlist"
+                  >
+                    <div className="relative">
+                      <Heart className="w-5 h-5" />
+                      {wishlistCount > 0 && (
+                        <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                          {wishlistCount > 99 ? '99' : wishlistCount}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                )}
+                <button 
+                  className="text-foreground hover:text-primary transition-colors relative"
+                  onClick={() => setIsCartOpen(true)}
+                  title="Shopping Cart"
                 >
                   <div className="relative">
-                    <Heart className="w-4 h-4 lg:w-5 lg:h-5" />
-                    {wishlistCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {wishlistCount > 99 ? '99+' : wishlistCount}
+                    <ShoppingCart className="w-5 h-5" />
+                    {itemCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                        {itemCount > 99 ? '99' : itemCount}
                       </span>
                     )}
                   </div>
                 </button>
-              )}
-              <button 
-                className="text-foreground hover:text-primary transition-colors relative pr-3"
-                onClick={() => setIsCartOpen(true)}
-              >
-                <div className="relative">
-                  <ShoppingCart className="w-4 h-4 lg:w-5 lg:h-5" />
-                  {itemCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                      {itemCount}
-                    </span>
-                  )}
-                </div>
-              </button>
-              
+              </div>
+
               {/* Region Toggle */}
-              <div className="ml-2 hidden md:block">
+              <div className="hidden md:block">
                 <RegionToggle />
               </div>
               
-              {/* Admin Button - Only on 2xl+ screens where there's more space, and only for non-customer users */}
+              {/* Admin Button - Only for non-customer users */}
               {isNotCustomer && (
                 <Button 
                   variant="outline"
                   size="sm"
-                  className="hidden 2xl:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white ml-6 w-[70px]"
+                  className="hidden lg:inline-flex border-destructive text-destructive hover:bg-destructive hover:text-white w-[60px] xl:w-[70px]"
                   onClick={() => window.location.href = '/admin'}
                   title="Admin Dashboard"
                 >
@@ -511,11 +558,11 @@ const Header = () => {
                 </Button>
               )}
               
-              {/* SHOP Button - Only on 2xl+ screens where there's more space */}
+              {/* SHOP Button */}
               <Button 
                 size="sm"
                 variant="default"
-                className="hidden 2xl:inline-flex w-[70px]"
+                className="hidden lg:inline-flex w-[60px] xl:w-[70px]"
                 onClick={() => window.location.href = '/shop'}
               >
                 SHOP
@@ -526,7 +573,7 @@ const Header = () => {
                 className="lg:hidden text-foreground hover:text-primary transition-colors"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
               >
-                {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                {isMenuOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
               </button>
             </div>
           </div>
@@ -695,6 +742,19 @@ const Header = () => {
                 </button>
               </div>
 
+              {/* SHOP */}
+              <div className="border-b border-gray-800 pb-6">
+                <button 
+                  className="text-white font-bold text-lg uppercase tracking-wider w-full text-left"
+                  onClick={() => {
+                    window.location.href = '/shop';
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  SHOP
+                </button>
+              </div>
+
               {/* SERVICES */}
               <div className="pb-6">
                 <div className="mb-4">
@@ -715,12 +775,14 @@ const Header = () => {
                         <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
                       </svg>
                     </div>
-                    <a 
-                      href="tel:1-888-299-2746" 
-                      className="text-gray-300 hover:text-white transition-colors"
-                    >
-                      Toll free for USA & Canada: 1-888-299-2746
-                    </a>
+                    {!settingsLoading && contactInfo.phone && (
+                      <a 
+                        href={`tel:${contactInfo.phone}`} 
+                        className="text-gray-300 hover:text-white transition-colors"
+                      >
+                        {contactInfo.phone_display || contactInfo.phone}
+                      </a>
+                    )}
                   </div>
                   <div className="flex items-center space-x-3">
                     <div className="w-5 h-5 flex items-center justify-center">
@@ -742,12 +804,14 @@ const Header = () => {
                         <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
                       </svg>
                     </div>
-                    <a 
-                      href="mailto:info@simfab.com" 
-                      className="text-gray-300 hover:text-white transition-colors"
-                    >
-                      info@simfab.com
-                    </a>
+                    {!settingsLoading && contactInfo.email && (
+                      <a 
+                        href={`mailto:${contactInfo.email}`} 
+                        className="text-gray-300 hover:text-white transition-colors"
+                      >
+                        {contactInfo.email}
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

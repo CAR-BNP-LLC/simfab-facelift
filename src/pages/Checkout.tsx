@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ import PaymentStep from '@/components/checkout/PaymentStep';
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { cart, loading: cartLoading, applyCoupon, refreshCart, clearCart } = useCart();
   const { user } = useAuth();
   const { checkoutState, updateCheckoutState, clearStorage } = useCheckout();
@@ -51,7 +52,7 @@ const Checkout = () => {
 
   // Destructure state from context
   const {
-    step,
+    step: contextStep,
     shippingAddress,
     billingAddress,
     selectedShipping,
@@ -59,6 +60,38 @@ const Checkout = () => {
     createdOrder,
     isBillingSameAsShipping
   } = checkoutState;
+
+  // Sync step with URL query parameter for browser navigation
+  const urlStep = searchParams.get('step') ? parseInt(searchParams.get('step')!, 10) : null;
+  const step = urlStep && urlStep >= 1 && urlStep <= 5 ? urlStep : contextStep;
+
+  // Sync step from URL when browser back/forward is used
+  useEffect(() => {
+    const currentUrlStep = searchParams.get('step') ? parseInt(searchParams.get('step')!, 10) : null;
+    // Only sync if URL step is different from context step (browser navigation)
+    if (currentUrlStep !== null && currentUrlStep !== contextStep && currentUrlStep >= 1 && currentUrlStep <= 5) {
+      updateCheckoutState({ step: currentUrlStep });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]); // Only depend on searchParams to detect URL changes (contextStep and updateCheckoutState intentionally excluded)
+
+  // Update URL when step changes from context (for cases where step changes programmatically)
+  // This won't run when URL already matches, avoiding loops
+  useEffect(() => {
+    const currentUrlStep = searchParams.get('step') ? parseInt(searchParams.get('step')!, 10) : null;
+    // Only update URL if context step differs from URL step and it's not already being handled by handleNext/handleBack
+    if (contextStep !== currentUrlStep) {
+      const newParams = new URLSearchParams(searchParams);
+      if (contextStep === 1) {
+        newParams.delete('step'); // Remove step param for step 1 to keep URL clean
+      } else if (contextStep >= 2 && contextStep <= 5) {
+        newParams.set('step', contextStep.toString());
+      }
+      // Use replace for automatic sync to avoid cluttering history
+      setSearchParams(newParams, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextStep]); // Only depend on contextStep (searchParams and setSearchParams intentionally excluded to avoid loops)
 
   // Get cart data early so it's available for useEffects
   const items = cart?.items || [];
@@ -278,16 +311,39 @@ const Checkout = () => {
       return;
     }
     // Clear selectedShipping when entering shipping step to ensure proper initialization
-    const updates: any = { step: step + 1 };
+    const nextStep = step + 1;
+    
+    const updates: any = { step: nextStep };
     if (step === 2) { // Moving from address to shipping step
       updates.selectedShipping = '';
     }
+    
+    // Update URL with new step FIRST (push to create history entry for back button)
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('step', nextStep.toString());
+    setSearchParams(newParams, { replace: false }); // Use push for forward navigation
+    
+    // Then update state (the useEffect will see URL already matches, so it won't update again)
     updateCheckoutState(updates);
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBack = () => {
-    updateCheckoutState({ step: step - 1 });
+    const prevStep = step - 1;
+    
+    // Update URL with previous step FIRST (push to create history entry)
+    const newParams = new URLSearchParams(searchParams);
+    if (prevStep === 1) {
+      newParams.delete('step');
+    } else {
+      newParams.set('step', prevStep.toString());
+    }
+    setSearchParams(newParams, { replace: false }); // Use push so browser back works
+    
+    // Then update state (the useEffect will see URL already matches, so it won't update again)
+    updateCheckoutState({ step: prevStep });
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -1214,16 +1270,6 @@ const Checkout = () => {
                           {currency}{orderTotal.toFixed(2)}
                         </span>
                       </div>
-                      {/* Show breakdown for debugging - remove in production if desired */}
-                      {process.env.NODE_ENV === 'development' && (
-                        <div className="text-xs text-muted-foreground mt-2">
-                          Breakdown: {totals.subtotal.toFixed(2)} - {totals.discount.toFixed(2)} + {shippingCost.toFixed(2)} + {totals.tax.toFixed(2)} = {orderTotal.toFixed(2)}
-                          <br />
-                          <span className={orderTotal === (totals.subtotal - totals.discount + shippingCost + totals.tax) ? 'text-green-600' : 'text-red-600'}>
-                            ✓ Calculation verified: {orderTotal === (totals.subtotal - totals.discount + shippingCost + totals.tax) ? 'CORRECT' : 'MISMATCH'}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
 
