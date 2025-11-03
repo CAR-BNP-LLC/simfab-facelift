@@ -22,6 +22,7 @@ import OrderConfirmation from "./pages/OrderConfirmation";
 import MonitorStands from "./pages/MonitorStands";
 import Services from "./pages/Services";
 import AssemblyManuals from "./pages/AssemblyManuals";
+import ManualView from "./pages/ManualView";
 import CompatibleBrands from "./pages/CompatibleBrands";
 import Gallery from "./pages/Gallery";
 import Blog from "./pages/Blog";
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/monitor-stands" element={<MonitorStands />} />
             <Route path="/services" element={<Services />} />
             <Route path="/assembly-manuals" element={<AssemblyManuals />} />
+            <Route path="/manuals/:id" element={<ManualView />} />
             <Route path="/compatible-brands" element={<CompatibleBrands />} />
             <Route path="/gallery" element={<Gallery />} />
             <Route path="/blog" element={<Blog />} />

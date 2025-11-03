@@ -5,8 +5,9 @@ WORKDIR /app
 # Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --ignore-scripts
+# Install dependencies with optional dependencies for rollup
+# Remove package-lock.json if exists to avoid npm bug with optional deps
+RUN rm -f package-lock.json && npm install
 
 # Copy configuration files
 COPY tsconfig*.json ./

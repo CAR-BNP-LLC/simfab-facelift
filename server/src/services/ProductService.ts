@@ -16,12 +16,15 @@ import {
 } from '../types/product';
 import { ProductQueryBuilder } from './ProductQueryBuilder';
 import { NotFoundError, ValidationError, ConflictError } from '../utils/errors';
+import { AssemblyManualService } from './AssemblyManualService';
 
 export class ProductService {
   private queryBuilder: ProductQueryBuilder;
+  private assemblyManualService: AssemblyManualService;
 
   constructor(private pool: Pool) {
     this.queryBuilder = new ProductQueryBuilder(pool);
+    this.assemblyManualService = new AssemblyManualService(pool);
   }
 
   /**
@@ -147,7 +150,18 @@ export class ProductService {
       const descriptionComponents = await this.getProductDescriptionComponents(productId);
 
       // Get assembly manuals
-      const assemblyManuals = await this.getAssemblyManuals(productId);
+      // Get assembly manuals from new CMS system
+      const assemblyManualsData = await this.assemblyManualService.getManualsForProduct(productId);
+      const assemblyManuals = assemblyManualsData.map(manual => ({
+        id: manual.id,
+        name: manual.name,
+        description: manual.description,
+        file_url: manual.file_url,
+        image_url: manual.thumbnail_url,
+        file_type: manual.file_type,
+        file_size: manual.file_size,
+        sort_order: manual.sort_order
+      }));
 
       // Get additional info
       const additionalInfo = await this.getAdditionalInfo(productId);
@@ -958,15 +972,24 @@ export class ProductService {
     return result.rows;
   }
 
+  /**
+   * @deprecated Use AssemblyManualService.getManualsForProduct() instead
+   * This method is kept for backward compatibility but uses the new service
+   */
   private async getAssemblyManuals(productId: number) {
-    const sql = `
-      SELECT * FROM assembly_manuals
-      WHERE product_id = $1
-      ORDER BY sort_order
-    `;
-
-    const result = await this.pool.query(sql, [productId]);
-    return result.rows;
+    // Use new CMS service instead of old table
+    const manuals = await this.assemblyManualService.getManualsForProduct(productId);
+    // Transform to old format for backward compatibility
+    return manuals.map(manual => ({
+      id: manual.id,
+      name: manual.name,
+      description: manual.description,
+      file_url: manual.file_url,
+      image_url: manual.thumbnail_url,
+      file_type: manual.file_type,
+      file_size: manual.file_size,
+      sort_order: manual.sort_order
+    }));
   }
 
   private async getAdditionalInfo(productId: number) {

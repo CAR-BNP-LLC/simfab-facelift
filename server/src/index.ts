@@ -31,6 +31,8 @@ import { createShipStationRoutes } from './routes/shipstation';
 import { createShippingRoutes } from './routes/shipping';
 import { createAdminShippingQuoteRoutes } from './routes/admin/shippingQuotes';
 import { createPageProductRoutes, createPublicPageProductRoutes } from './routes/pageProducts';
+import { createAdminAssemblyManualRoutes } from './routes/admin/assemblyManuals';
+import { createAssemblyManualRoutes } from './routes/assemblyManuals';
 import { pool } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
 import { regionDetection } from './middleware/regionDetection';
@@ -88,8 +90,17 @@ app.use(session({
   }
 }));
 
-// Serve static files from uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve static files from uploads directory with proper headers for PDFs
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.pdf')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="manual.pdf"');
+      // Allow PDFs to be embedded in iframes
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    }
+  }
+}));
 // Serve static files from public directory (for email logos, etc.)
 app.use('/public', express.static(path.join(__dirname, '../../public')));
 
@@ -196,6 +207,8 @@ app.use('/api/page-products', createPublicPageProductRoutes(pool));
 app.use('/api/shipstation', createShipStationRoutes(pool));
 app.use('/api/shipping', createShippingRoutes(pool));
 app.use('/api/admin/shipping-quotes', createAdminShippingQuoteRoutes(pool));
+app.use('/api/admin/assembly-manuals', createAdminAssemblyManualRoutes(pool));
+app.use('/api/manuals', createAssemblyManualRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

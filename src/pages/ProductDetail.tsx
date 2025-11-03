@@ -960,9 +960,12 @@ const ProductDetail = () => {
 
   const assemblyManuals = Array.isArray(product.assemblyManuals)
     ? product.assemblyManuals.map((manual: any) => ({
+        id: manual.id,
         name: manual.name,
-        image: manual.image_url || manual.thumbnailUrl || '/api/placeholder/300/200',
-        fileUrl: manual.file_url || manual.fileUrl
+        description: manual.description,
+        image: manual.image_url || manual.thumbnail_url || '/api/placeholder/300/200',
+        fileUrl: manual.file_url || manual.fileUrl,
+        viewUrl: manual.id ? `/manuals/${manual.id}` : undefined
       }))
     : [];
 
