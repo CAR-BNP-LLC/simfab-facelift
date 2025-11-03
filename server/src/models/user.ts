@@ -40,7 +40,8 @@ class UserModel {
     
     this.pool = new Pool({
       connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
     });
     
     this.initTables();

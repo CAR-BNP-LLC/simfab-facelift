@@ -24,6 +24,7 @@ const userModel = new UserModel();
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev',
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
 });
 const rbacModel = new RBACModel(pool);
 const emailService = new EmailService(pool);

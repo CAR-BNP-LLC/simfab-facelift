@@ -16,7 +16,8 @@ const pool = new Pool(
   process.env.DATABASE_URL
     ? {
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
       }
     : {
         user: process.env.DB_USER || 'postgres',
@@ -24,7 +25,8 @@ const pool = new Pool(
         database: process.env.DB_NAME || 'simfab_dev',
         password: process.env.DB_PASSWORD || 'postgres',
         port: parseInt(process.env.DB_PORT || '5432'),
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
       }
 );
 

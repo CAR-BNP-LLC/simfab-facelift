@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "server:start": "cd server && npm start",
     "server:build": "cd server && npm run build",
-    "server:dev": "cd server && npm run dev"
+    "server:dev": "cd server && npm run dev",
+    "docker:server-db": "docker-compose -f docker-compose.dev.yml up postgres server",
+    "docker:server-db:build": "docker-compose -f docker-compose.dev.yml up --build postgres server"
   },
   "engines": {
     "node": ">=18.0.0",
