@@ -79,16 +79,19 @@ const sessionStore = new pgSession({
   tableName: 'user_sessions'
 });
 
+// Determine environment-based cookie settings
+const isProduction = process.env.NODE_ENV === 'production';
+
 app.use(session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
   saveUninitialized: true, // Changed to true for anonymous cart sessions
   cookie: {
-    secure: false, // Set to true in production with HTTPS
+    secure: isProduction, // true in production (HTTPS), false in dev
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for cart persistence
-    sameSite: 'none' // Allow cookies in cross-site requests
+    sameSite: isProduction ? 'none' : 'lax' // 'none' in prod (requires secure), 'lax' in dev
   }
 }));
 
