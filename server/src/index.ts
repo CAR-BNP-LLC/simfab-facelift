@@ -88,7 +88,7 @@ app.use(session({
     secure: false, // Set to true in production with HTTPS
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for cart persistence
-    sameSite: 'lax' // Allow cookies in cross-site requests
+    sameSite: 'none' // Allow cookies in cross-site requests
   }
 }));
 
