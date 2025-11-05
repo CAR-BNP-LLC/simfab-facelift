@@ -46,6 +46,8 @@ const TRIGGER_EVENTS = [
   { value: 'admin.note_added', label: 'Admin Note Added' },
   { value: 'auth.password_reset', label: 'Password Reset Requested' },
   { value: 'auth.account_created', label: 'New Account Created' },
+  { value: 'cart.reminder_1day', label: 'Cart Reminder (1 Day)' },
+  { value: 'cart.reminder_7days', label: 'Cart Reminder (7 Days)' },
   { value: 'manual', label: 'Manual (No Auto Trigger)' },
 ];
 
@@ -760,6 +762,10 @@ export default function EmailTemplatesTab() {
                         .replace(/\{\{error_message\}\}/g, 'Payment declined')
                         .replace(/\{\{cancellation_reason\}\}/g, 'Customer request')
                         .replace(/\{\{expire_hours\}\}/g, '15 minutes')
+                        .replace(/\{\{cart_total\}\}/g, '<strong style="color: #c5303b;">$199.99</strong>')
+                        .replace(/\{\{item_count\}\}/g, '3')
+                        .replace(/\{\{cart_url\}\}/g, 'https://simfab.com/cart?region=us')
+                        .replace(/\{\{cart_id\}\}/g, '12345')
                     }} 
                       />
                     </div>

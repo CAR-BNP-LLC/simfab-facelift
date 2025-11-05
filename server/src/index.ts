@@ -43,6 +43,7 @@ import { CronService } from './services/CronService';
 import { EmailService } from './services/EmailService';
 import { LoggerService } from './services/LoggerService';
 import { WishlistNotificationService } from './services/WishlistNotificationService';
+import { CartReminderService } from './services/CartReminderService';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -198,6 +199,38 @@ emailService.initialize()
   .catch(err => {
     console.error('❌ Failed to initialize email service:', err);
   });
+
+// Initialize cart reminder service
+const cartReminderService = new CartReminderService(pool, emailService);
+
+// Cart reminder checker - runs every hour
+cronService.addJob(
+  'cart-reminder-check',
+  {
+    schedule: '0 * * * *', // Every hour at minute 0
+    enabled: process.env.CART_REMINDER_ENABLED !== 'false', // Enable by default
+    description: 'Check for abandoned carts and send reminder emails',
+    timezone: process.env.TZ || 'America/New_York',
+  },
+  async () => {
+    try {
+      console.log('🔄 Running cart reminder check...');
+      const result = await cartReminderService.checkAndSendReminders();
+      console.log(`✅ Cart reminder check complete:`);
+      console.log(`   - 1-day reminders: ${result.day1.sent} sent, ${result.day1.errors} errors`);
+      console.log(`   - 7-day reminders: ${result.day7.sent} sent, ${result.day7.errors} errors`);
+      
+      // Log metrics
+      if (result.day1.errors > 0 || result.day7.errors > 0) {
+        console.warn(`⚠️ ${result.day1.errors + result.day7.errors} errors during cart reminder check`);
+      }
+    } catch (error) {
+      console.error('❌ Error in cart reminder check job:', error);
+    }
+  }
+);
+
+console.log('✅ Cart reminder cron job registered');
 
 // Initialize logger service
 const loggerService = new LoggerService(pool);
