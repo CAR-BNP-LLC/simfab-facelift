@@ -10,13 +10,16 @@ import { Pool } from 'pg';
 import RBACModel from '../models/rbac';
 import UserModel from '../models/user';
 
+import { getSSLConfig } from '../config/database';
+
 // Database configuration
 // Use DATABASE_URL for Docker/production, or individual params for local development
+const connectionString = process.env.DATABASE_URL;
 const pool = new Pool(
-  process.env.DATABASE_URL
+  connectionString
     ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        connectionString,
+        ssl: getSSLConfig(connectionString),
         connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
       }
     : {
@@ -25,7 +28,7 @@ const pool = new Pool(
         database: process.env.DB_NAME || 'simfab_dev',
         password: process.env.DB_PASSWORD || 'postgres',
         port: parseInt(process.env.DB_PORT || '5432'),
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        ssl: false, // Individual params are always local
         connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
       }
 );

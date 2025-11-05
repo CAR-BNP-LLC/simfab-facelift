@@ -4,6 +4,7 @@ import UserModel, { User, NewsletterSubscription } from '../models/user';
 import RBACModel from '../models/rbac';
 import { Pool } from 'pg';
 import { EmailService } from '../services/EmailService';
+import { getSSLConfig } from '../config/database';
 
 // Use crypto for generating UUIDs instead of uuid package
 import { randomUUID } from 'crypto';
@@ -21,9 +22,10 @@ declare module 'express-session' {
 // Create model instances
 const userModel = new UserModel();
 // Create separate pool instance for RBAC model
+const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev';
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  connectionString,
+  ssl: getSSLConfig(connectionString),
   connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
 });
 const rbacModel = new RBACModel(pool);

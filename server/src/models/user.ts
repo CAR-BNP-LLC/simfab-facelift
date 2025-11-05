@@ -37,10 +37,11 @@ class UserModel {
   constructor() {
     // Use DATABASE_URL for production (Heroku), or local PostgreSQL for development
     const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev';
+    const { getSSLConfig } = require('../config/database');
     
     this.pool = new Pool({
       connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: getSSLConfig(connectionString),
       connectionTimeoutMillis: 30000, // 30 seconds timeout for resource-constrained environments
     });
     

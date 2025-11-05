@@ -35,7 +35,7 @@ import { createAdminAssemblyManualRoutes } from './routes/admin/assemblyManuals'
 import { createAssemblyManualRoutes } from './routes/assemblyManuals';
 import { createAdminSettingsRoutes } from './routes/admin/settings';
 import { createSettingsRoutes } from './routes/settings';
-import { pool } from './config/database';
+import { pool, getSSLConfig } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
 import { regionDetection } from './middleware/regionDetection';
 import { CleanupService } from './services/CleanupService';
@@ -74,9 +74,13 @@ app.use(regionDetection);
 
 // Session middleware - PostgreSQL for all environments
 const connectionString = process.env.DATABASE_URL || 'postgresql://localhost:5432/simfab_dev';
+const sslConfig = getSSLConfig(connectionString);
+
 const sessionStore = new pgSession({
   conString: connectionString,
-  tableName: 'user_sessions'
+  tableName: 'user_sessions',
+  // connect-pg-simple accepts ssl option directly
+  ...(sslConfig ? { ssl: sslConfig } : {})
 });
 
 // Cookie configuration based on NODE_ENV:
