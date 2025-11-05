@@ -538,6 +538,9 @@ const ProductEditDialog = ({
 
     setLoading(true);
     try {
+      const isGroupMode = mode === 'group';
+      const isStandalone = !isGroupMode && !pairedProduct;
+      
       if (isGroupMode) {
         // Group mode: Only send shared fields (no pricing - prices are managed per region)
         const sharedFieldsData = {
@@ -551,8 +554,28 @@ const ProductEditDialog = ({
           tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : []
         };
         await onSave(sharedFieldsData);
+      } else if (isStandalone) {
+        // Standalone mode: Send all fields (both shared and region-specific)
+        const allFieldsData = {
+          name: productForm.name,
+          slug: productForm.slug || generateSlug(productForm.name),
+          description: productForm.description,
+          short_description: productForm.short_description,
+          featured: productForm.featured,
+          status: productForm.status,
+          categories: [productForm.categories],
+          tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [],
+          regular_price: parseFloat(productForm.regular_price) || 0,
+          sale_price: productForm.sale_price ? parseFloat(productForm.sale_price) : null,
+          is_on_sale: productForm.is_on_sale,
+          sale_start_date: saleStartDate || null,
+          sale_end_date: saleEndDate || null,
+          sale_label: productForm.sale_label || null,
+          stock_quantity: parseInt(productForm.stock_quantity) || 0
+        };
+        await onSave(allFieldsData);
       } else {
-        // Individual mode: Send pricing and stock (region-specific)
+        // Individual mode with paired product: Send only pricing and stock (region-specific)
         const formData = {
           regular_price: parseFloat(productForm.regular_price) || 0,
           sale_price: productForm.sale_price ? parseFloat(productForm.sale_price) : null,
@@ -603,6 +626,7 @@ const ProductEditDialog = ({
 
   // Determine editing mode and calculate opposite region if needed
   const isGroupMode = mode === 'group';
+  const isStandalone = !isGroupMode && !pairedProduct;
   const oppositeRegion = product.region === 'us' ? 'EU' : 'US';
 
   return (
@@ -633,12 +657,17 @@ const ProductEditDialog = ({
               Editing region-specific properties for {product.region?.toUpperCase()} product. These changes will not affect the {oppositeRegion} product.
             </p>
           )}
+          {isStandalone && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Editing standalone product. All properties can be edited here.
+            </p>
+          )}
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto pr-2">
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Group Mode: Show shared fields, hide region-specific */}
-            {isGroupMode && (
+            {/* Basic Information: Show in group mode or standalone mode */}
+            {(isGroupMode || isStandalone) && (
               <>
                 {/* Basic Information */}
                 <Card>
@@ -938,8 +967,8 @@ const ProductEditDialog = ({
               </>
             )}
 
-            {/* Categories and Tags - Group mode only */}
-            {isGroupMode && (
+            {/* Categories and Tags - Group mode or standalone */}
+            {(isGroupMode || isStandalone) && (
               <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Categories & Tags</CardTitle>
@@ -974,8 +1003,8 @@ const ProductEditDialog = ({
             </Card>
             )}
 
-            {/* Image Management - Group mode only */}
-            {isGroupMode && (
+            {/* Image Management - Group mode or standalone */}
+            {(isGroupMode || isStandalone) && (
               <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Product Images</CardTitle>
@@ -1084,7 +1113,7 @@ const ProductEditDialog = ({
             </Card>
             )}
 
-            {/* Variations - Group mode only */}
+            {/* Variations - Group mode only (standalone products show variations in tabs) */}
             {isGroupMode && productVariations.length > 0 && (
               <Card>
                 <CardHeader>
@@ -1103,8 +1132,8 @@ const ProductEditDialog = ({
 
           </form>
 
-          {/* Additional Content in Tabs - Group mode only */}
-          {product && isGroupMode && (
+          {/* Additional Content in Tabs - Group mode or standalone */}
+          {product && (isGroupMode || isStandalone) && (
             <Tabs defaultValue="variations" className="mt-6">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="variations">Variations & Stock</TabsTrigger>
