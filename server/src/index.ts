@@ -79,8 +79,23 @@ const sessionStore = new pgSession({
   tableName: 'user_sessions'
 });
 
-// Determine environment-based cookie settings
+// Cookie configuration based on NODE_ENV:
+// Production: API and frontend are on different servers/domains,
+// so we MUST use SameSite=None with Secure=true for cross-site cookies
+// Development: Use SameSite=Lax (same-site cookies)
 const isProduction = process.env.NODE_ENV === 'production';
+const cookieSameSite: 'none' | 'lax' = isProduction ? 'none' : 'lax';
+const cookieSecure = isProduction; // Secure=true in production (HTTPS required), false in dev
+
+console.log('🍪 Cookie Configuration:', {
+  isProduction,
+  sameSite: cookieSameSite,
+  secure: cookieSecure,
+  reason: isProduction 
+    ? 'Production: API and frontend on different servers (cross-site required)' 
+    : 'Development: Same-site cookies',
+  NODE_ENV: process.env.NODE_ENV
+});
 
 app.use(session({
   store: sessionStore,
@@ -88,10 +103,10 @@ app.use(session({
   resave: false,
   saveUninitialized: true, // Changed to true for anonymous cart sessions
   cookie: {
-    secure: isProduction, // true in production (HTTPS), false in dev
+    secure: cookieSecure, // true for cross-site cookies or production (HTTPS required)
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for cart persistence
-    sameSite: isProduction ? 'none' : 'lax' // 'none' in prod (requires secure), 'lax' in dev
+    sameSite: cookieSameSite // 'none' for cross-site, 'lax' for same-site dev
   }
 }));
 
