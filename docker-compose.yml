@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/simfab_dev
-      NODE_ENV: development
+      NODE_ENV: ${NODE_ENV:-development}
       SESSION_SECRET: docker-dev-secret-key
       PORT: 3001
       FRONTEND_URL: http://localhost:5173

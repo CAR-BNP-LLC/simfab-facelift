@@ -94,7 +94,8 @@ console.log('🍪 Cookie Configuration:', {
   reason: isProduction 
     ? 'Production: API and frontend on different servers (cross-site required)' 
     : 'Development: Same-site cookies',
-  NODE_ENV: process.env.NODE_ENV
+  NODE_ENV: process.env.NODE_ENV || '(not set)',
+  all_node_env_keys: Object.keys(process.env).filter(k => k.includes('NODE'))
 });
 
 app.use(session({
