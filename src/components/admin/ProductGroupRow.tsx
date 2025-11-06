@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Edit, Trash2, Link2, Unlink } from 'lucide-react';
+import { ChevronDown, ChevronRight, Edit, Trash2, Link2, Unlink, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check, X, ExternalLink } from 'lucide-react';
@@ -14,6 +14,7 @@ interface ProductGroupRowProps {
   onEditProduct: (product: any) => void;
   onEditGroup: (products: any[]) => void;
   onDeleteProduct: (productId: number) => void;
+  onRestoreProduct?: (productId: number) => void;
   onBreakGroup: (groupId: string) => void;
   stockMismatchMap: Record<number, boolean>;
 }
@@ -26,6 +27,7 @@ const ProductGroupRow = ({
   onEditProduct,
   onEditGroup,
   onDeleteProduct,
+  onRestoreProduct,
   onBreakGroup,
   stockMismatchMap
 }: ProductGroupRowProps) => {
@@ -216,9 +218,16 @@ const ProductGroupRow = ({
             </Badge>
           </td>
           <td className="py-3 px-2">
-            <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
-              {product.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
+                {product.status}
+              </Badge>
+              {product.deleted_at && (
+                <Badge variant="destructive" className="text-xs">
+                  DELETED
+                </Badge>
+              )}
+            </div>
           </td>
           <td className="py-3 px-2">
             {product.featured ? (
@@ -229,24 +238,41 @@ const ProductGroupRow = ({
           </td>
           <td className="py-3 px-2">
             <div className="flex gap-2">
-              <PermittedFor authority="products:edit">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => onEditProduct(product)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </PermittedFor>
-              <PermittedFor authority="products:delete">
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => onDeleteProduct(product.id)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </PermittedFor>
+              {product.deleted_at ? (
+                onRestoreProduct && (
+                  <PermittedFor authority="products:edit">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => onRestoreProduct(product.id)}
+                      title="Restore product"
+                    >
+                      <RotateCcw className="h-4 w-4 text-green-600" />
+                    </Button>
+                  </PermittedFor>
+                )
+              ) : (
+                <>
+                  <PermittedFor authority="products:edit">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => onEditProduct(product)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </PermittedFor>
+                  <PermittedFor authority="products:delete">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => onDeleteProduct(product.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </PermittedFor>
+                </>
+              )}
             </div>
           </td>
         </tr>

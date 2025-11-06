@@ -34,6 +34,15 @@ export class CSVImportService {
   private imageService: ProductImageService;
   private bundleService: BundleService;
 
+  // Valid category slugs (as used in the database and frontend)
+  private readonly VALID_CATEGORIES = [
+    'flight-sim',
+    'sim-racing',
+    'cockpits',
+    'monitor-stands',
+    'accessories'
+  ];
+
   constructor(private pool: Pool) {
     this.productService = new ProductService(pool);
     this.variationService = new ProductVariationService(pool);
@@ -61,6 +70,48 @@ export class CSVImportService {
           reject(error);
         });
     });
+  }
+
+  /**
+   * Validate category slug
+   * Returns an ImportError if invalid, null if valid
+   */
+  private validateCategory(categories: string, rowNumber: number): ImportError | null {
+    if (!categories || categories.trim() === '') {
+      return null; // Empty is allowed (optional field)
+    }
+
+    let category: string | null = null;
+    const trimmed = categories.trim();
+
+    // Parse category (handle both JSON array and plain string)
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        category = String(parsed[0]);
+      } else if (typeof parsed === 'string') {
+        category = parsed;
+      }
+    } catch {
+      // Not valid JSON, treat as plain string
+      category = trimmed;
+    }
+
+    if (!category) {
+      return null; // Empty after parsing is allowed
+    }
+
+    const normalizedCategory = category.trim().toLowerCase();
+    if (!this.VALID_CATEGORIES.includes(normalizedCategory)) {
+      return {
+        row: rowNumber,
+        field: 'categories',
+        message: `Invalid category: "${category}". Expected one of: ${this.VALID_CATEGORIES.join(', ')}`,
+        severity: 'warning' // Warning, not critical - allow import to proceed
+      };
+    }
+
+    return null; // Valid category
   }
 
   /**
@@ -95,6 +146,14 @@ export class CSVImportService {
         message: 'Regular price is required and must be a valid number',
         severity: 'critical'
       });
+    }
+
+    // Validate category
+    if (row.categories) {
+      const categoryValidation = this.validateCategory(row.categories, rowNumber);
+      if (categoryValidation) {
+        errors.push(categoryValidation);
+      }
     }
 
     // Validate JSON fields
@@ -275,7 +334,19 @@ export class CSVImportService {
       }
       
       if (category) {
+        // Validate category slug
+        const normalizedCategory = category.trim().toLowerCase();
+        if (!this.VALID_CATEGORIES.includes(normalizedCategory)) {
+          // Log warning but don't fail import - allow it to proceed for debugging
+          console.warn(
+            `⚠️  [Row ${row.sku || 'unknown'}] Invalid category: "${category}"` +
+            `\n   Expected one of: ${this.VALID_CATEGORIES.join(', ')}` +
+            `\n   Received: "${category}"` +
+            `\n   This category will be stored but may not work correctly in the frontend.`
+          );
+        }
         // Store as single-item array (database expects JSON array)
+        // Store the category as-is (even if invalid) to help with debugging
         (product as any).categories = [category];
       }
     }

@@ -39,7 +39,8 @@ import {
   FileText,
   LayoutGrid,
   AlertTriangle,
-  Truck
+  Truck,
+  RotateCcw
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -54,6 +55,16 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import VariationsList from '@/components/admin/VariationsList';
@@ -144,6 +155,14 @@ const Admin = () => {
   // CSV import/export state
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
   
+  // Force delete dialog state
+  const [forceDeleteDialogOpen, setForceDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: number; cartCount: number } | null>(null);
+  
+  // Delete all dialog state
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  
   const { toast } = useToast();
   const { handleError, handleSuccess } = useErrorHandler();
 
@@ -231,7 +250,7 @@ const Admin = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/admin/products?limit=100`, {
+      const response = await fetch(`${API_URL}/api/admin/products?limit=100&includeDeleted=true`, {
         credentials: 'include'
       });
       const data = await response.json();
@@ -502,11 +521,15 @@ const Admin = () => {
     }
   };
 
-  const handleDeleteProduct = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const handleDeleteProduct = async (id: number, force: boolean = false) => {
+    if (!force && !confirm('Are you sure you want to delete this product?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/admin/products/${id}`, {
+      const url = force 
+        ? `${API_URL}/api/admin/products/${id}?force=true`
+        : `${API_URL}/api/admin/products/${id}`;
+      
+      const response = await fetch(url, {
         method: 'DELETE',
         credentials: 'include'
       });
@@ -514,17 +537,161 @@ const Admin = () => {
       const data = await response.json();
 
       if (data.success) {
-        toast({ title: 'Product deleted' });
+        const softDeleted = data.data?.softDeleted || false;
+        toast({ 
+          title: softDeleted ? 'Product marked as deleted' : 'Product deleted',
+          description: softDeleted 
+            ? 'Product was soft-deleted (referenced in orders). You can restore it if needed.'
+            : force ? 'Product removed from carts and deleted' : undefined
+        });
         
         // Invalidate navbar cache
         window.dispatchEvent(new CustomEvent('productChanged'));
         
         fetchProducts();
+        setForceDeleteDialogOpen(false);
+        setProductToDelete(null);
+      } else if (response.status === 409) {
+        const errorCode = data.error?.code;
+        
+        if (errorCode === 'PRODUCT_IN_ORDERS') {
+          // Product is in orders - cannot delete (no force delete option)
+          const orderCount = data.error?.details?.orderCount || 0;
+          toast({
+            title: 'Cannot Delete Product',
+            description: `This product is referenced in ${orderCount} order(s) and cannot be deleted to maintain order history integrity.`,
+            variant: 'destructive',
+            duration: 8000
+          });
+        } else if (errorCode === 'PRODUCT_IN_CART' || errorCode === 'CONFLICT') {
+          // Product is in cart - show force delete dialog
+          const cartCount = data.error?.details?.cartCount || 0;
+          setProductToDelete({ id, cartCount });
+          setForceDeleteDialogOpen(true);
+        } else {
+          toast({
+            title: 'Error',
+            description: data.error?.message || 'Failed to delete product',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error?.message || 'Failed to delete product',
+          variant: 'destructive'
+        });
       }
     } catch (error) {
       toast({
         title: 'Error',
         description: 'Failed to delete product',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleForceDelete = async () => {
+    if (productToDelete) {
+      await handleDeleteProduct(productToDelete.id, true);
+    }
+  };
+
+  const handleDeleteAllProducts = async () => {
+    setDeleteAllDialogOpen(false);
+    setDeletingAll(true);
+    
+    let deleted = 0;
+    let failed = 0;
+    let softDeleted = 0;
+    
+    try {
+      // Loop through all products and delete them
+      for (const product of products) {
+        try {
+          // Skip already deleted products
+          if (product.deleted_at) {
+            continue;
+          }
+          
+          const url = `${API_URL}/api/admin/products/${product.id}?force=true`;
+          const response = await fetch(url, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            if (data.data?.softDeleted) {
+              softDeleted++;
+            } else {
+              deleted++;
+            }
+          } else {
+            failed++;
+          }
+        } catch (error) {
+          console.error(`Failed to delete product ${product.id}:`, error);
+          failed++;
+        }
+      }
+      
+      // Refresh products list
+      fetchProducts();
+      
+      // Show summary toast
+      toast({
+        title: 'Delete All Complete',
+        description: `Deleted: ${deleted} products, Soft deleted: ${softDeleted} products, Failed: ${failed} products`,
+        duration: 8000
+      });
+      
+      // Invalidate navbar cache
+      window.dispatchEvent(new CustomEvent('productChanged'));
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'An error occurred while deleting products',
+        variant: 'destructive'
+      });
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
+  const handleRestoreProduct = async (id: number) => {
+    if (!confirm('Are you sure you want to restore this product?')) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/${id}/restore`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast({ 
+          title: 'Product restored',
+          description: 'Product has been restored and is now active'
+        });
+        
+        // Invalidate navbar cache
+        window.dispatchEvent(new CustomEvent('productChanged'));
+        
+        fetchProducts();
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error?.message || 'Failed to restore product',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to restore product',
         variant: 'destructive'
       });
     }
@@ -1401,6 +1568,25 @@ const Admin = () => {
                       <Upload className="mr-2 h-4 w-4" />
                       Import/Export CSV
                     </Button>
+                    <PermittedFor authority="products:delete">
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => setDeleteAllDialogOpen(true)}
+                        disabled={deletingAll || products.length === 0}
+                      >
+                        {deletingAll ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete All
+                          </>
+                        )}
+                      </Button>
+                    </PermittedFor>
                     <PermittedFor authority="products:create">
                       <Button onClick={() => setActiveTab('create')}>
                         <Plus className="mr-2 h-4 w-4" />
@@ -1562,6 +1748,7 @@ const Admin = () => {
                                 onEditProduct={handleEditProduct}
                                 onEditGroup={handleEditGroup}
                                 onDeleteProduct={handleDeleteProduct}
+                                onRestoreProduct={handleRestoreProduct}
                                 onBreakGroup={handleBreakGroup}
                                 stockMismatchMap={stockMismatchMap}
                               />
@@ -1648,9 +1835,16 @@ const Admin = () => {
                               </Badge>
                             </td>
                             <td className="py-3 px-2">
-                              <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
-                                {product.status}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={product.status === 'active' ? 'default' : 'secondary'}>
+                                  {product.status}
+                                </Badge>
+                                {product.deleted_at && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    DELETED
+                                  </Badge>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3 px-2">
                               {product.featured ? (
@@ -1661,24 +1855,39 @@ const Admin = () => {
                             </td>
                             <td className="py-3 px-2">
                               <div className="flex gap-2">
-                                <PermittedFor authority="products:edit">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => handleEditProduct(product)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </PermittedFor>
-                                <PermittedFor authority="products:delete">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => handleDeleteProduct(product.id)}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </PermittedFor>
+                                {product.deleted_at ? (
+                                  <PermittedFor authority="products:edit">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      onClick={() => handleRestoreProduct(product.id)}
+                                      title="Restore product"
+                                    >
+                                      <RotateCcw className="h-4 w-4 text-green-600" />
+                                    </Button>
+                                  </PermittedFor>
+                                ) : (
+                                  <>
+                                    <PermittedFor authority="products:edit">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => handleEditProduct(product)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </PermittedFor>
+                                    <PermittedFor authority="products:delete">
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => handleDeleteProduct(product.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </Button>
+                                    </PermittedFor>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -2211,6 +2420,60 @@ const Admin = () => {
           });
         }}
       />
+
+      {/* Force Delete Confirmation Dialog */}
+      <AlertDialog open={forceDeleteDialogOpen} onOpenChange={setForceDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Product is in Shopping Carts</AlertDialogTitle>
+            <AlertDialogDescription>
+              This product is currently in {productToDelete?.cartCount || 0} shopping cart(s). 
+              Deleting it will remove it from all carts. Are you sure you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setForceDeleteDialogOpen(false);
+              setProductToDelete(null);
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleForceDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Force Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Confirmation Dialog */}
+      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Products?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete ALL {products.filter(p => !p.deleted_at).length} active products. 
+              Products referenced in orders will be soft-deleted (marked as deleted but preserved for order history).
+              Products in shopping carts will be removed from carts.
+              <br /><br />
+              <strong className="text-destructive">This action cannot be undone!</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteAllDialogOpen(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAllProducts}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete All Products
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Footer />
     </div>

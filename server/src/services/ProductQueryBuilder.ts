@@ -60,7 +60,7 @@ export class ProductQueryBuilder {
         p.status, p.featured, p.price_min, p.price_max, p.meta_data,
         p.seo_title, p.seo_description,
         p.is_on_sale, p.sale_start_date, p.sale_end_date, p.sale_label,
-        p.region, p.product_group_id,
+        p.region, p.product_group_id, p.deleted_at,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))
            FROM (SELECT * FROM product_images WHERE product_id = p.id ORDER BY sort_order) pi),
@@ -175,6 +175,11 @@ export class ProductQueryBuilder {
    * Apply filters to query
    */
   private applyFilters(options: ProductQueryOptions): void {
+    // Filter out soft-deleted products by default (unless includeDeleted is true)
+    if (!options.includeDeleted) {
+      this.whereConditions.push('p.deleted_at IS NULL');
+    }
+
     // Status filter (default to active for public queries)
     // Allow admin to see all statuses if status is explicitly null/undefined
     if (options.status) {
@@ -322,6 +327,7 @@ export class ProductQueryBuilder {
       FROM products p
       WHERE p.status = $${this.addParam('active')}
         AND p.featured = $${this.addParam(true)}
+        AND p.deleted_at IS NULL
         ${regionFilter}
       ORDER BY COALESCE(p.product_group_id::text, p.id::text), p.created_at DESC
       LIMIT $${this.addParam(limit)}
@@ -342,19 +348,19 @@ export class ProductQueryBuilder {
     // This will be improved when we migrate to proper JSONB
     const sql = `
       SELECT 'flight-sim' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"flight-sim"%' ${regionFilter}
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"flight-sim"%' ${regionFilter}
       UNION ALL
       SELECT 'sim-racing' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"sim-racing"%' ${regionFilter}
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"sim-racing"%' ${regionFilter}
       UNION ALL
       SELECT 'cockpits' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"cockpits"%' ${regionFilter}
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"cockpits"%' ${regionFilter}
       UNION ALL
       SELECT 'monitor-stands' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"monitor-stands"%' ${regionFilter}
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"monitor-stands"%' ${regionFilter}
       UNION ALL
       SELECT 'accessories' as category, COUNT(*)::int as count
-      FROM products WHERE status = 'active' AND categories::text LIKE '%"accessories"%' ${regionFilter}
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"accessories"%' ${regionFilter}
       ORDER BY count DESC
     `;
 

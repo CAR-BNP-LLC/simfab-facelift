@@ -48,7 +48,8 @@ export class AdminProductController {
         search: req.query.search as string,
         status: req.query.status as ProductStatus,
         sortBy: req.query.sortBy as any,
-        sortOrder: req.query.sortOrder as any
+        sortOrder: req.query.sortOrder as any,
+        includeDeleted: req.query.includeDeleted === 'true' // Admin can see deleted products
       };
 
       const result = await this.productService.getProducts(options);
@@ -165,14 +166,36 @@ export class AdminProductController {
 
   /**
    * Delete product
-   * DELETE /api/admin/products/:id
+   * DELETE /api/admin/products/:id?force=true
    */
   deleteProduct = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const productId = parseInt(req.params.id);
-      await this.productService.deleteProduct(productId);
+      const force = req.query.force === 'true';
+      const result = await this.productService.deleteProduct(productId, force);
 
-      res.json(successResponse(null, 'Product deleted successfully'));
+      const message = result.softDeleted
+        ? `Product marked as deleted (soft delete). It is referenced in orders and cannot be permanently deleted.`
+        : force 
+          ? 'Product deleted successfully (removed from carts)'
+          : 'Product deleted successfully';
+      
+      res.json(successResponse({ softDeleted: result.softDeleted }, message));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Restore soft-deleted product
+   * POST /api/admin/products/:id/restore
+   */
+  restoreProduct = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const productId = parseInt(req.params.id);
+      await this.productService.restoreProduct(productId);
+
+      res.json(successResponse(null, 'Product restored successfully'));
     } catch (error) {
       next(error);
     }

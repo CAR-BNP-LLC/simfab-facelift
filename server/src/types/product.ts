@@ -91,6 +91,7 @@ export interface Product {
   // Timestamps
   created_at: Date;
   updated_at: Date;
+  deleted_at: Date | null; // Soft delete timestamp
 }
 
 // Extended Product interface for queries that include images
@@ -219,6 +220,7 @@ export interface ProductSortOptions {
 export interface ProductQueryOptions extends ProductFilters, ProductSortOptions {
   page?: number;
   limit?: number;
+  includeDeleted?: boolean; // If true, include soft-deleted products (for admin)
 }
 
 export interface PaginatedProducts {

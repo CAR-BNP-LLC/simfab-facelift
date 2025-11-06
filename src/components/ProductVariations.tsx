@@ -180,8 +180,8 @@ const ProductVariations = ({
                       />
                     </div>
                     <div className="text-center">
-                      <span className="text-xs font-medium">{option.name}</span>
-                      {option.price && option.price !== 0 && (() => {
+                      <span className="text-xs font-medium">{String(option.name)}</span>
+                      {option.price !== undefined && option.price !== null && option.price !== 0 && (() => {
                         const currency = getCurrencySymbol(productRegion);
                         return (
                           <p className="text-xs text-muted-foreground">

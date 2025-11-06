@@ -314,7 +314,20 @@ export class VariationStockService {
         }
 
         const option = optionResult.rows[0];
-        const stock = Number(option.stock_quantity) || 0;
+        // Handle null stock_quantity as unlimited/not managed (available)
+        const stockQty = option.stock_quantity;
+        if (stockQty === null || stockQty === undefined) {
+          // Null stock means unlimited/not managed - treat as available
+          // Don't include in minAvailable calculation (it's unlimited)
+          variationStock.push({
+            variationName: option.variation_name,
+            optionName: option.option_name,
+            available: Infinity // Indicates unlimited
+          });
+          continue; // Skip to next variation (don't affect minAvailable)
+        }
+        
+        const stock = Number(stockQty) || 0;
         const reserved = Number(option.reserved_quantity) || 0;
         const available = Math.max(0, stock - reserved);
         
@@ -328,7 +341,21 @@ export class VariationStockService {
       }
 
       // If no stock-tracked variations were checked, fall back to product-level stock
+      // Also handle case where all variations have null stock (unlimited)
       if (minAvailable === Infinity) {
+        // Check if we have any variations with null stock (unlimited)
+        const hasUnlimitedVariations = variationStock.some((vs: any) => vs.available === Infinity);
+        
+        if (hasUnlimitedVariations && variationStock.length > 0) {
+          // All variations have unlimited stock - product is available
+          return {
+            available: true,
+            availableQuantity: Infinity, // Indicates unlimited
+            variationStock
+          };
+        }
+        
+        // No variations checked - fall back to product-level stock
         return {
           available: productStock > 0,
           availableQuantity: productStock,
@@ -336,9 +363,14 @@ export class VariationStockService {
         };
       }
 
+      // Check if we have any unlimited variations mixed with limited ones
+      const hasUnlimitedVariations = variationStock.some((vs: any) => vs.available === Infinity);
+      
       return {
-        available: minAvailable > 0,
-        availableQuantity: Math.max(0, minAvailable),
+        // If any variation has unlimited stock, product is available (unlimited variations don't constrain)
+        // Otherwise, availability depends on minimum stock
+        available: hasUnlimitedVariations ? true : minAvailable > 0,
+        availableQuantity: hasUnlimitedVariations ? Infinity : Math.max(0, minAvailable),
         variationStock
       };
     } finally {

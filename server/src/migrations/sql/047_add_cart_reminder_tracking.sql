@@ -1,3 +1,4 @@
+
 -- Add columns to track cart reminder emails sent
 ALTER TABLE carts 
   ADD COLUMN IF NOT EXISTS reminder_1day_sent_at TIMESTAMP,

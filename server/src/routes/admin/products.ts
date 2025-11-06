@@ -139,6 +139,17 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
     controller.deleteProduct
   );
 
+  /**
+   * @route   POST /api/admin/products/:id/restore
+   * @desc    Restore soft-deleted product
+   * @access  Admin with products:edit authority
+   */
+  router.post(
+    '/:id/restore',
+    requireAuthority('products:edit'),
+    controller.restoreProduct
+  );
+
   // ============================================================================
   // VARIATIONS
   // ============================================================================

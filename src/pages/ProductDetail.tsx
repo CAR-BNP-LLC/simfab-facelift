@@ -1001,9 +1001,11 @@ const ProductDetail = () => {
               )}
               
               <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
-              <p className="text-muted-foreground leading-relaxed mb-4">
-                {product.shortDescription || product.description}
-              </p>
+              {((product as any).short_description || (product as any).shortDescription) && (
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  {(product as any).short_description || (product as any).shortDescription}
+                </p>
+              )}
               
               {(() => {
                 const priceData = getDisplayPrice();
@@ -1209,7 +1211,7 @@ const ProductDetail = () => {
                       <div className="flex items-center space-x-3">
                         <Checkbox
                           checked={isSelected}
-                          disabled={!isAvailable}
+                          disabled={!isAvailable && !isSelected}
                           onCheckedChange={(checked) => {
                             if (!isAvailable && checked) return; // Don't allow selecting unavailable items
                             

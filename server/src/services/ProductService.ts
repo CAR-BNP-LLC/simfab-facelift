@@ -130,6 +130,7 @@ export class ProductService {
           (SELECT COALESCE(AVG(pr.rating), 0) FROM product_reviews pr WHERE pr.product_id = p.id) as rating_average
         FROM products p
         WHERE p.id = $1 ${regionFilter}
+          AND p.deleted_at IS NULL
       `;
 
       const result = await this.pool.query(sql, params);
@@ -833,18 +834,135 @@ export class ProductService {
   }
 
   /**
-   * Delete product
+   * Check if product is in any cart
    */
-  async deleteProduct(id: number): Promise<void> {
+  async isProductInCart(id: number): Promise<{ inCart: boolean; cartCount: number }> {
     try {
-      const result = await this.pool.query('DELETE FROM products WHERE id = $1', [id]);
+      const result = await this.pool.query(
+        'SELECT COUNT(*) as count FROM cart_items WHERE product_id = $1',
+        [id]
+      );
+      const cartCount = parseInt(result.rows[0].count);
+      return { inCart: cartCount > 0, cartCount };
+    } catch (error) {
+      console.error('Error checking if product is in cart:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete product (soft delete if in orders, hard delete otherwise)
+   * @param id Product ID
+   * @param force If true, removes product from all carts before deleting
+   * @throws ConflictError if product is in carts (unless force=true)
+   */
+  async deleteProduct(id: number, force: boolean = false): Promise<{ deleted: boolean; softDeleted: boolean }> {
+    const client = await this.pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      // Check if product exists and is not already deleted
+      const productCheck = await client.query(
+        'SELECT id, deleted_at FROM products WHERE id = $1',
+        [id]
+      );
+      if (productCheck.rowCount === 0) {
+        await client.query('ROLLBACK');
+        throw new NotFoundError('Product', { productId: id });
+      }
+
+      const product = productCheck.rows[0];
+      if (product.deleted_at) {
+        await client.query('ROLLBACK');
+        throw new ConflictError('Product is already deleted', 'PRODUCT_ALREADY_DELETED', { productId: id });
+      }
+
+      // Check if product is in any orders (soft delete to maintain order history)
+      const orderCheckResult = await client.query(
+        'SELECT COUNT(*) as count FROM order_items WHERE product_id = $1',
+        [id]
+      );
+      const orderCount = parseInt(orderCheckResult.rows[0].count);
+      const inOrders = orderCount > 0;
+
+      // Check if product is in any cart
+      const cartCheckResult = await client.query(
+        'SELECT COUNT(*) as count FROM cart_items WHERE product_id = $1',
+        [id]
+      );
+      const cartCount = parseInt(cartCheckResult.rows[0].count);
+      const inCart = cartCount > 0;
+
+      // If product is in orders, always soft delete
+      if (inOrders) {
+        // Remove from carts if force is true, otherwise leave them (they'll be filtered out)
+        if (force && inCart) {
+          await client.query('DELETE FROM cart_items WHERE product_id = $1', [id]);
+        }
+        
+        // Soft delete: set deleted_at timestamp
+        await client.query(
+          'UPDATE products SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1',
+          [id]
+        );
+        
+        await client.query('COMMIT');
+        return { deleted: true, softDeleted: true };
+      }
+
+      // Product is not in orders - can hard delete
+      if (inCart && !force) {
+        await client.query('ROLLBACK');
+        throw new ConflictError(
+          `Cannot delete product: it is currently in ${cartCount} cart(s). Use force delete to remove it from carts first.`,
+          'PRODUCT_IN_CART',
+          { productId: id, cartCount }
+        );
+      }
+
+      // If force is true, remove from all carts first
+      if (force && inCart) {
+        await client.query('DELETE FROM cart_items WHERE product_id = $1', [id]);
+      }
+
+      // Hard delete the product
+      const result = await client.query('DELETE FROM products WHERE id = $1', [id]);
+
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        throw new NotFoundError('Product', { productId: id });
+      }
+
+      await client.query('COMMIT');
+      return { deleted: true, softDeleted: false };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (error instanceof NotFoundError || error instanceof ConflictError) throw error;
+      console.error('Error deleting product:', error);
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Restore a soft-deleted product
+   * @param id Product ID
+   */
+  async restoreProduct(id: number): Promise<void> {
+    try {
+      const result = await this.pool.query(
+        'UPDATE products SET deleted_at = NULL WHERE id = $1 AND deleted_at IS NOT NULL',
+        [id]
+      );
 
       if (result.rowCount === 0) {
         throw new NotFoundError('Product', { productId: id });
       }
     } catch (error) {
       if (error instanceof NotFoundError) throw error;
-      console.error('Error deleting product:', error);
+      console.error('Error restoring product:', error);
       throw error;
     }
   }
@@ -937,12 +1055,46 @@ export class ProductService {
     const result = await this.pool.query(sql, [productId]);
     const variations = result.rows;
 
+    // Safeguard: Boolean variations should only be used for Yes/No options
+    // This fixes incorrectly classified variations from imports
+    const correctedVariations = variations.map((v: any) => {
+      if (v.variation_type === 'boolean') {
+        const options = Array.isArray(v.options) ? v.options : [];
+        const optionsCount = options.length;
+        
+        // Boolean variations should only have 2 options that are Yes/No patterns
+        // Check if options match Yes/No patterns
+        const optionNames = options.map((opt: any) => 
+          (opt.option_name || opt.name || '').toLowerCase().trim()
+        );
+        
+        const yesNoPatterns = [
+          ['yes', 'no'],
+          ['on', 'off'],
+          ['include', 'exclude'],
+          ['add', 'remove'],
+          ['enable', 'disable'],
+          ['with', 'without']
+        ];
+        
+        const isYesNoPattern = optionsCount === 2 && yesNoPatterns.some(pattern => 
+          (optionNames.includes(pattern[0]) && optionNames.includes(pattern[1]))
+        );
+        
+        // If it's marked as boolean but doesn't have Yes/No pattern, treat as dropdown
+        if (!isYesNoPattern) {
+          return { ...v, variation_type: 'dropdown' };
+        }
+      }
+      return v;
+    });
+
     // Group by type
     return {
-      text: variations.filter(v => v.variation_type === 'text'),
-      dropdown: variations.filter(v => v.variation_type === 'dropdown'),
-      image: variations.filter(v => v.variation_type === 'image'),
-      boolean: variations.filter(v => v.variation_type === 'boolean')
+      text: correctedVariations.filter(v => v.variation_type === 'text'),
+      dropdown: correctedVariations.filter(v => v.variation_type === 'dropdown'),
+      image: correctedVariations.filter(v => v.variation_type === 'image'),
+      boolean: correctedVariations.filter(v => v.variation_type === 'boolean')
     };
   }
 

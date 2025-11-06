@@ -59,11 +59,11 @@ export class VariationStockController {
           vo.stock_quantity, vo.low_stock_threshold,
           COALESCE(vo.reserved_quantity, 0) as reserved_quantity,
           CASE 
-            WHEN vo.stock_quantity IS NULL THEN 0
+            WHEN vo.stock_quantity IS NULL THEN NULL
             ELSE COALESCE((vo.stock_quantity - COALESCE(vo.reserved_quantity, 0)), 0)
           END as available,
           CASE 
-            WHEN vo.stock_quantity IS NULL THEN 'no_track'
+            WHEN vo.stock_quantity IS NULL THEN 'unlimited'
             WHEN vo.stock_quantity - COALESCE(vo.reserved_quantity, 0) <= 0 THEN 'out_of_stock'
             WHEN vo.stock_quantity <= vo.low_stock_threshold THEN 'low_stock'
             ELSE 'in_stock'
