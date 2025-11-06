@@ -361,6 +361,21 @@ export class ProductQueryBuilder {
       UNION ALL
       SELECT 'accessories' as category, COUNT(*)::int as count
       FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"accessories"%' ${regionFilter}
+      UNION ALL
+      SELECT 'conversion-kits' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"conversion-kits"%' ${regionFilter}
+      UNION ALL
+      SELECT 'services' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"services"%' ${regionFilter}
+      UNION ALL
+      SELECT 'individual-parts' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"individual-parts"%' ${regionFilter}
+      UNION ALL
+      SELECT 'racing-flight-seats' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"racing-flight-seats"%' ${regionFilter}
+      UNION ALL
+      SELECT 'refurbished' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"refurbished"%' ${regionFilter}
       ORDER BY count DESC
     `;
 

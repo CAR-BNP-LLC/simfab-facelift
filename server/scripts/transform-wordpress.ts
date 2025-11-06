@@ -43,6 +43,8 @@ interface VariationProduct {
   parent_sku: string;
   images?: string; // Comma-separated image URLs from WordPress
   inferred_attributes?: { [key: string]: string };
+  // Store the original WordPress row data for direct attribute access
+  wpRow?: WordPressRow; // Original WordPress row data
 }
 
 interface VariableProduct {
@@ -164,37 +166,85 @@ class WordPressTransformer {
       return;
     }
 
-    const attributes: Attribute[] = [];
+    const allAttributes: Array<{attr: Attribute; visible: boolean}> = [];
 
-    // Extract attributes (1, 2, 3)
+    // Extract attributes (1, 2, 3) - collect all first
     for (let i = 1; i <= 3; i++) {
       const attrName = row[`Attribute ${i} name`]?.trim();
       const attrValues = row[`Attribute ${i} value(s)`]?.trim();
       const attrDefault = row[`Attribute ${i} default`]?.trim();
       const attrVisible = row[`Attribute ${i} visible`]?.trim();
-
-      // NOTE: We include ALL attributes, even if marked as "invisible" in WordPress
-      // WordPress "visible" means "show on product page", but we still need them for variations
-      // Only skip if attribute name or values are missing
+      const isVisible = attrVisible ? (attrVisible !== '0' && attrVisible.toLowerCase() !== 'false') : true;
 
       if (attrName && attrValues) {
-        // Parse comma or pipe-separated values
-        const values = attrValues.split(/[,|]/).map(v => v.trim()).filter(v => v);
-        if (values.length > 0) {
-          attributes.push({
-            name: attrName,
-            values,
-            index: i,
-            defaultValue: attrDefault || undefined,
-            visible: attrVisible ? (attrVisible !== '0' && attrVisible.toLowerCase() !== 'false') : true,
-          });
-          if (sku === 'sim-racing-gen3') {
-            console.log(`✅ DEBUG: Added attribute ${i}: ${attrName} with ${values.length} values (visible: ${attrVisible || 'true'})`);
+        // Parse values - handle escaped commas (e.g., "General\, Civil" should not split)
+        // WordPress uses backslash to escape commas in values
+        // Strategy: split by comma, but merge back if next value doesn't start with space/capital
+        let values: string[] = [];
+        
+        // First, handle pipe-separated (more reliable)
+        if (attrValues.includes('|')) {
+          values = attrValues.split('|').map(v => v.trim()).filter(v => v);
+        } else {
+          // Handle comma-separated, but respect escaped commas
+          // Split by comma, then check if we need to merge (if value ends with backslash)
+          const parts = attrValues.split(',');
+          let currentValue = '';
+          
+          for (let j = 0; j < parts.length; j++) {
+            const part = parts[j].trim();
+            if (currentValue) {
+              // Check if previous part ended with backslash (escaped comma)
+              if (currentValue.endsWith('\\')) {
+                // Merge with current part (remove backslash)
+                currentValue = currentValue.slice(0, -1) + ',' + part;
+              } else {
+                // Previous value is complete, save it
+                values.push(currentValue);
+                currentValue = part;
+              }
+            } else {
+              currentValue = part;
+            }
+          }
+          
+          // Don't forget the last value
+          if (currentValue) {
+            values.push(currentValue);
           }
         }
-      } else if (sku === 'sim-racing-gen3') {
+        
+        // Clean up escaped commas in values
+        values = values.map(v => v.replace(/\\,/g, ',')).filter(v => v.length > 0);
+        
+        if (values.length > 0) {
+          allAttributes.push({
+            attr: {
+              name: attrName,
+              values,
+              index: i,
+              defaultValue: attrDefault || undefined,
+              visible: isVisible,
+            },
+            visible: isVisible,
+          });
+          if (sku === 'sim-racing-gen3' || sku === 'flightsim-msfs-edition-1') {
+            console.log(`✅ DEBUG: Collected attribute ${i}: ${attrName} with ${values.length} values: ${values.join(', ')} (visible: ${isVisible})`);
+          }
+        }
+      } else if (sku === 'sim-racing-gen3' || sku === 'flightsim-msfs-edition-1') {
         console.log(`🔍 DEBUG: Attribute ${i} skipped - name: "${attrName}", values: "${attrValues}"`);
       }
+    }
+    
+    // Filter attributes: if any are visible, only keep visible ones; otherwise keep all
+    const hasVisibleAttributes = allAttributes.some(a => a.visible);
+    const attributes: Attribute[] = hasVisibleAttributes
+      ? allAttributes.filter(a => a.visible).map(a => a.attr)
+      : allAttributes.map(a => a.attr);
+    
+    if (sku === 'flightsim-msfs-edition-1') {
+      console.log(`🔍 DEBUG: Filtered to ${attributes.length} attributes (had ${allAttributes.length} total, ${hasVisibleAttributes ? 'some visible' : 'all invisible'})`);
     }
 
     const variableProduct: VariableProduct = {
@@ -243,6 +293,7 @@ class WordPressTransformer {
       in_stock: row['In stock?']?.trim() || undefined,
       parent_sku: parentSku,
       images: row['Images']?.trim() || undefined,
+      wpRow: row, // Store original row for direct attribute access
     };
 
     variableProduct.variations.push(variation);
@@ -290,6 +341,7 @@ class WordPressTransformer {
         in_stock: row['In stock?']?.trim() || undefined,
         parent_sku: parentSku,
         images: row['Images']?.trim() || undefined,
+        wpRow: row, // Store original row for direct attribute access
       };
 
       variableProduct.variations.push(variation);
@@ -312,16 +364,51 @@ class WordPressTransformer {
 
   /**
    * Infer attribute values for a variation using multiple methods
+   * First tries to use direct Attribute values from WordPress row, then falls back to inference
    */
   async inferVariationAttributes(
     variation: VariationProduct,
     variableProduct: VariableProduct
   ): Promise<{ [key: string]: string }> {
+    const matches: { [key: string]: string } = {};
+    
+    // Method 0: Use direct Attribute values from WordPress variation row (most reliable)
+    if (variation.wpRow) {
+      for (const attr of variableProduct.attributes) {
+        const attrValue = variation.wpRow[`Attribute ${attr.index} value(s)`]?.trim();
+        if (attrValue) {
+          // Handle escaped commas in the value
+          let value = attrValue.replace(/\\,/g, ',');
+          // If multiple values, take the first one (variations typically have one value per attribute)
+          if (value.includes(',')) {
+            value = value.split(',')[0].trim();
+          }
+          // Match this value to one of the attribute's possible values (case-insensitive)
+          const normalizedValue = value.toLowerCase().trim();
+          const matchingOption = attr.values.find(v => 
+            v.toLowerCase().trim() === normalizedValue ||
+            normalizedValue.includes(v.toLowerCase().trim()) ||
+            v.toLowerCase().trim().includes(normalizedValue)
+          );
+          if (matchingOption) {
+            matches[`attribute${attr.index}`] = matchingOption;
+          }
+        }
+      }
+      
+      // If we got all attributes from direct values, return early
+      if (this.isCompleteMatch(matches, variableProduct.attributes)) {
+        return matches;
+      }
+    }
+    
     // Method 1: Try SKU parsing
     const skuMatches = this.parseSKUForAttributes(variation.sku, variableProduct.attributes);
-    if (skuMatches && this.isCompleteMatch(skuMatches, variableProduct.attributes)) {
+    // Merge with direct matches (direct matches take precedence)
+    Object.assign(matches, skuMatches);
+    if (this.isCompleteMatch(matches, variableProduct.attributes)) {
       this.stats.skuParses++;
-      return skuMatches;
+      return matches;
     }
 
     // Method 2: Try name parsing
@@ -330,22 +417,26 @@ class WordPressTransformer {
       variableProduct.name,
       variableProduct.attributes
     );
-    if (nameMatches && this.isCompleteMatch(nameMatches, variableProduct.attributes)) {
+    // Merge with existing matches
+    Object.assign(matches, nameMatches);
+    if (this.isCompleteMatch(matches, variableProduct.attributes)) {
       this.stats.nameParses++;
-      return nameMatches;
+      return matches;
     }
 
     // Method 3: Use OpenAI
     if (this.openai) {
       const aiMatches = await this.inferWithAI(variation, variableProduct);
       if (aiMatches) {
+        // Merge with existing matches
+        Object.assign(matches, aiMatches);
         this.stats.aiInferences++;
-        return aiMatches;
+        return matches;
       }
     }
 
-    // Fallback: Return partial matches or empty
-    return skuMatches || nameMatches || {};
+    // Fallback: Return whatever matches we have
+    return matches;
   }
 
   /**
@@ -748,9 +839,20 @@ Use the exact attribute value names from the list above. If you cannot determine
     // Calculate minimum stock
     const stockMap = this.calculateMinimumStock(variableProduct, variableProduct.variations);
 
-    // Build a map of color option -> variation image
-    // For each variation, check its inferred attributes and use its image for matching color options
-    const colorToImageMap = new Map<string, string>();
+    // Build a map of option value -> variation image
+    // For each variation, check its inferred attributes and use its image for matching options
+    // IMPORTANT: Only assign image to the attribute that best matches the image content
+    const optionToImageMap = new Map<string, string>();
+    
+    // Helper function to normalize attribute values for matching
+    // Converts "Large universal flight plate #A" -> "largeuniversalflightplatea"
+    // This handles mismatches between parent (human-readable) and variation (slug) formats
+    const normalizeForMatching = (value: string): string => {
+      return value
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '') // Remove all non-alphanumeric
+        .trim();
+    };
     
     for (const variation of variableProduct.variations) {
       if (!variation.images || !variation.inferred_attributes) continue;
@@ -761,19 +863,84 @@ Use the exact attribute value names from the list above. If you cannot determine
       
       // Use the first image from the variation
       const variationImage = variationImages[0];
+      const imageUrlLower = variationImage.toLowerCase();
       
-      // Check each attribute to see if this variation matches a color option
+      // Determine which attribute this image belongs to based on image URL and variation attributes
+      // Strategy: Match image to the attribute that makes the most sense
+      let bestMatchAttr: { index: number; value: string } | null = null;
+      let bestMatchScore = 0;
+      
       for (const attr of variableProduct.attributes) {
-        const attrValue = variation.inferred_attributes[`attribute${attr.index}`];
-        if (attrValue) {
-          // Normalize the attribute value for matching
-          const normalizedValue = attrValue.toLowerCase().trim();
-          // Store the image for this color option (first match wins, but we can improve this later)
-          if (!colorToImageMap.has(normalizedValue)) {
-            colorToImageMap.set(normalizedValue, variationImage);
+        // Try direct attribute value from wpRow first (most accurate)
+        let attrValue: string | undefined;
+        if (variation.wpRow) {
+          attrValue = variation.wpRow[`Attribute ${attr.index} value(s)`]?.trim();
+        }
+        // Fallback to inferred attribute
+        if (!attrValue) {
+          attrValue = variation.inferred_attributes[`attribute${attr.index}`];
+        }
+        // Skip if attribute value is empty or missing
+        if (!attrValue || attrValue.trim() === '') continue;
+        
+        const attrValueLower = attrValue.toLowerCase().trim();
+        const attrValueNormalized = normalizeForMatching(attrValue);
+        let matchScore = 0;
+        
+        // Check if image URL contains keywords from the attribute value
+        const attrWords = attrValueLower.split(/\s+/).filter(w => w.length > 2);
+        for (const word of attrWords) {
+          if (imageUrlLower.includes(word)) {
+            matchScore += 1;
+          }
+        }
+        
+        // Also check attribute name for keywords
+        const attrNameLower = attr.name.toLowerCase();
+        if (attrNameLower.includes('color') || attrNameLower.includes('colour')) {
+          // Color attributes: check if image URL contains color-related keywords
+          const colorKeywords = ['black', 'blue', 'gray', 'grey', 'green', 'olive', 'orange', 'red', 'yellow', 'white'];
+          if (colorKeywords.some(color => attrValueLower.includes(color) && imageUrlLower.includes(color))) {
+            matchScore += 5; // Strong match for colors
+          }
+        }
+        
+        // Check if attribute name matches image content (e.g., "pedal plate" in name and URL)
+        const attrNameWords = attrNameLower.split(/\s+/).filter(w => w.length > 2);
+        for (const word of attrNameWords) {
+          if (imageUrlLower.includes(word)) {
+            matchScore += 2; // Attribute name match
+          }
+        }
+        
+        // Bonus score if using direct wpRow value (more reliable)
+        if (variation.wpRow && variation.wpRow[`Attribute ${attr.index} value(s)`]?.trim()) {
+          matchScore += 2;
+        }
+        
+        if (matchScore > bestMatchScore) {
+          bestMatchScore = matchScore;
+          bestMatchAttr = { index: attr.index, value: attrValue };
+        }
+      }
+      
+      // Only assign image to the best matching attribute IF match score > 0
+      // Don't assign if no good match (prevents wrong assignments)
+      if (bestMatchAttr && bestMatchScore > 0) {
+        const normalizedValue = bestMatchAttr.value.toLowerCase().trim();
+        const mapKey = `attr${bestMatchAttr.index}_${normalizedValue}`;
+        // Also store normalized version for matching
+        const normalizedKey = `attr${bestMatchAttr.index}_${normalizeForMatching(bestMatchAttr.value)}`;
+        // Only set if not already set (first variation wins)
+        if (!optionToImageMap.has(mapKey)) {
+          optionToImageMap.set(mapKey, variationImage);
+          // Also store normalized version
+          if (normalizedKey !== mapKey) {
+            optionToImageMap.set(normalizedKey, variationImage);
           }
         }
       }
+      // Removed fallback - if no good match, don't assign image to avoid wrong assignments
     }
     
     // Also check parent product images as fallback
@@ -783,32 +950,44 @@ Use the exact attribute value names from the list above. If you cannot determine
       parentImages.push(...imageUrls);
     }
 
-    // Helper function to find image URL for an option (for colors)
-    const findImageForOption = (optionName: string): string | undefined => {
+    // Helper function to find image URL for an option
+    const findImageForOption = (attrIndex: number, optionName: string): string | undefined => {
       if (!optionName) return undefined;
       
       const optionNameLower = optionName.toLowerCase().trim();
+      const optionNameNormalized = normalizeForMatching(optionName);
+      const mapKey = `attr${attrIndex}_${optionNameLower}`;
       
       // First, try exact match from variation map (most accurate)
-      if (colorToImageMap.has(optionNameLower)) {
-        return colorToImageMap.get(optionNameLower);
+      if (optionToImageMap.has(mapKey)) {
+        return optionToImageMap.get(mapKey);
       }
       
-      // Try partial match (e.g., "Olive Green" might match "olive" or "green")
-      // This handles cases where inferred attribute might be slightly different
-      for (const [colorKey, imageUrl] of colorToImageMap.entries()) {
-        if (colorKey.includes(optionNameLower) || optionNameLower.includes(colorKey)) {
-          return imageUrl;
+      // Try normalized match (handles slug vs human-readable format mismatch)
+      for (const [key, imageUrl] of optionToImageMap.entries()) {
+        if (key.startsWith(`attr${attrIndex}_`)) {
+          const keyValue = key.replace(`attr${attrIndex}_`, '');
+          const keyValueNormalized = normalizeForMatching(keyValue);
+          
+          // Try normalized match first (handles format differences)
+          if (keyValueNormalized === optionNameNormalized) {
+            return imageUrl;
+          }
+          
+          // Fallback to partial match
+          if (keyValue.includes(optionNameLower) || optionNameLower.includes(keyValue)) {
+            return imageUrl;
+          }
         }
       }
       
-      // Fallback: try to find in parent images by matching color name in URL
+      // Fallback: try to find in parent images by matching option name in URL
       if (parentImages.length > 0) {
         const matchingImage = parentImages.find((imageUrl) => {
           const urlLower = imageUrl.toLowerCase();
-          // Check if URL contains the color name (with word boundaries)
-          const colorPattern = new RegExp(`\\b${optionNameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
-          return colorPattern.test(urlLower);
+          // Check if URL contains the option name (with word boundaries)
+          const namePattern = new RegExp(`\\b${optionNameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+          return namePattern.test(urlLower);
         });
         if (matchingImage) {
           return matchingImage;
@@ -823,29 +1002,21 @@ Use the exact attribute value names from the list above. If you cannot determine
       // Determine default value: use WordPress default if available, otherwise first option
       const defaultValue = attr.defaultValue || attr.values[0];
       
-      // Infer variation type (await before using it)
-      const variationType = await this.inferVariationType(
-        variableProduct.name,
-        attr.name,
-        attr.values
-      );
-      
+      // Build options first to check if any have images
       const options = attr.values.map((value, valueIndex) => {
         const priceAdj = priceAdjustments.get(`attribute${attr.index}`)?.get(value) || 0;
         const stock = stockMap.get(`attribute${attr.index}`)?.get(value) ?? null;
         // Set as default if it matches the default value (case-insensitive match)
         const isDefault = value.toLowerCase().trim() === defaultValue?.toLowerCase().trim();
 
-        // For image variations (colors), try to find matching image URL
-        const imageUrl = (variationType === 'image') 
-          ? findImageForOption(value)
-          : undefined;
+        // Try to find matching image URL for this option
+        const imageUrl = findImageForOption(attr.index, value);
 
         return {
           option_name: value,
           option_value: value,
           price_adjustment: priceAdj,
-          image_url: imageUrl,
+          image_url: imageUrl, // Will be removed if type is not 'image'
           is_default: isDefault,
           sort_order: valueIndex,
           stock_quantity: stock, // null = unlimited/not managed
@@ -853,6 +1024,30 @@ Use the exact attribute value names from the list above. If you cannot determine
           is_available: stock === null ? true : stock > 0, // null (unlimited) = available
         };
       });
+      
+      // Check if any options have images - if so, use "image" type
+      const hasImages = options.some(opt => opt.image_url && opt.image_url.trim());
+      
+      // Infer variation type (but override to "image" if images are present)
+      let variationType = await this.inferVariationType(
+        variableProduct.name,
+        attr.name,
+        attr.values
+      );
+      
+      // Override: if any option has an image, it's an image variation
+      if (hasImages) {
+        variationType = 'image';
+      }
+      
+      // Remove image_url from options if type is not 'image'
+      // Dropdowns should never have image URLs
+      const finalOptions = variationType === 'image' 
+        ? options 
+        : options.map(opt => {
+            const { image_url, ...rest } = opt;
+            return rest;
+          });
 
       return {
         variation_type: variationType,
@@ -860,7 +1055,7 @@ Use the exact attribute value names from the list above. If you cannot determine
         is_required: true,
         tracks_stock: true, // Track stock per option
         sort_order: attrIndex,
-        options,
+        options: finalOptions,
       };
     });
 
@@ -874,8 +1069,8 @@ Use the exact attribute value names from the list above. If you cannot determine
       regular_price: this.calculateBasePrice(variableProduct.variations),
       type: 'simple', // We'll handle variations in JSON
       status: this.mapStatus(variableProduct),
-      description: this.extractTextFromHTML(variableProduct['Description']),
-      short_description: variableProduct['Short description'] || '',
+      description: await this.extractTextFromHTML(variableProduct['Description']),
+      short_description: await this.extractTextFromHTML(variableProduct['Short description'] || ''),
       featured: variableProduct['Is featured?'] === '1' ? 'true' : 'false',
       sale_price: this.calculateSalePrice(variableProduct.variations),
       is_on_sale: this.hasSalePrice(variableProduct.variations) ? 'true' : 'false',
@@ -1044,6 +1239,22 @@ Use the exact attribute value names from the list above. If you cannot determine
     if (categoryLower.includes('monitor stand') || categoryLower.includes('stand')) {
       return 'monitor-stands';
     }
+    if (categoryLower.includes('conversion kit')) {
+      return 'conversion-kits';
+    }
+    if (categoryLower.includes('service')) {
+      return 'services';
+    }
+    if (categoryLower.includes('individual part')) {
+      return 'individual-parts';
+    }
+    if (categoryLower.includes('racing') && categoryLower.includes('seat') || 
+        categoryLower.includes('flight') && categoryLower.includes('seat')) {
+      return 'racing-flight-seats';
+    }
+    if (categoryLower.includes('refurbished')) {
+      return 'refurbished';
+    }
     
     // Fallback: try to convert to slug format
     // "Sim Racing" -> "sim-racing"
@@ -1053,7 +1264,18 @@ Use the exact attribute value names from the list above. If you cannot determine
       .replace(/^-+|-+$/g, '');
     
     // Check if the slug matches any valid category
-    const validCategories = ['flight-sim', 'sim-racing', 'cockpits', 'monitor-stands', 'accessories'];
+    const validCategories = [
+      'flight-sim', 
+      'sim-racing', 
+      'cockpits', 
+      'monitor-stands', 
+      'accessories',
+      'conversion-kits',
+      'services',
+      'individual-parts',
+      'racing-flight-seats',
+      'refurbished'
+    ];
     if (validCategories.includes(slug)) {
       return slug;
     }
@@ -1065,11 +1287,81 @@ Use the exact attribute value names from the list above. If you cannot determine
 
   /**
    * Extract text content from HTML/Fusion Builder shortcodes
+   * Uses AI if available for better HTML parsing, otherwise falls back to regex
    */
-  private extractTextFromHTML(html?: string): string {
+  private async extractTextFromHTML(html?: string): Promise<string> {
     if (!html) return '';
     
+    // If OpenAI is available and HTML is complex, use AI to extract text
+    if (this.openai && (html.includes('<p') || html.includes('<div') || html.includes('<span'))) {
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'Extract plain text from HTML. Remove all HTML tags, attributes, and formatting. Convert <p> tags to newlines. Preserve the text content only. Do not add any commentary or explanations.'
+            },
+            {
+              role: 'user',
+              content: html.substring(0, 4000) // Limit to avoid token limits
+            }
+          ],
+          temperature: 0,
+          max_tokens: 2000
+        });
+        
+        const extractedText = response.choices[0]?.message?.content?.trim() || '';
+        if (extractedText) {
+          // Clean up any remaining issues
+          return this.cleanExtractedText(extractedText);
+        }
+      } catch (error) {
+        console.warn('⚠️  AI HTML extraction failed, falling back to regex:', error instanceof Error ? error.message : 'Unknown error');
+        // Fall through to regex-based extraction
+      }
+    }
+    
+    // Fallback to regex-based extraction
+    return this.extractTextFromHTMLRegex(html);
+  }
+
+  /**
+   * Clean extracted text (remove extra whitespace, normalize newlines)
+   */
+  private cleanExtractedText(text: string): string {
+    // Handle literal \n strings
+    text = text.replace(/\\r\\n/g, '\r\n');
+    text = text.replace(/\\n/g, '\n');
+    text = text.replace(/\\r/g, '\r');
+    text = text.replace(/\\t/g, '\t');
+    
+    // Clean up whitespace
+    text = text.replace(/[ \t]+/g, ' '); // Collapse spaces/tabs
+    text = text.replace(/\n[ \t]+/g, '\n'); // Remove spaces after newlines
+    text = text.replace(/[ \t]+\n/g, '\n'); // Remove spaces before newlines
+    text = text.replace(/\n{3,}/g, '\n\n'); // Collapse 3+ newlines to 2
+    
+    // Remove leading and trailing whitespace
+    text = text.replace(/^\s+/, '').replace(/\s+$/, '');
+    
+    return text.trim();
+  }
+
+  /**
+   * Regex-based HTML extraction (fallback)
+   */
+  private extractTextFromHTMLRegex(html: string): string {
     let text = html;
+    
+    // First, handle literal \n strings (escaped newlines) - do this before HTML stripping
+    // WordPress CSV can have literal backslash-n strings that need to be converted to actual newlines
+    // Handle various patterns: \n, \\n, \r\n, \\r\\n
+    // Replace in order: \\r\\n -> \r\n, \\n -> \n, \\r -> \r, \\t -> \t
+    text = text.replace(/\\r\\n/g, '\r\n'); // Handle literal \r\n
+    text = text.replace(/\\n/g, '\n'); // Handle literal \n
+    text = text.replace(/\\r/g, '\r'); // Handle literal \r
+    text = text.replace(/\\t/g, '\t'); // Handle literal \t
     
     // Extract text from Fusion Builder shortcodes
     // Pattern: [fusion_text ...]content[/fusion_text] -> extract "content"
@@ -1089,14 +1381,19 @@ Use the exact attribute value names from the list above. If you cannot determine
       text = extractedTexts.join('\n\n');
     }
     
-    // Strip remaining HTML tags
+    // Strip ALL HTML tags (including nested ones) - more aggressive approach
+    // First, remove script and style tags completely (with content)
+    text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+    text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    
+    // Then strip all remaining HTML tags
     text = text.replace(/<[^>]+>/g, '');
     
     // Strip remaining shortcodes (any [fusion_...] tags)
     text = text.replace(/\[fusion_[^\]]+\]/gi, '');
     text = text.replace(/\[\/fusion_[^\]]+\]/gi, '');
     
-    // Decode HTML entities
+    // Decode HTML entities (do this after stripping tags)
     text = text
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
@@ -1104,17 +1401,20 @@ Use the exact attribute value names from the list above. If you cannot determine
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
-      .replace(/&apos;/g, "'");
-    
-    // Replace literal \n strings with actual newlines
-    text = text.replace(/\\n/g, '\n');
+      .replace(/&apos;/g, "'")
+      .replace(/&#160;/g, ' ') // Non-breaking space
+      .replace(/&mdash;/g, '—')
+      .replace(/&ndash;/g, '–')
+      .replace(/&hellip;/g, '...');
     
     // Clean up: collapse multiple spaces to single space, but preserve newlines
-    text = text.replace(/[ \t]+/g, ' '); // Collapse spaces/tabs
+    text = text.replace(/[ \t]+/g, ' '); // Collapse spaces/tabs (but not newlines)
+    text = text.replace(/\n[ \t]+/g, '\n'); // Remove spaces/tabs after newlines
+    text = text.replace(/[ \t]+\n/g, '\n'); // Remove spaces/tabs before newlines
     text = text.replace(/\n{3,}/g, '\n\n'); // Collapse 3+ newlines to 2
     
-    // Remove leading and trailing newlines
-    text = text.replace(/^\n+/, '').replace(/\n+$/, '');
+    // Remove leading and trailing newlines and whitespace
+    text = text.replace(/^\s+/, '').replace(/\s+$/, '');
     
     // Trim overall whitespace
     text = text.trim();
@@ -1482,7 +1782,7 @@ Return ONLY one word: "image", "boolean", or "dropdown"`;
   /**
    * Transform simple product to our CSV format
    */
-  private transformSimpleProduct(row: WordPressRow): OurCSVRow {
+  private async transformSimpleProduct(row: WordPressRow): Promise<OurCSVRow> {
     // Handle stock correctly: empty stock + "In stock?" = "1" means unlimited
     const stockStr = row['Stock']?.trim() || '';
     const inStock = row['In stock?']?.trim() || '';
@@ -1512,8 +1812,8 @@ Return ONLY one word: "image", "boolean", or "dropdown"`;
       regular_price: row['Regular price']?.trim() || '0',
       type: 'simple',
       status: this.mapStatus(row),
-      description: this.extractTextFromHTML(row['Description']),
-      short_description: row['Short description'] || '',
+      description: await this.extractTextFromHTML(row['Description']),
+      short_description: await this.extractTextFromHTML(row['Short description'] || ''),
       featured: row['Is featured?'] === '1' ? 'true' : 'false',
       sale_price: row['Sale price']?.trim() || '',
       is_on_sale: row['Sale price'] && parseFloat(row['Sale price']) > 0 ? 'true' : 'false',
@@ -1577,7 +1877,7 @@ Return ONLY one word: "image", "boolean", or "dropdown"`;
 
     // Transform simple products (synchronous, fast)
     for (const simpleProduct of this.simpleProducts) {
-      const row = this.transformSimpleProduct(simpleProduct);
+      const row = await this.transformSimpleProduct(simpleProduct);
       rows.push(row);
     }
 

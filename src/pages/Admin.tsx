@@ -1622,6 +1622,11 @@ const Admin = () => {
                         <SelectItem value="accessories">Accessories</SelectItem>
                         <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
                         <SelectItem value="cockpits">Cockpits</SelectItem>
+                        <SelectItem value="conversion-kits">Conversion Kits</SelectItem>
+                        <SelectItem value="services">Services</SelectItem>
+                        <SelectItem value="individual-parts">Individual Parts</SelectItem>
+                        <SelectItem value="racing-flight-seats">Racing & Flight Seats</SelectItem>
+                        <SelectItem value="refurbished">Refurbished</SelectItem>
                       </SelectContent>
                     </Select>
                     <Select value={featuredFilter} onValueChange={setFeaturedFilter}>
@@ -2075,6 +2080,11 @@ const Admin = () => {
                           <SelectItem value="sim-racing">Sim Racing</SelectItem>
                           <SelectItem value="accessories">Accessories</SelectItem>
                           <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
+                          <SelectItem value="conversion-kits">Conversion Kits</SelectItem>
+                          <SelectItem value="services">Services</SelectItem>
+                          <SelectItem value="individual-parts">Individual Parts</SelectItem>
+                          <SelectItem value="racing-flight-seats">Racing & Flight Seats</SelectItem>
+                          <SelectItem value="refurbished">Refurbished</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

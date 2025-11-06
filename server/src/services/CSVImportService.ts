@@ -40,7 +40,12 @@ export class CSVImportService {
     'sim-racing',
     'cockpits',
     'monitor-stands',
-    'accessories'
+    'accessories',
+    'conversion-kits',
+    'services',
+    'individual-parts',
+    'racing-flight-seats',
+    'refurbished'
   ];
 
   constructor(private pool: Pool) {
@@ -187,6 +192,44 @@ export class CSVImportService {
             field: 'product_variations',
             message: 'product_variations must be a JSON array',
             severity: 'critical'
+          });
+        } else {
+          // Validate each variation
+          variations.forEach((variation: any, varIndex: number) => {
+            const variationType = variation.variation_type;
+            const options = variation.options || [];
+            
+            // Check: dropdown variations should not have image_url in options
+            if (variationType === 'dropdown') {
+              const optionsWithImages = options.filter((opt: any) => 
+                opt.image_url && opt.image_url.trim()
+              );
+              
+              if (optionsWithImages.length > 0) {
+                errors.push({
+                  row: rowNumber,
+                  field: 'product_variations',
+                  message: `Variation "${variation.name || `#${varIndex + 1}`}" is type "dropdown" but has image_url in ${optionsWithImages.length} option(s). Will be automatically converted to type "image".`,
+                  severity: 'warning'
+                });
+              }
+            }
+            
+            // Check: image variations should have image_url in at least some options
+            if (variationType === 'image') {
+              const optionsWithImages = options.filter((opt: any) => 
+                opt.image_url && opt.image_url.trim()
+              );
+              
+              if (optionsWithImages.length === 0) {
+                errors.push({
+                  row: rowNumber,
+                  field: 'product_variations',
+                  message: `Variation "${variation.name || `#${varIndex + 1}`}" is type "image" but no options have image_url. Image variations should have image URLs in their options.`,
+                  severity: 'warning'
+                });
+              }
+            }
           });
         }
       } catch (e) {
@@ -423,7 +466,25 @@ export class CSVImportService {
 
     if (row.product_variations) {
       try {
-        parsed.variations = JSON.parse(row.product_variations) as ProductVariationData[];
+        const variations = JSON.parse(row.product_variations) as ProductVariationData[];
+        
+        // Clean up: convert dropdown variations with images to image variations
+        const cleanedVariations = variations.map(variation => {
+          if (variation.variation_type === 'dropdown' && variation.options) {
+            // Check if any option has an image URL
+            const hasImages = variation.options.some((opt: any) => 
+              opt.image_url && opt.image_url.trim()
+            );
+            
+            // If dropdown has images, convert to image type
+            if (hasImages) {
+              variation.variation_type = 'image';
+            }
+          }
+          return variation;
+        });
+        
+        parsed.variations = cleanedVariations;
       } catch (e) {
         // Already validated
       }
