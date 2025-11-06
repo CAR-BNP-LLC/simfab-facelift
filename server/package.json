@@ -12,6 +12,8 @@
     "migrate:up": "ts-node src/migrations/migrate.ts up",
     "migrate:down": "ts-node src/migrations/migrate.ts down",
     "migrate:status": "ts-node src/migrations/migrate.ts status",
+    "db:create": "ts-node src/scripts/create-database.ts",
+    "db:setup": "ts-node src/scripts/create-database.ts && npm run migrate:up",
     "test:wishlist": "ts-node src/scripts/test-wishlist.ts",
     "db:test": "ts-node -e \"import('./src/config/database').then(m => m.testConnection())\"",
     "seed:rbac": "ts-node src/scripts/seed-rbac.ts"
