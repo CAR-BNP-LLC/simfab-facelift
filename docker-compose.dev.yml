@@ -42,7 +42,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npm run db:create && npm run migrate:up && npm run dev"
+    command: sh -c "npm run migrate:up && npm run dev"
 
   # Frontend with Hot Reload
   frontend:
