@@ -23,14 +23,7 @@ const Login = () => {
 
   // Redirect if already logged in
   useEffect(() => {
-    console.log('Login page - Auth state:', { 
-      authLoading, 
-      isAuthenticated, 
-      user: user?.email 
-    });
-    
     if (!authLoading && isAuthenticated) {
-      console.log('Already logged in, redirecting to profile...');
       navigate('/profile');
     }
   }, [isAuthenticated, authLoading, navigate, user]);

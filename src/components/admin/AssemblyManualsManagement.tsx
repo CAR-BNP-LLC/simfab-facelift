@@ -108,7 +108,6 @@ const AssemblyManualsManagement = () => {
         }
         
         const data = await response.json();
-        console.log(`Products API response (page ${page}):`, data);
         
         if (data.success && data.data) {
           // Handle paginated response structure: { success: true, data: { products: [...], pagination: {...} } }
@@ -140,7 +139,6 @@ const AssemblyManualsManagement = () => {
         slug: product.slug
       }));
       
-      console.log(`Fetched ${formattedProducts.length} products:`, formattedProducts);
       setProducts(formattedProducts);
       
     } catch (error) {

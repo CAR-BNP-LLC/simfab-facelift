@@ -68,15 +68,10 @@ const VariationManagementDialog = ({
     if (open) {
       if (variation) {
         // Editing existing variation
-        console.log('Editing variation:', variation);
-        console.log('Variation options:', variation.options);
-        
         const yesPrice = variation.variation_type === 'boolean' && variation.options?.length > 0 
           ? variation.options.find(opt => opt.option_name === 'Yes')?.price_adjustment || 0
           : 0;
-        
-        console.log('Calculated yes_price:', yesPrice);
-        
+
         setFormData({
           variation_type: variation.variation_type,
           name: variation.name,
@@ -106,10 +101,6 @@ const VariationManagementDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('=== FORM SUBMISSION STARTED ===');
-    console.log('Form submitted with data:', formData);
-    console.log('Variation type:', formData.variation_type);
-    console.log('Yes price:', formData.yes_price);
     setLoading(true);
     setErrors({});
 
@@ -152,13 +143,9 @@ const VariationManagementDialog = ({
         tracks_stock: formData.tracks_stock
       };
 
-      console.log('Form data before submission:', formData);
-      console.log('Yes price value:', formData.yes_price);
-      
       // Handle options based on variation type
       if (formData.variation_type === 'dropdown' || formData.variation_type === 'image') {
         (submitData as CreateVariationDto).options = formData.options;
-        console.log('Added dropdown/image options:', formData.options);
       } else if (formData.variation_type === 'boolean') {
         // For boolean variations, create Yes/No options
         const booleanOptions = [
@@ -176,15 +163,9 @@ const VariationManagementDialog = ({
           }
         ];
         (submitData as CreateVariationDto).options = booleanOptions;
-        console.log('Added boolean options:', booleanOptions);
       }
 
-      console.log('Final submit data:', submitData);
-
-      console.log('=== CALLING API ===');
-      console.log('Submitting variation data:', submitData);
       await onSave(submitData);
-      console.log('Variation saved successfully');
       onClose();
     } catch (error) {
       console.error('Failed to save variation:', error);
@@ -395,7 +376,6 @@ const VariationManagementDialog = ({
                       value={formData.yes_price}
                       onChange={(e) => {
                         const newPrice = parseFloat(e.target.value) || 0;
-                        console.log('Yes price changed to:', newPrice);
                         setFormData(prev => ({
                           ...prev,
                           yes_price: newPrice

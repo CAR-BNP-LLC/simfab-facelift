@@ -39,8 +39,6 @@ const Shop = () => {
       setLoading(true);
       setError(null);
 
-      console.log('🛒 Shop: Fetching products...', { page, selectedCategory, searchQuery, currentRegion: region });
-
       const params: any = {
         page,
         limit: 20,
@@ -55,7 +53,6 @@ const Shop = () => {
       }
 
       const response = await productsAPI.getAll(params);
-      console.log('Products response:', response);
       
       setProducts(response.data.products || []);
       setTotalPages(response.data.pagination?.totalPages || 1);

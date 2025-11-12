@@ -53,8 +53,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
       const data = await response.json();
 
       if (data.success) {
-        console.log('Variation stock data received:', data.data);
-        
         // Group options by variation
         // Important: A variation with no options will still appear in the results
         // because of the LEFT JOIN, but option_id will be NULL
@@ -89,14 +87,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
         // Convert to array - all variations here already have tracks_stock = true from backend
         const variationsArray = Object.values(grouped);
         
-        console.log('Variations with stock tracking:', variationsArray);
-        console.log('Variation details:', variationsArray.map((v: any) => ({
-          id: v.id,
-          name: v.name,
-          tracks_stock: v.tracks_stock,
-          optionsCount: v.options.length
-        })));
-        
         setVariations(variationsArray);
       }
     } catch (error) {
@@ -112,7 +102,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
   };
 
   const handleStockChange = (variationId: number, optionId: number, field: string, value: number | null) => {
-    console.log('handleStockChange called:', { variationId, optionId, field, value });
     setVariations(prev => {
       const updated = prev.map(v =>
         v.id === variationId
@@ -124,7 +113,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
             }
           : v
       );
-      console.log('Updated variations state:', updated);
       return updated;
     });
   };
@@ -160,9 +148,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
   };
 
   const handleBatchUpdate = async (variationId: number) => {
-    console.log('handleBatchUpdate called for variation:', variationId);
-    console.log('Current variations state:', variations);
-    
     setSaving(true);
     try {
       const variation = variations.find(v => v.id === variationId);
@@ -170,9 +155,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
         console.error('Variation not found:', variationId);
         return;
       }
-
-      console.log('Found variation:', variation);
-      console.log('Variation options before mapping:', variation.options);
 
       const requestBody = {
         options: variation.options.map(o => {
@@ -182,12 +164,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
           const threshold = o.low_stock_threshold === '' || o.low_stock_threshold === null || o.low_stock_threshold === undefined 
             ? null 
             : Number(o.low_stock_threshold);
-          
-          console.log(`Mapping option ${o.id}:`, {
-            original: { stock_quantity: o.stock_quantity, low_stock_threshold: o.low_stock_threshold },
-            processed: { stock_quantity: stockQty, low_stock_threshold: threshold }
-          });
-          
           return {
             optionId: o.id,
             stock_quantity: stockQty,
@@ -196,12 +172,7 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
         }),
       };
 
-      console.log('Saving stock for variation', variationId, ':', JSON.stringify(requestBody, null, 2));
-
       const url = `${API_URL}/api/admin/variation-stock/${variationId}/stock`;
-      console.log('Making request to:', url);
-      console.log('Request body:', requestBody);
-      
       const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -209,11 +180,7 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
         body: JSON.stringify(requestBody),
       });
 
-      console.log('Response status:', response.status, response.statusText);
-      
       const data = await response.json();
-      console.log('Stock save response:', data);
-      
       if (data.success) {
         toast({
           title: 'Success',
@@ -299,7 +266,6 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Save button clicked for variation:', variation.id);
                     handleBatchUpdate(variation.id);
                   }}
                   disabled={saving}
@@ -351,9 +317,7 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
                             value={option.stock_quantity ?? ''}
                             onChange={e => {
                               const value = e.target.value;
-                              console.log('Stock input changed:', { optionId: option.id, rawValue: value });
                               const numValue = value === '' ? null : (isNaN(parseInt(value)) ? null : parseInt(value));
-                              console.log('Parsed value:', numValue);
                               handleStockChange(variation.id, option.id, 'stock_quantity', numValue);
                             }}
                           />
@@ -370,9 +334,7 @@ export default function VariationStockManager({ productId, onStockChange }: Vari
                             value={option.low_stock_threshold ?? ''}
                             onChange={e => {
                               const value = e.target.value;
-                              console.log('Threshold input changed:', { optionId: option.id, rawValue: value });
                               const numValue = value === '' ? null : (isNaN(parseInt(value)) ? null : parseInt(value));
-                              console.log('Parsed value:', numValue);
                               handleStockChange(variation.id, option.id, 'low_stock_threshold', numValue);
                             }}
                           />
