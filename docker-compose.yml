@@ -34,6 +34,7 @@ services:
       PORT: 3001
       FRONTEND_URL: http://localhost:5173
       API_URL: http://localhost:3001
+      RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
       # PayPal Configuration (Sandbox for development)
       PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-your_sandbox_client_id_here}
       PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-your_sandbox_client_secret_here}
@@ -73,7 +74,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npm run migrate:up && npm run dev"
+    command: >
+      sh -c "
+      if [ \"$RUN_MIGRATIONS_ON_START\" = \"true\" ]; then
+        echo 'Running database migrations before start...';
+        npm run migrate:up;
+      else
+        echo 'Skipping automatic migrations (RUN_MIGRATIONS_ON_START != true)';
+      fi &&
+      npm run dev
+      "
 
   # Frontend with Hot Reload
   frontend:

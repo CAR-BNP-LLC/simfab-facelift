@@ -3,6 +3,8 @@ import { pool } from '../config/database';
 import fs from 'fs';
 import path from 'path';
 
+const FORBIDDEN_DATABASES = new Set(['template0', 'template1']);
+
 interface Migration {
   id: number;
   name: string;
@@ -14,6 +16,53 @@ class MigrationRunner {
 
   constructor(dbPool: Pool) {
     this.pool = dbPool;
+  }
+
+  private async ensureDatabaseReady(): Promise<void> {
+    try {
+      const dbNameResult = await this.pool.query<{ name: string }>(
+        'SELECT current_database() AS name'
+      );
+      const currentDatabase = dbNameResult.rows[0]?.name;
+
+      if (!currentDatabase) {
+        throw new Error('Unable to determine current database name.');
+      }
+
+      if (FORBIDDEN_DATABASES.has(currentDatabase)) {
+        throw new Error(
+          `Refusing to run migrations against protected database '${currentDatabase}'.`
+        );
+      }
+
+      const recoveryResult = await this.pool.query<{ in_recovery: boolean }>(
+        'SELECT pg_is_in_recovery() AS in_recovery'
+      );
+
+      if (recoveryResult.rows[0]?.in_recovery) {
+        throw new Error(
+          'Database is in recovery mode. Migrations will not be executed. Retry once recovery finishes.'
+        );
+      }
+
+      const existsResult = await this.pool.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+          SELECT 1
+          FROM pg_database
+          WHERE datname = $1
+        ) AS exists`,
+        [currentDatabase]
+      );
+
+      if (!existsResult.rows[0]?.exists) {
+        throw new Error(
+          `Database '${currentDatabase}' does not exist. Create it before running migrations.`
+        );
+      }
+    } catch (error) {
+      console.error('Migration pre-flight check failed:', error);
+      throw error;
+    }
   }
 
   async init(): Promise<void> {
@@ -53,6 +102,7 @@ class MigrationRunner {
   async executeMigration(filePath: string, fileName: string): Promise<void> {
     const sql = fs.readFileSync(filePath, 'utf8');
     
+    console.log(`Checking database health before executing ${fileName}...`);
     try {
       console.log(`\n🔄 Executing migration: ${fileName}`);
       await this.pool.query('BEGIN');
@@ -68,6 +118,7 @@ class MigrationRunner {
   }
 
   async runMigrations(): Promise<void> {
+    await this.ensureDatabaseReady();
     await this.init();
 
     const migrationsDir = path.join(__dirname, 'sql');

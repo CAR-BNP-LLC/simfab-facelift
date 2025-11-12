@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import path from 'path';
+import { Server } from 'http';
 import authRouter from './routes/auth';
 import faqsRouter from './routes/faqs';
 import productDescriptionRouter from './routes/productDescriptions';
@@ -337,7 +338,7 @@ app.use(createErrorHandler(loggerService));
 // Start server
 // Always bind to 0.0.0.0 in Docker to be accessible from outside the container
 const HOST = '0.0.0.0';
-app.listen(PORT, HOST, () => {
+const server: Server = app.listen(PORT, HOST, () => {
   console.log('\n' + '='.repeat(60));
   console.log('🔧 SERVER VERSION 2.0 - FILTERING & IMAGES FIXED');
   console.log('='.repeat(60));
@@ -351,6 +352,32 @@ app.listen(PORT, HOST, () => {
   console.log(`   Products: http://localhost:${PORT}/api/admin/products`);
   console.log(`\n📁 Static files: http://localhost:${PORT}/uploads`);
   console.log('='.repeat(60) + '\n');
+});
+
+const gracefulShutdown = (signal: NodeJS.Signals) => {
+  console.warn(`[Lifecycle] Received ${signal}. Closing HTTP server at ${new Date().toISOString()}`);
+  server.close(() => {
+    console.warn('[Lifecycle] HTTP server closed. Exiting process.');
+    process.exit(0);
+  });
+
+  // Force exit if close takes too long
+  setTimeout(() => {
+    console.error('[Lifecycle] Forced shutdown due to timeout.');
+    process.exit(1);
+  }, 10000).unref();
+};
+
+['SIGTERM', 'SIGINT'].forEach(signal => {
+  process.on(signal, () => gracefulShutdown(signal as NodeJS.Signals));
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('[Unhandled] Uncaught exception:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled] Unhandled promise rejection:', reason);
 });
 
 export default app;
