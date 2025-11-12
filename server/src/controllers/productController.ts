@@ -168,25 +168,10 @@ export class ProductController {
   getFeaturedProducts = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { limit = '8' } = req.query;
-      
-      console.log('🎯 getFeaturedProducts called:', {
-        'req.region': req.region,
-        'req.query.region': req.query.region,
-        'req.headers': {
-          'x-region': req.get('X-Region'),
-          'host': req.get('host')
-        }
-      });
-      
       const products = await this.productService.getFeaturedProducts(
         parseInt(limit as string),
         req.region // Filter by detected region
       );
-
-      console.log('📦 Featured products returned:', {
-        count: products.length,
-        regions: products.map(p => ({ id: p.id, name: p.name, region: p.region }))
-      });
 
       res.json(successResponse(products, 'Featured products retrieved'));
     } catch (error) {

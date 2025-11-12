@@ -138,9 +138,6 @@ export class AdminProductController {
       const updateData: Partial<UpdateProductDto> = req.body;
 
       // Log the request for debugging
-      console.log('AdminProductController.updateProduct - Request body:', JSON.stringify(req.body, null, 2));
-      console.log('AdminProductController.updateProduct - Product ID:', productId);
-
       const product = await this.productService.updateProduct(productId, updateData);
 
       res.json(successResponse(product, 'Product updated successfully'));

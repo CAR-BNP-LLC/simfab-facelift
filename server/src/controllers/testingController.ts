@@ -15,7 +15,6 @@ export class TestingController {
    */
   runComprehensiveTests = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('🧪 Starting comprehensive test suite...');
       const testSuites = await this.testingService.runComprehensiveTests();
       
       // Calculate overall statistics
@@ -26,8 +25,6 @@ export class TestingController {
       const totalDuration = testSuites.reduce((sum, suite) => sum + suite.totalDuration, 0);
 
       const overallStatus = totalFailed > 0 ? 'critical' : totalWarnings > 0 ? 'warning' : 'healthy';
-
-      console.log(`🧪 Test suite completed: ${totalPassed}/${totalTests} passed, ${totalFailed} failed, ${totalWarnings} warnings`);
 
       res.json(successResponse({
         message: 'Comprehensive test suite completed',

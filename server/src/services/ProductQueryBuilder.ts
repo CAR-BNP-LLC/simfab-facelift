@@ -41,10 +41,6 @@ export class ProductQueryBuilder {
     const limit = options.limit || 20;
     const offset = (page - 1) * limit;
 
-    console.log('🔨 ProductQueryBuilder.build v2.0');
-    console.log('   WHERE conditions:', this.whereConditions);
-    console.log('   Params:', this.params);
-
     const sql = `
       SELECT 
         p.id, p.type, p.sku, p.gtin_upc_ean_isbn, p.name, p.slug,
@@ -72,8 +68,6 @@ export class ProductQueryBuilder {
       ORDER BY ${this.orderBy}
       LIMIT $${this.addParam(limit)} OFFSET $${this.addParam(offset)}
     `;
-
-    console.log('   📝 Generated SQL includes images subquery: YES');
 
     return {
       sql,

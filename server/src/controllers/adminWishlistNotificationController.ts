@@ -23,7 +23,6 @@ export class AdminWishlistNotificationController {
    */
   checkSales = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log('🔔 Admin triggered wishlist sale check');
       const result: NotificationResult = await this.notificationService.checkSales();
       
       res.json(successResponse({
@@ -47,7 +46,6 @@ export class AdminWishlistNotificationController {
    */
   checkStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      console.log('🔔 Admin triggered wishlist stock check');
       const result: NotificationResult = await this.notificationService.checkStock();
       
       res.json(successResponse({

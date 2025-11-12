@@ -51,12 +51,6 @@ export class OrderService {
         throw new ValidationError('Cart region is missing');
       }
       
-      console.log('Cart items for order creation:', cart.items.map(item => ({
-        product_id: item.product_id,
-        product_name: item.product_name,
-        product_image: item.product_image
-      })));
-
       // Validate cart
       const validation = await this.cartService.validateCartForCheckout(cart.id);
       if (!validation.valid) {
@@ -89,24 +83,6 @@ export class OrderService {
 
       const total = subtotal - discount + shipping + tax;
       const currency = cart.totals.currency || (cart.region === 'eu' ? 'EUR' : 'USD');
-
-      console.log('💰 Order totals calculation:', {
-        subtotal,
-        discount,
-        shipping,
-        tax,
-        total,
-        currency,
-        formula: `${subtotal} - ${discount} + ${shipping} + ${tax} = ${total}`,
-        'orderData.shippingAmount (raw)': orderData.shippingAmount,
-        'orderData.shippingAmount (type)': typeof orderData.shippingAmount,
-        'orderData.taxAmount (raw)': orderData.taxAmount,
-        'orderData.taxAmount (type)': typeof orderData.taxAmount,
-        'cart.totals.shipping': cart.totals.shipping,
-        'cart.totals.tax': cart.totals.tax,
-        '⚠️ Using shipping from': orderData.shippingAmount !== undefined ? 'orderData' : 'cart.totals',
-        '⚠️ Using tax from': orderData.taxAmount !== undefined ? 'orderData' : 'cart.totals'
-      });
 
       // Determine if international shipping
       const isInternational = orderData.shippingAddress.country && 
@@ -171,14 +147,6 @@ export class OrderService {
       const orderItems: OrderItem[] = [];
 
       for (const cartItem of cart.items) {
-        console.log('Creating order item from cart item:', {
-          product_id: cartItem.product_id,
-          product_name: cartItem.product_name,
-          product_sku: cartItem.product_sku,
-          product_image: cartItem.product_image,
-          has_image: !!cartItem.product_image
-        });
-        
         const orderItemSql = `
           INSERT INTO order_items (
             order_id, product_id, product_name, product_sku, product_image,
@@ -199,11 +167,6 @@ export class OrderService {
           cartItem.configuration
         ]);
         
-        console.log('Order item created with image:', {
-          id: orderItemResult.rows[0].id,
-          product_image: orderItemResult.rows[0].product_image
-        });
-
         orderItems.push(orderItemResult.rows[0]);
 
         // Reserve stock (handles both product-level and variation-level stock)
@@ -463,7 +426,6 @@ export class OrderService {
       }
 
       await client.query('COMMIT');
-      console.log(`Cleaned up ${cleanedCount} expired unpaid orders`);
       return cleanedCount;
     } catch (error) {
       await client.query('ROLLBACK');

@@ -462,13 +462,9 @@ const ProductDetail = () => {
 
       const data = await response.json();
       
-      console.log('Variation stock check response:', data);
-      
       if (data.success) {
-        console.log('Variation stock data:', data.data);
         setVariationStock(data.data);
       } else {
-        console.log('Variation stock check failed:', data);
         setVariationStock(null);
       }
     } catch (err) {

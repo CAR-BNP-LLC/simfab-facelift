@@ -69,8 +69,6 @@ export class CartService {
       let sql: string;
       let params: any[];
 
-      console.log('🔍 findCart called:', { sessionId, userId, region });
-
       if (userId) {
         // Logged-in user - find by user_id, excluding converted carts
         if (region) {
@@ -110,9 +108,7 @@ export class CartService {
         return null;
       }
 
-      console.log('🔍 Executing SQL:', sql, 'with params:', params);
       const result = await this.pool.query(sql, params);
-      console.log('🔍 findCart result:', result.rows.length > 0 ? `Found cart ${result.rows[0].id} with region ${result.rows[0].region}` : 'No cart found');
       return result.rows[0] || null;
     } catch (error) {
       console.error('❌ Error finding cart:', error);
@@ -182,10 +178,8 @@ export class CartService {
           // If no cart found with region filter, try without region filter to find ANY cart
           // This handles cases where region detection might be incorrect
           if (!cart) {
-            console.log(`⚠️ No cart found for region ${region}, trying without region filter...`);
             cart = await this.findCart(sessionId, userId) || null;
             if (cart) {
-              console.log(`✅ Found cart ${cart.id} with region ${cart.region} (requested region was ${region})`);
               // If we found a cart with a different region, update the region parameter
               // to ensure currency and totals are calculated correctly
               region = cart.region as 'us' | 'eu';
@@ -205,7 +199,6 @@ export class CartService {
 
       // If cart is converted, return null so a new cart will be created on next operation
       if (cart.status === 'converted') {
-        console.log(`Cart ${cart.id} is converted, returning null to trigger new cart creation`);
         return null;
       }
 
@@ -427,7 +420,6 @@ export class CartService {
       
       // Check bundle items stock if this is a bundle product
       if (product.is_bundle && normalizedConfig.bundleItems) {
-        console.log('========== BUNDLE STOCK VALIDATION ==========');
         
         // Get bundle items to identify required vs optional
         const allBundleItems = await this.bundleService.getBundleItems(product.id);
@@ -437,8 +429,6 @@ export class CartService {
         // Track original optional items before stock check
         const originalOptionalIds = [...(normalizedConfig.bundleItems.selectedOptional || [])];
         
-        console.log('Required bundle item IDs:', requiredBundleItemIds);
-        console.log('Optional bundle item IDs:', optionalBundleItemIds);
         
         // Convert configuration format for BundleService
         // BundleService expects: requiredItems as Record<bundleItemId, ProductConfiguration>
@@ -471,14 +461,10 @@ export class CartService {
           optionalItems: normalizedConfig.bundleItems.selectedOptional || []
         };
         
-        console.log('Bundle configuration for stock check:', JSON.stringify(bundleConfig, null, 2));
-        
         const bundleAvailability = await this.bundleService.checkBundleAvailability(
           product.id,
           bundleConfig
         );
-        
-        console.log('Bundle availability result:', JSON.stringify(bundleAvailability, null, 2));
         
         // Check required items - if any are out of stock, block add to cart
         const requiredItems = bundleAvailability.variationStock?.filter((item: any) => item.required) || [];
@@ -501,8 +487,6 @@ export class CartService {
         const unavailableOptionals = optionalItems.filter((item: any) => item.available <= 0);
         
         if (unavailableOptionals.length > 0) {
-          console.log('⚠️  Removing unavailable optional bundle items:', unavailableOptionals.map((item: any) => item.productName));
-          
           // Remove unavailable optional items from configuration
           // Need to map from productId back to bundle item ID
           const availableOptionalIds = (normalizedConfig.bundleItems.selectedOptional || []).filter((bundleItemId: number) => {
@@ -533,29 +517,15 @@ export class CartService {
             return `Item ${id}`;
           });
           
-          console.log('Updated optional items:', availableOptionalIds);
-          console.log('Removed items:', removedOptionalItems);
         }
         
-        console.log('====================================================');
       }
 
       // Configuration already normalized above for stock checking
       // Now use it for price calculation
-      console.log('========== CART SERVICE: PRICE CALCULATION ==========');
-      console.log('Configuration for price calculation:', JSON.stringify(normalizedConfig, null, 2));
-      console.log('Normalized Configuration:', JSON.stringify(normalizedConfig, null, 2));
-      
       // Compare original vs normalized
       const originalStr = JSON.stringify(data.configuration);
       const normalizedStr = JSON.stringify(normalizedConfig);
-      if (originalStr !== normalizedStr) {
-        console.log('⚠️  Configuration was normalized (string keys converted to numbers)');
-      } else {
-        console.log('✓ Configuration was already in correct format');
-      }
-      
-      console.log('--- Calling PriceCalculatorService ---');
       const priceCalc = await this.priceCalculator.calculatePrice(
         data.productId,
         normalizedConfig,
@@ -564,15 +534,6 @@ export class CartService {
 
       const unitPrice = priceCalc.pricing.subtotal;
       const totalPrice = priceCalc.pricing.total;
-      
-      console.log('--- Price Calculation Results ---');
-      console.log('Unit Price (subtotal):', unitPrice);
-      console.log('Total Price (quantity × unit):', totalPrice);
-      console.log('Price Breakdown:', JSON.stringify(priceCalc.breakdown, null, 2));
-      console.log('Full Price Calculation:', JSON.stringify(priceCalc, null, 2));
-      console.log('====================================================');
-
-      console.log('CartService: Checking for existing item with configuration:', JSON.stringify(normalizedConfig));
       
       // Check if same product with same configuration already in cart
       // Normalize stored configurations for comparison
@@ -598,7 +559,6 @@ export class CartService {
         })
       };
       
-      console.log('CartService: Found existing items:', existingResult.rows.length);
 
       let cartItem;
 
@@ -1134,23 +1094,17 @@ export class CartService {
   async clearCartAfterPayment(cartId: string): Promise<void> {
     const client = await this.pool.connect();
     try {
-      console.log(`📦 Clearing cart after payment: cart_id=${cartId}`);
       await client.query('BEGIN');
 
       // Clear cart items
       const deleteResult = await client.query('DELETE FROM cart_items WHERE cart_id = $1', [cartId]);
-      console.log(`   Deleted ${deleteResult.rowCount} cart items`);
       
       // Clear applied coupons
       const deleteCouponsResult = await client.query('DELETE FROM cart_coupons WHERE cart_id = $1', [cartId]);
-      console.log(`   Deleted ${deleteCouponsResult.rowCount} cart coupons`);
       
       // Update cart status to converted
       const updateResult = await client.query('UPDATE carts SET status = $1 WHERE id = $2', ['converted', cartId]);
-      console.log(`   Updated cart status: ${updateResult.rowCount} row(s) affected`);
-
       await client.query('COMMIT');
-      console.log(`✅ Cart ${cartId} successfully cleared and marked as converted`);
     } catch (error) {
       await client.query('ROLLBACK');
       console.error('❌ Error clearing cart after payment:', error);

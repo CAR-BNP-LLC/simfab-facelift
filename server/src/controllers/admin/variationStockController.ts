@@ -92,8 +92,6 @@ export class VariationStockController {
       const variationId = parseInt(req.params.variationId);
       const { options } = req.body;
 
-      console.log('updateVariationStock called with:', { variationId, optionsCount: options?.length, options });
-
       if (!options || !Array.isArray(options) || options.length === 0) {
         throw new ValidationError('Options array is required and cannot be empty');
       }
@@ -112,8 +110,6 @@ export class VariationStockController {
           ? null 
           : Number(option.low_stock_threshold);
 
-        console.log(`Updating option ${option.optionId}: stock_quantity=${stockQty}, low_stock_threshold=${threshold}`);
-
         await client.query(
           `UPDATE variation_options 
            SET stock_quantity = $1, low_stock_threshold = $2
@@ -124,8 +120,6 @@ export class VariationStockController {
 
       await client.query('COMMIT');
       
-      console.log('Stock update successful for variation', variationId);
-
       res.json(successResponse({ message: 'Stock updated successfully' }));
     } catch (error) {
       await client.query('ROLLBACK');

@@ -29,22 +29,11 @@ export class CartController {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
 
-      console.log('📦 Getting cart for session:', sessionId, 'user:', userId, 'region:', req.region);
-      console.log('📦 Request details:', {
-        method: req.method,
-        path: req.path,
-        'X-Region header': req.get('X-Region'),
-        'query.region': req.query.region,
-        'req.region': req.region
-      });
-
       // Get region from request (set by middleware)
       const region = req.region;
       // Don't create cart if it doesn't exist - just find it
       const cart = await this.cartService.getCartWithItems(sessionId, userId, region, undefined, false);
       
-      console.log('📦 getCart result:', cart ? `Found cart ${cart.id} with ${cart.items?.length || 0} items, region: ${cart.region}, currency: ${cart.totals?.currency}` : 'No cart found');
-
       // Return null if cart is empty or doesn't exist
       if (!cart || !cart.items || cart.items.length === 0) {
         return res.json(successResponse({
@@ -68,59 +57,6 @@ export class CartController {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
       const data: AddToCartData = req.body;
-
-      console.log('========== CART CONTROLLER: RECEIVED REQUEST ==========');
-      console.log('Session ID:', sessionId);
-      console.log('User ID:', userId);
-      console.log('Product ID:', data.productId);
-      console.log('Quantity:', data.quantity);
-      console.log('Full Request Body:', JSON.stringify(req.body, null, 2));
-      
-      // Detailed configuration analysis
-      const config = data.configuration || req.body.configuration;
-      if (config) {
-        console.log('--- Configuration Analysis ---');
-        console.log('Configuration Type:', typeof config);
-        console.log('Full Configuration:', JSON.stringify(config, null, 2));
-        
-        // Variations breakdown
-        if (config.variations) {
-          console.log('Variations Found:', Object.keys(config.variations).length, 'items');
-          console.log('Variations Details:', Object.entries(config.variations).map(([k, v]) => ({
-            key: k,
-            keyType: typeof k,
-            value: v,
-            valueType: typeof v
-          })));
-        } else {
-          console.log('⚠️  No variations in configuration!');
-        }
-        
-        // Bundle items breakdown
-        if (config.bundleItems) {
-          console.log('Bundle Items Found:');
-          console.log('  - Selected Optional:', config.bundleItems.selectedOptional?.length || 0);
-          console.log('  - Optional IDs:', config.bundleItems.selectedOptional || []);
-          console.log('  - Configurations:', config.bundleItems.configurations ? Object.keys(config.bundleItems.configurations).length : 0);
-          console.log('  - Full Bundle Config:', JSON.stringify(config.bundleItems, null, 2));
-        } else {
-          console.log('No bundle items in configuration');
-        }
-        
-        // Model variation
-        if (config.modelVariationId) {
-          console.log('Model Variation ID:', config.modelVariationId);
-        }
-        
-        // Dropdown selections (legacy)
-        if (config.dropdownSelections) {
-          console.log('Legacy Dropdown Selections:', JSON.stringify(config.dropdownSelections, null, 2));
-        }
-      } else {
-        console.log('⚠️  ⚠️  ⚠️  NO CONFIGURATION PROVIDED! ⚠️  ⚠️  ⚠️');
-      }
-      
-      console.log('====================================================');
 
       const cartItem = await this.cartService.addItem(sessionId, userId, data);
 

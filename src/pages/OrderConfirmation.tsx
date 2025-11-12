@@ -52,17 +52,14 @@ export default function OrderConfirmation() {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching order details for order number:', orderNumber);
 
       const response = await orderAPI.getOrder(orderNumber!);
 
-      console.log('Order API response:', response);
 
       if (response.success && response.data) {
         // Handle both response.data (direct order) and response.data.order (nested)
         const orderData = response.data.order || response.data;
         setOrder(orderData);
-        console.log('Order loaded successfully:', orderData);
       } else {
         console.error('Order API error:', response);
         setError('Failed to load order details');

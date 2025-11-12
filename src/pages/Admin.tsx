@@ -954,11 +954,9 @@ const Admin = () => {
       return;
     }
     
-    console.log('Creating variation:', data, 'for product:', editingProduct.id);
     
     try {
       const response = await adminVariationsAPI.createVariation(editingProduct.id, data);
-      console.log('Variation created successfully:', response);
       setProductVariations(prev => [...prev, response.data]);
       handleSuccess('Variation created successfully');
     } catch (error) {

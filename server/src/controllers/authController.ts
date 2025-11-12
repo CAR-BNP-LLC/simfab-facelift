@@ -345,8 +345,6 @@ export class AuthController {
       }
 
       // Log the reset code (as requested)
-      console.log(`Password reset code for ${email}: ${resetCode}`);
-      console.log(`Reset code expires at: ${expiresAt}`);
 
       res.json({
         success: true,

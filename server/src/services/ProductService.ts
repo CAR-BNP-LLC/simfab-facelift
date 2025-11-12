@@ -647,7 +647,6 @@ export class ProductService {
           `;
           
           await client.query(syncSql, syncValues);
-          console.log(`Synced ${syncFields.length - 1} shared fields to paired product ${pairedProductId}`);
         }
       }
 
@@ -973,24 +972,8 @@ export class ProductService {
    */
   async getFeaturedProducts(limit: number = 6, region?: 'us' | 'eu'): Promise<Product[]> {
     try {
-      console.log('🏭 ProductService.getFeaturedProducts:', {
-        limit,
-        region,
-        'region type': typeof region
-      });
-      
       const { sql, params } = this.queryBuilder.buildFeaturedQuery(limit, region);
-      
-      console.log('📝 SQL Query:', sql);
-      console.log('📝 SQL Params:', params);
-      
       const result = await this.pool.query(sql, params);
-      
-      console.log('📊 Query result:', {
-        rowCount: result.rows.length,
-        products: result.rows.map(p => ({ id: p.id, name: p.name, region: p.region, sku: p.sku }))
-      });
-      
       return result.rows;
     } catch (error) {
       console.error('❌ Error getting featured products:', error);

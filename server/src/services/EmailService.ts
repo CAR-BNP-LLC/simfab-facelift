@@ -24,18 +24,6 @@ export class EmailService {
   async initialize(): Promise<void> {
     const settings = await this.getEmailSettings();
     
-    // Debug: Log environment variables (without passwords)
-    console.log('📧 Email Service Debug:', {
-      SMTP_HOST: process.env.SMTP_HOST ? '✓ Set' : '✗ Missing',
-      SMTP_USER: process.env.SMTP_USER ? '✓ Set' : '✗ Missing',
-      SMTP_PASS: process.env.SMTP_PASS ? '✓ Set' : '✗ Missing',
-      EMAIL_TEST_MODE: process.env.EMAIL_TEST_MODE,
-      test_mode: settings.test_mode,
-      has_host: !!settings.smtp_host,
-      has_user: !!settings.smtp_user,
-      has_pass: !!settings.smtp_password
-    });
-    
     if (!settings.enabled) {
       console.log('📧 Email service is disabled');
       return;
@@ -50,19 +38,6 @@ export class EmailService {
     
     if (shouldUseTestMode) {
       console.log('📧 Email service initialized in TEST MODE');
-      if (!settings.smtp_host) {
-        console.log('   ❌ SMTP_HOST not found in environment variables');
-      }
-      if (!settings.smtp_user) {
-        console.log('   ❌ SMTP_USER not found in environment variables');
-      }
-      if (!settings.smtp_password) {
-        console.log('   ❌ SMTP_PASS not found in environment variables');
-      }
-      if (!hasSMTPCredentials) {
-        console.log('   💡 Add SMTP_HOST, SMTP_USER, and SMTP_PASS to docker-compose.yml or .env file');
-        console.log('   💡 Set EMAIL_TEST_MODE=false when credentials are configured');
-      }
       this.transporter = nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
@@ -83,10 +58,7 @@ export class EmailService {
           rejectUnauthorized: false // For self-signed certificates (development only)
         }
       });
-      console.log('✅ Email service initialized for PRODUCTION');
-      console.log(`   SMTP: ${settings.smtp_host}:${settings.smtp_port}`);
-      console.log(`   From: ${settings.smtp_from_name} <${settings.smtp_from_email}>`);
-      console.log(`   Test Mode: ${settings.test_mode}`);
+      console.log(`✅ Email service initialized for PRODUCTION (${settings.smtp_host}:${settings.smtp_port})`);
     }
   }
 
@@ -94,14 +66,6 @@ export class EmailService {
    * Send email using template
    */
   async sendEmail(options: SendEmailOptions): Promise<EmailResult> {
-    console.log(`📧 [DEBUG] sendEmail called:`, {
-      templateType: options.templateType,
-      recipientEmail: options.recipientEmail,
-      recipientName: options.recipientName,
-      hasVariables: !!options.variables,
-      variableKeys: options.variables ? Object.keys(options.variables) : []
-    });
-
     const client = await this.pool.connect();
     
     try {
@@ -113,15 +77,7 @@ export class EmailService {
         throw new NotFoundError(`Template not found: ${options.templateType}`);
       }
 
-      console.log(`📧 [DEBUG] Template found:`, {
-        id: template.id,
-        type: template.type,
-        is_active: template.is_active,
-        recipient_type: template.recipient_type
-      });
-
       if (!template.is_active) {
-        console.log(`📧 [DEBUG] Template ${options.templateType} is inactive, skipping email`);
         return { success: false, error: 'Template is inactive' };
       }
 
@@ -167,27 +123,14 @@ export class EmailService {
       const hasSMTPConfig = settings.smtp_host && settings.smtp_user && settings.smtp_password;
       const isProductionMode = settings.test_mode === false && hasSMTPConfig;
       
-      // Debug logging
-      console.log('📧 Email send debug:', {
-        test_mode: settings.test_mode,
-        hasSMTPConfig,
-        isProductionMode,
-        hasTransporter: !!this.transporter,
-        smtp_host: settings.smtp_host ? 'Set' : 'Missing',
-        smtp_user: settings.smtp_user ? 'Set' : 'Missing',
-        smtp_password: settings.smtp_password ? 'Set' : 'Missing'
-      });
-      
       // Ensure transporter is initialized if needed
       if (isProductionMode && !this.transporter) {
-        console.log('📧 Initializing transporter for email send...');
         await this.initialize();
       }
       
       // Ensure transporter is properly initialized for production
       if (isProductionMode) {
         if (!this.transporter) {
-          console.log('📧 Re-initializing transporter for production email send...');
           await this.initialize();
         }
         
@@ -219,23 +162,7 @@ export class EmailService {
         }
 
         try {
-          console.log(`📧 [DEBUG] Sending email via SMTP:`, {
-            to: actualRecipient,
-            from: mailOptions.from,
-            subject: mailOptions.subject,
-            hasHtml: !!mailOptions.html,
-            hasText: !!mailOptions.text,
-            template: options.templateType
-          });
-
           const info: any = await this.transporter!.sendMail(mailOptions);
-          
-          console.log(`✅ [DEBUG] Email sent successfully!`, {
-            messageId: info?.messageId,
-            response: info?.response,
-            accepted: info?.accepted,
-            rejected: info?.rejected
-          });
           
           result = {
             success: true,
@@ -275,14 +202,7 @@ export class EmailService {
           );
         }
       } else {
-        // Test mode or no SMTP configured - log to console
-        console.log('📧 [TEST MODE] Email would be sent:', {
-          to: actualRecipient,
-          subject,
-          template: options.templateType,
-          variables: options.variables
-        });
-        
+        // Test mode or no SMTP configured
         result = {
           success: true,
           logId
@@ -475,14 +395,6 @@ export class EmailService {
   ): Promise<EmailResult[]> {
     const results: EmailResult[] = [];
     
-    console.log(`📧 [DEBUG] triggerEvent called:`, {
-      event,
-      recipientInfo,
-      variableKeys: Object.keys(variables),
-      hasCustomerEmail: !!recipientInfo.customerEmail,
-      hasAdminEmail: !!recipientInfo.adminEmail
-    });
-    
     try {
       // Get all active templates for this trigger event
       const templatesResult = await this.pool.query(
@@ -494,32 +406,12 @@ export class EmailService {
 
       const templates = templatesResult.rows;
 
-      console.log(`📧 [DEBUG] Query result for event '${event}':`, {
-        rowCount: templates.length,
-        templates: templates.map(t => ({
-          id: t.id,
-          type: t.type,
-          recipient_type: t.recipient_type,
-          is_active: t.is_active
-        }))
-      });
-
       if (templates.length === 0) {
-        console.log(`📧 [DEBUG] No active templates found for trigger event: ${event}`);
         return results;
       }
 
-      console.log(`📧 [DEBUG] Triggering event '${event}': Found ${templates.length} active template(s)`);
-
       // Send email for each matching template
       for (const template of templates) {
-        console.log(`📧 [DEBUG] Processing template:`, {
-          id: template.id,
-          type: template.type,
-          recipient_type: template.recipient_type,
-          custom_recipient_email: template.custom_recipient_email || 'none'
-        });
-
         try {
           // Determine recipients based on recipient_type
           const recipients: Array<{ email: string; name?: string }> = [];
@@ -570,24 +462,13 @@ export class EmailService {
             recipients.push({ email: template.custom_recipient_email, name: 'Recipient' });
           }
 
-          console.log(`📧 [DEBUG] Template ${template.type} will send to ${recipients.length} recipient(s):`, 
-            recipients.map(r => ({ email: r.email, name: r.name }))
-          );
-
           // Send email to each recipient
           for (const recipient of recipients) {
-            console.log(`📧 [DEBUG] Sending email for template ${template.type} to ${recipient.email}...`);
             const result = await this.sendEmail({
               templateType: template.type,
               recipientEmail: recipient.email,
               recipientName: recipient.name,
               variables
-            });
-            console.log(`📧 [DEBUG] Email send result for ${recipient.email}:`, {
-              success: result.success,
-              messageId: result.messageId,
-              error: result.error,
-              logId: result.logId
             });
             results.push(result);
           }
@@ -605,10 +486,6 @@ export class EmailService {
         }
       }
 
-      console.log(`📧 [DEBUG] triggerEvent completed for '${event}':`, {
-        totalTemplates: templates.length,
-        results: results.map(r => ({ success: r.success, error: r.error }))
-      });
     } catch (error: any) {
       console.error(`❌ [DEBUG] Error triggering event ${event}:`, error);
       console.error(`❌ [DEBUG] Error stack:`, error.stack);

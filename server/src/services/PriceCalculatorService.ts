@@ -19,15 +19,8 @@ export class PriceCalculatorService {
     quantity: number = 1
   ): Promise<PriceCalculation> {
     try {
-      console.log('========== PRICE CALCULATOR: STARTING CALCULATION ==========');
-      console.log('Product ID:', productId);
-      console.log('Quantity:', quantity);
-      console.log('Original Configuration:', JSON.stringify(configuration, null, 2));
-      
       // Normalize configuration to ensure proper types
       configuration = this.normalizeConfiguration(configuration);
-      console.log('Normalized Configuration:', JSON.stringify(configuration, null, 2));
-      
       // Validate product exists and get base price
       const product = await this.getProductBasePrice(productId);
       if (!product) {
@@ -35,7 +28,6 @@ export class PriceCalculatorService {
       }
 
       let totalPrice = Number(product.regular_price) || 0;
-      console.log('Base Product Price:', product.regular_price, '→', totalPrice);
       
       const variationAdjustments: Array<{ name: string; amount: number }> = [];
 
@@ -69,12 +61,8 @@ export class PriceCalculatorService {
 
       // 3.5. Calculate new variations system adjustments
       if (configuration.variations && Object.keys(configuration.variations).length > 0) {
-        console.log('--- Processing Variations (New System) ---');
-        console.log('Variations Object:', JSON.stringify(configuration.variations, null, 2));
         const variationIds = Object.keys(configuration.variations).map(id => parseInt(id));
         const selectedOptionIds = Object.values(configuration.variations);
-        console.log('Variation IDs:', variationIds);
-        console.log('Selected Option IDs:', selectedOptionIds);
         
         // Get all variation options for the selected variations
         const variationsSql = `
@@ -85,20 +73,15 @@ export class PriceCalculatorService {
         `;
         
         const variationsResult = await this.pool.query(variationsSql, [selectedOptionIds]);
-        console.log('Variation Options Found in DB:', variationsResult.rows.length);
         
         for (const option of variationsResult.rows) {
           const adjustment = Number(option.price_adjustment) || 0;
-          console.log(`  - ${option.variation_name}: ${option.option_name} = $${adjustment}`);
           totalPrice += adjustment;
           variationAdjustments.push({
             name: `${option.variation_name}: ${option.option_name}`,
             amount: adjustment
           });
         }
-        console.log('Price after variations:', totalPrice);
-      } else {
-        console.log('No variations found in configuration');
       }
 
       // 4. Calculate bundle items (required adjustments + optional items)
@@ -106,9 +89,6 @@ export class PriceCalculatorService {
       let optionalBundleTotal = 0;
       
       if (configuration.bundleItems) {
-        console.log('--- Processing Bundle Items ---');
-        console.log('Bundle Items Config:', JSON.stringify(configuration.bundleItems, null, 2));
-        
         // Get all bundle items for this product
         const bundleItemsSql = `
           SELECT bi.*, p.regular_price as item_product_price
@@ -118,16 +98,12 @@ export class PriceCalculatorService {
         `;
         const bundleItemsResult = await this.pool.query(bundleItemsSql, [productId]);
         const allBundleItems = bundleItemsResult.rows;
-        console.log('All Bundle Items Found:', allBundleItems.length);
         
         // Process required items - only variation adjustments, no base price
         const requiredItems = allBundleItems.filter((item: any) => item.item_type === 'required');
-        console.log('Required Bundle Items:', requiredItems.length);
         for (const item of requiredItems) {
-          console.log(`  - Processing required item ${item.id} (product ${item.item_product_id})`);
           if (item.is_configurable && configuration.bundleItems.configurations?.[item.id]) {
             const config = configuration.bundleItems.configurations[item.id];
-            console.log(`    Has configuration:`, JSON.stringify(config, null, 2));
             
             // Get variations for this bundle item
             const variationsSql = `
@@ -164,7 +140,6 @@ export class PriceCalculatorService {
                   if (selectedOption) {
                     const adj = Number(selectedOption.price_adjustment) || 0;
                     requiredBundleAdjustments += adj;
-                    console.log(`      Required dropdown adjustment: $${adj} (${selectedOption.option_name}) - Total: $${requiredBundleAdjustments}`);
                   }
                 }
               } else if (variation.variation_type === 'boolean') {
@@ -175,30 +150,22 @@ export class PriceCalculatorService {
                   if (yesOption) {
                     const adj = Number(yesOption.price_adjustment) || 0;
                     requiredBundleAdjustments += adj;
-                    console.log(`      Required boolean adjustment: $${adj} (Yes) - Total: $${requiredBundleAdjustments}`);
                   }
                 }
               }
             }
-          } else {
-            console.log(`    No configuration for this item`);
           }
         }
-        console.log('Total Required Bundle Adjustments:', requiredBundleAdjustments);
         
         // Process optional items - base price + variations
         const optionalItemIds = configuration.bundleItems.selectedOptional || [];
-        console.log('Optional Bundle Items Selected:', optionalItemIds.length, 'IDs:', optionalItemIds);
         for (const itemId of optionalItemIds) {
-          console.log(`  - Processing optional item ${itemId}`);
           const item = allBundleItems.find((b: any) => b.id === itemId && b.item_type === 'optional');
           if (!item) {
-            console.log(`    ⚠️  Item ${itemId} not found!`);
             continue;
           }
           
           const basePrice = Number(item.item_product_price) || 0;
-          console.log(`    Base price: $${basePrice}`);
           let variationAdjustments = 0;
           
           if (item.is_configurable && configuration.bundleItems.configurations?.[item.id]) {
@@ -223,7 +190,6 @@ export class PriceCalculatorService {
               ORDER BY v.sort_order
             `;
             const variationsResult = await this.pool.query(variationsSql, [item.item_product_id]);
-            console.log(`    Found ${variationsResult.rows.length} variations for this bundle item`);
             
             for (const variation of variationsResult.rows) {
               const varIdNum = variation.id;
@@ -231,9 +197,7 @@ export class PriceCalculatorService {
               
               // Check both string and number keys in config
               const configValue = config[varIdNum] ?? config[varIdStr];
-              
-              console.log(`      Checking variation ${varIdNum} (${variation.variation_type}): config value =`, configValue);
-              
+
               if (variation.variation_type === 'dropdown' && configValue !== undefined && configValue !== null) {
                 // Handle dropdown - value should be optionId (number)
                 const optionId = typeof configValue === 'string' ? parseInt(configValue, 10) : configValue;
@@ -242,9 +206,6 @@ export class PriceCalculatorService {
                   if (selectedOption) {
                     const adj = Number(selectedOption.price_adjustment) || 0;
                     variationAdjustments += adj;
-                    console.log(`        Dropdown adjustment: $${adj} (${selectedOption.option_name})`);
-                  } else {
-                    console.log(`        ⚠️  Option ${optionId} not found for variation ${varIdNum}`);
                   }
                 }
               } else if (variation.variation_type === 'boolean') {
@@ -255,12 +216,7 @@ export class PriceCalculatorService {
                   if (yesOption) {
                     const adj = Number(yesOption.price_adjustment) || 0;
                     variationAdjustments += adj;
-                    console.log(`        Boolean adjustment: $${adj} (Yes)`);
-                  } else {
-                    console.log(`        ⚠️  "Yes" option not found for boolean variation ${varIdNum}`);
                   }
-                } else {
-                  console.log(`        Boolean variation ${varIdNum} is false/No (no adjustment)`);
                 }
               }
             }
@@ -268,19 +224,10 @@ export class PriceCalculatorService {
           
           const itemTotal = basePrice + variationAdjustments;
           optionalBundleTotal += itemTotal;
-          console.log(`    Item total: $${itemTotal} (Base: $${basePrice} + Variations: $${variationAdjustments})`);
-          console.log(`    Optional bundle total so far: $${optionalBundleTotal}`);
         }
-        console.log('Final Optional Bundle Total:', optionalBundleTotal);
-      } else {
-        console.log('No bundle items in configuration');
       }
       
-      console.log('Adding bundle adjustments to price...');
-      console.log('  Required adjustments:', requiredBundleAdjustments);
-      console.log('  Optional total:', optionalBundleTotal);
       totalPrice += requiredBundleAdjustments + optionalBundleTotal;
-      console.log('Price after bundle items:', totalPrice);
 
       // 5. Validate required variations are selected
       // Note: We validate but don't block price calculation - validation errors will be shown but price is still calculated
@@ -315,16 +262,6 @@ export class PriceCalculatorService {
           optionalBundleTotal
         }
       };
-
-      console.log('--- Final Calculation Summary ---');
-      console.log('Base Price:', product.regular_price);
-      console.log('Variation Adjustments:', variationAdjustments);
-      console.log('Variation Adjustments Total:', variationAdjustments.reduce((sum, v) => sum + v.amount, 0));
-      console.log('Required Bundle Adjustments:', requiredBundleAdjustments);
-      console.log('Optional Bundle Total:', optionalBundleTotal);
-      console.log('Final Subtotal:', subtotal);
-      console.log('Final Total (quantity × subtotal):', total);
-      console.log('====================================================');
 
       return calculation;
     } catch (error) {

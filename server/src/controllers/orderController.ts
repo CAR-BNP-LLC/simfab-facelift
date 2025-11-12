@@ -34,12 +34,6 @@ export class OrderController {
       const region = req.region; // Get region from middleware
       const orderData: CreateOrderData = req.body;
 
-      console.log('Creating order for session:', sessionId, 'user:', userId, 'region:', region);
-      console.log('Order data received:', JSON.stringify(orderData, null, 2));
-      console.log('🔍 CRITICAL: shippingAmount received:', orderData.shippingAmount, typeof orderData.shippingAmount);
-      console.log('🔍 CRITICAL: taxAmount received:', orderData.taxAmount, typeof orderData.taxAmount);
-      console.log('🔍 CRITICAL: packageSize received:', orderData.packageSize);
-
       const order = await this.orderService.createOrder(sessionId, userId, orderData, region);
 
       // Get customer name from billing address (handle JSONB parsing)
@@ -123,19 +117,6 @@ export class OrderController {
         const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
         const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
 
-        console.log('📧 [DEBUG] Triggering order.created event:', {
-          order_number: order.order_number,
-          customer_email: order.customer_email,
-          customer_name: customerName,
-          amounts: {
-            total: totalAmount,
-            subtotal,
-            tax: taxAmount,
-            shipping: shippingAmount,
-            discount: discountAmount
-          }
-        });
-
         await this.emailService.triggerEvent(
           'order.created',
           {
@@ -156,7 +137,6 @@ export class OrderController {
           }
         );
 
-        console.log('✅ [DEBUG] order.created event triggered successfully');
       } catch (emailError) {
         console.error('❌ [DEBUG] Failed to trigger order.created event emails:', emailError);
         console.error('Error stack:', emailError instanceof Error ? emailError.stack : 'No stack trace');
@@ -266,8 +246,6 @@ export class OrderController {
    */
   debugOrder = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      console.log('Debug order data received:', JSON.stringify(req.body, null, 2));
-      
       res.json({
         success: true,
         data: {

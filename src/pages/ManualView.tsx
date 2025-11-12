@@ -39,8 +39,6 @@ const ManualView = () => {
       
       if (data.success) {
         const manualData = data.data;
-        console.log('Manual loaded:', manualData);
-        console.log('PDF URL:', manualData.file_url);
         setManual(manualData);
       } else {
         setError(data.error?.message || 'Manual not found');
@@ -133,7 +131,6 @@ const ManualView = () => {
                 ? manual.file_url 
                 : `${API_URL}${manual.file_url}`;
               
-              console.log('Rendering PDF with URL:', pdfUrl);
               
               return (
                 <div className="w-full bg-muted rounded overflow-hidden" style={{ minHeight: '600px', position: 'relative' }}>
@@ -173,7 +170,6 @@ const ManualView = () => {
                       title={manual.name}
                       allow="fullscreen"
                       onLoad={() => {
-                        console.log('PDF iframe loaded');
                         setPdfLoadError(false);
                       }}
                       onError={() => {

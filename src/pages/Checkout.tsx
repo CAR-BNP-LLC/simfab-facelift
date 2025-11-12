@@ -217,7 +217,6 @@ const Checkout = () => {
   // Validate createdOrder exists if we're on payment step
   useEffect(() => {
     if (step === 5 && createdOrder) {
-      console.log('Validating createdOrder exists:', createdOrder);
       // If we're on payment step but order doesn't exist, reset to review step
       // This handles stale localStorage state
       if (!createdOrder.id) {
@@ -231,14 +230,12 @@ const Checkout = () => {
   }, [step, createdOrder, updateCheckoutState]);
 
   const handleAddressChange = (field: keyof typeof shippingAddress, value: string) => {
-    console.log(`Updating shipping address ${field}:`, value);
     updateCheckoutState({
       shippingAddress: { ...shippingAddress, [field]: value }
     });
   };
 
   const handleAddressBatchChange = (updates: Partial<typeof shippingAddress>) => {
-    console.log('Batch updating shipping address:', updates);
     updateCheckoutState({
       shippingAddress: { ...shippingAddress, ...updates }
     });
@@ -267,13 +264,10 @@ const Checkout = () => {
 
   const validateAddress = (): boolean => {
     const required: (keyof typeof shippingAddress)[] = ['firstName', 'lastName', 'addressLine1', 'country', 'state', 'postalCode', 'phone', 'email'];
-    
-    console.log('Validating address:', shippingAddress);
-    
+
     for (const field of required) {
       const value = shippingAddress[field];
-      console.log(`Field ${field}:`, value, 'Empty?', !value || value.trim() === '');
-      
+
       if (!value || value.trim() === '') {
         toast({
           title: 'Missing information',
@@ -381,13 +375,6 @@ const Checkout = () => {
       // Calculate shipping cost
       const shippingAmount = selectedShippingMethod?.cost || 0;
       
-      console.log('📦 Shipping data for order:', {
-        selectedShipping,
-        selectedShippingMethod,
-        shippingAmount,
-        'shippingOptions available': shippingOptions.length
-      });
-      
       const orderData = {
         shippingAddress: cleanAddress(shippingAddress),
         billingAddress: cleanAddress(isBillingSameAsShipping ? shippingAddress : billingAddress),
@@ -401,13 +388,6 @@ const Checkout = () => {
           fedexRateData: selectedShippingMethod.fedexRateData
         } : undefined
       };
-
-      console.log('Creating order:', orderData);
-      console.log('Shipping address state:', orderData.shippingAddress.state);
-      console.log('Billing address state:', orderData.billingAddress.state);
-      console.log('Current checkout state:', checkoutState);
-      console.log('Shipping address from context:', shippingAddress);
-      console.log('Billing address from context:', billingAddress);
 
       // Validate state fields before sending
       if (!orderData.shippingAddress.state || orderData.shippingAddress.state.length < 2) {
@@ -430,12 +410,9 @@ const Checkout = () => {
 
       const response = await orderAPI.createOrder(orderData);
 
-      console.log('Order creation response:', response);
-
       if (response.success && response.data.order) {
         const createdOrderData = response.data.order;
-        console.log('Order created successfully:', createdOrderData);
-        
+
         // Parse amounts (PostgreSQL returns numeric as strings)
         const subtotal = typeof createdOrderData.subtotal === 'string' ? parseFloat(createdOrderData.subtotal) : Number(createdOrderData.subtotal) || 0;
         const discount = typeof createdOrderData.discount_amount === 'string' ? parseFloat(createdOrderData.discount_amount) : Number(createdOrderData.discount_amount) || 0;
@@ -443,17 +420,6 @@ const Checkout = () => {
         const tax = typeof createdOrderData.tax_amount === 'string' ? parseFloat(createdOrderData.tax_amount) : Number(createdOrderData.tax_amount) || 0;
         const total = typeof createdOrderData.total_amount === 'string' ? parseFloat(createdOrderData.total_amount) : Number(createdOrderData.total_amount) || 0;
         const expectedTotal = subtotal - discount + shipping + tax;
-        
-        console.log('💰 Order totals verification:', {
-          subtotal,
-          discount,
-          shipping,
-          tax,
-          'Expected total': expectedTotal.toFixed(2),
-          'Actual total_amount': total.toFixed(2),
-          'Match': Math.abs(expectedTotal - total) < 0.01 ? '✓ CORRECT' : '✗ MISMATCH',
-          'difference': Math.abs(expectedTotal - total).toFixed(2)
-        });
         updateCheckoutState({ 
           createdOrder: createdOrderData,
           step: 5 // Move to payment step
@@ -639,23 +605,6 @@ const Checkout = () => {
   // This ensures we send exactly what's in the database (which is stored with 2 decimals)
   orderTotal = Math.round(orderTotal * 100) / 100;
   
-  // Debug logging
-  console.log('💰 Payment Total Calculation:', {
-    createdOrder: !!createdOrder,
-    'createdOrder.total_amount (raw)': createdOrder?.total_amount,
-    'createdOrder.shipping_amount (raw)': createdOrder?.shipping_amount,
-    'cart.totals.subtotal': totals.subtotal,
-    'cart.totals.discount': totals.discount,
-    'cart.totals.tax': totals.tax,
-    'cart.totals.shipping': totals.shipping,
-    'cart.totals.total': totals.total,
-    'current shippingCost': shippingCost,
-    'selectedShipping': selectedShipping,
-    calculatedOrderTotal: totals.subtotal - totals.discount + shippingCost + totals.tax,
-    finalOrderTotal: orderTotal,
-    formula: `${totals.subtotal} - ${totals.discount} + ${shippingCost} + ${totals.tax} = ${orderTotal}`
-  });
-
   // Get image
   const getImageUrl = (item: any) => {
     // product_image is already a single URL string from the API
