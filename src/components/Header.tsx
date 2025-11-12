@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, KeyboardEvent } from 'react';
 import { Search, User, ShoppingCart, Heart, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CartSidebar from './CartSidebar';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRegionSettings } from '@/contexts/RegionSettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { productsAPI } from '@/services/api';
+import ProductSearchDialog from '@/components/ProductSearchDialog';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -16,6 +17,8 @@ const Header = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [megaMenuProducts, setMegaMenuProducts] = useState<Record<string, any[]>>({});
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   
   // Use cart from context
   const { cart, itemCount } = useCart();
@@ -42,6 +45,28 @@ const Header = () => {
       navigate('/profile');
     } else {
       navigate('/login');
+    }
+  };
+
+  const handleSearchOpen = () => {
+    setIsSearchOpen(true);
+  };
+
+  const handleMobileSearch = () => {
+    const trimmedQuery = mobileSearchQuery.trim();
+    if (!trimmedQuery) {
+      return;
+    }
+
+    setIsMenuOpen(false);
+    setMobileSearchQuery('');
+    navigate(`/shop?search=${encodeURIComponent(trimmedQuery)}`);
+  };
+
+  const handleMobileSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleMobileSearch();
     }
   };
 
@@ -310,6 +335,9 @@ const Header = () => {
             <button 
               className="text-foreground hover:text-primary transition-colors"
               title="Search"
+              type="button"
+              onClick={handleSearchOpen}
+              aria-label="Search products"
             >
               <Search className="w-5 h-5" />
             </button>
@@ -498,6 +526,9 @@ const Header = () => {
                 <button 
                   className="text-foreground hover:text-primary transition-colors"
                   title="Search"
+                  type="button"
+                  onClick={handleSearchOpen}
+                  aria-label="Search products"
                 >
                   <Search className="w-5 h-5" />
                 </button>
@@ -603,9 +634,17 @@ const Header = () => {
                 <input
                   type="text"
                   placeholder="Search..."
+                  value={mobileSearchQuery}
+                  onChange={(event) => setMobileSearchQuery(event.target.value)}
+                  onKeyDown={handleMobileSearchKeyDown}
                   className="w-full bg-gray-800 text-white placeholder-gray-400 px-4 py-3 rounded-lg pr-12"
                 />
-                <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  onClick={handleMobileSearch}
+                  aria-label="Search products"
+                >
                   <Search className="w-5 h-5" />
                 </button>
               </div>
@@ -839,6 +878,10 @@ const Header = () => {
       <CartSidebar 
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
+      />
+      <ProductSearchDialog 
+        open={isSearchOpen}
+        onOpenChange={setIsSearchOpen}
       />
     </header>
   );
