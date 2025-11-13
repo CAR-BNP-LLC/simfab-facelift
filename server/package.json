@@ -14,7 +14,11 @@
     "migrate:status": "ts-node src/migrations/migrate.ts status",
     "test:wishlist": "ts-node src/scripts/test-wishlist.ts",
     "db:test": "ts-node -e \"import('./src/config/database').then(m => m.testConnection())\"",
-    "seed:rbac": "ts-node src/scripts/seed-rbac.ts"
+    "seed:rbac": "ts-node src/scripts/seed-rbac.ts",
+    "generate:orders": "NODE_ENV=development ts-node src/scripts/generate-test-orders.ts",
+    "generate:users": "NODE_ENV=development ts-node src/scripts/generate-test-users.ts",
+    "generate:coupons": "NODE_ENV=development ts-node src/scripts/generate-test-coupons.ts",
+    "setup:test-data": "NODE_ENV=development ts-node src/scripts/setup-test-data.ts"
   },
   "dependencies": {
     "@paypal/checkout-server-sdk": "^1.0.3",

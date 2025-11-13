@@ -28,6 +28,18 @@ export const createAdminCouponRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   GET /api/admin/coupons/:id/stats
+   * @desc    Get coupon usage statistics
+   * @access  Admin with coupons:view authority
+   * @note    Must be defined before /:id route to avoid route conflicts
+   */
+  router.get(
+    '/:id/stats',
+    requireAuthority('coupons:view'),
+    controller.getCouponStats
+  );
+
+  /**
    * @route   GET /api/admin/coupons/:id
    * @desc    Get single coupon details
    * @access  Admin with coupons:view authority
@@ -69,17 +81,6 @@ export const createAdminCouponRoutes = (pool: Pool): Router => {
     '/:id',
     requireAuthority('coupons:delete'),
     controller.deleteCoupon
-  );
-
-  /**
-   * @route   GET /api/admin/coupons/:id/stats
-   * @desc    Get coupon usage statistics
-   * @access  Admin with coupons:view authority
-   */
-  router.get(
-    '/:id/stats',
-    requireAuthority('coupons:view'),
-    controller.getCouponStats
   );
 
   return router;

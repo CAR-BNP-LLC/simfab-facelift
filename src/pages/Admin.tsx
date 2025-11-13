@@ -50,7 +50,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectLabel, SelectSeparator, SelectGroup } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -201,6 +201,8 @@ const Admin = () => {
   const [regionFilter, setRegionFilter] = useState<string>('all'); // 'all', 'us', 'eu'
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [orderRegionFilter, setOrderRegionFilter] = useState<string>('all'); // 'all', 'us', 'eu' - for orders
+  const [orderCouponFilter, setOrderCouponFilter] = useState<string>('all'); // 'all' or coupon ID
+  const [coupons, setCoupons] = useState<any[]>([]); // For coupon filter dropdown
 
   // Product form state
   const [productForm, setProductForm] = useState({
@@ -320,6 +322,7 @@ const Admin = () => {
     } else if (activeTab === 'products') {
       fetchProducts();
     } else if (activeTab === 'orders') {
+      fetchCoupons(); // Load coupons for filter dropdown
       fetchOrders();
     } else if (activeTab === 'site-notice') {
       fetchSiteNotices();
@@ -328,7 +331,7 @@ const Admin = () => {
       fetchEligibleCount();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, orderRegionFilter]);
+  }, [activeTab, orderRegionFilter, orderCouponFilter]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -383,12 +386,34 @@ const Admin = () => {
     }
   };
 
+  const fetchCoupons = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/admin/coupons?limit=1000`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        const couponsList = data.data.coupons || [];
+        setCoupons(couponsList);
+        console.log(`Loaded ${couponsList.length} coupons for filter`);
+      } else {
+        console.error('Failed to load coupons:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to load coupons:', error);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ limit: '50' });
       if (orderRegionFilter && orderRegionFilter !== 'all') {
         params.append('region', orderRegionFilter);
+      }
+      if (orderCouponFilter && orderCouponFilter !== 'all') {
+        params.append('coupon_id', orderCouponFilter);
       }
       const response = await fetch(`${API_URL}/api/admin/orders?${params.toString()}`, {
         credentials: 'include'
@@ -1721,6 +1746,29 @@ const Admin = () => {
                       <SelectItem value="eu">EU</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Select value={orderCouponFilter} onValueChange={setOrderCouponFilter}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Filter by coupon" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Orders</SelectItem>
+                      <SelectItem value="no_coupon">No Coupon</SelectItem>
+                      <SelectItem value="with_coupon">All Coupons</SelectItem>
+                      {coupons && coupons.length > 0 && (
+                        <>
+                          <SelectSeparator />
+                          <SelectGroup>
+                            <SelectLabel>Individual Coupons</SelectLabel>
+                            {coupons.map((coupon) => (
+                              <SelectItem key={coupon.id} value={coupon.id.toString()}>
+                                {coupon.code}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
                 {loading ? (
                   <div className="flex justify-center py-12">
@@ -1741,6 +1789,7 @@ const Admin = () => {
                           <th className="text-left py-3 px-2">Region</th>
                           <th className="text-left py-3 px-2">Items</th>
                           <th className="text-left py-3 px-2">Total</th>
+                          <th className="text-left py-3 px-2">Coupon</th>
                           <th className="text-left py-3 px-2">Status</th>
                           <th className="text-left py-3 px-2">Payment</th>
                           <th className="text-left py-3 px-2">Date</th>
@@ -1788,6 +1837,22 @@ const Admin = () => {
                               <span className="font-semibold">
                                 {order.currency === 'EUR' ? '€' : '$'}{parseFloat(order.total_amount).toFixed(2)}
                               </span>
+                            </td>
+                            <td className="py-3 px-2">
+                              {order.coupon_code ? (
+                                <div className="flex flex-col gap-1">
+                                  <Badge variant="outline" className="text-xs font-mono">
+                                    {order.coupon_code}
+                                  </Badge>
+                                  {order.coupon_discount && (
+                                    <span className="text-xs text-green-600 dark:text-green-400">
+                                      -{order.currency === 'EUR' ? '€' : '$'}{parseFloat(order.coupon_discount).toFixed(2)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
                             </td>
                             <td className="py-3 px-2" onClick={(e) => e.stopPropagation()}>
                               <PermittedFor 

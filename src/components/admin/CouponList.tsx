@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Eye, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Check, X, BarChart3, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import PermittedFor from '@/components/auth/PermittedFor';
+import CouponAnalytics from './CouponAnalytics';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -51,6 +52,7 @@ export default function CouponList({ onCreateClick, onEditClick, onDeleteClick, 
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [viewingAnalytics, setViewingAnalytics] = useState<number | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -129,6 +131,29 @@ export default function CouponList({ onCreateClick, onEditClick, onDeleteClick, 
     }
     return <Badge variant="default">Active</Badge>;
   };
+
+  // If viewing analytics, show analytics view
+  if (viewingAnalytics) {
+    const coupon = coupons.find(c => c.id === viewingAnalytics);
+    return (
+      <div className="space-y-4">
+        <Button
+          variant="ghost"
+          onClick={() => setViewingAnalytics(null)}
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Coupons
+        </Button>
+        {coupon && (
+          <CouponAnalytics 
+            couponId={viewingAnalytics} 
+            couponCode={coupon.code}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <Card>
@@ -241,6 +266,16 @@ export default function CouponList({ onCreateClick, onEditClick, onDeleteClick, 
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
+                        <PermittedFor authority="coupons:view">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setViewingAnalytics(coupon.id)}
+                            title="View Analytics"
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </Button>
+                        </PermittedFor>
                         <PermittedFor authority="coupons:edit">
                           <Button
                             variant="ghost"

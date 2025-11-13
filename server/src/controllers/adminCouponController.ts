@@ -339,7 +339,7 @@ export class AdminCouponController {
   };
 
   /**
-   * Get coupon statistics
+   * Get coupon statistics with comprehensive analytics
    * GET /api/admin/coupons/:id/stats
    */
   getCouponStats = async (req: Request, res: Response, next: NextFunction) => {
@@ -357,20 +357,116 @@ export class AdminCouponController {
         throw new NotFoundError('Coupon', { couponId: id });
       }
 
-      // Get usage statistics
+      const coupon = couponResult.rows[0];
+
+      // Get comprehensive usage statistics with order data
       const statsResult = await pool.query(
         `SELECT 
-          COUNT(*) as total_uses,
-          COALESCE(SUM(discount_amount), 0) as total_discount,
-          COUNT(DISTINCT user_id) as unique_users
-        FROM coupon_usage
-        WHERE coupon_id = $1`,
+          COUNT(cu.id)::int as total_uses,
+          COALESCE(SUM(cu.discount_amount), 0)::numeric as total_discount,
+          COUNT(DISTINCT cu.user_id)::int as unique_users,
+          COALESCE(SUM(o.subtotal), 0)::numeric as total_revenue_before_discount,
+          COALESCE(SUM(o.subtotal - o.discount_amount), 0)::numeric as total_revenue_after_discount,
+          COALESCE(AVG(o.subtotal), 0)::numeric as avg_order_value_before,
+          COALESCE(AVG(o.subtotal - o.discount_amount), 0)::numeric as avg_order_value_after,
+          COALESCE(MIN(o.subtotal), 0)::numeric as min_order_value,
+          COALESCE(MAX(o.subtotal), 0)::numeric as max_order_value,
+          COALESCE(SUM(o.discount_amount), 0)::numeric as total_savings
+        FROM coupon_usage cu
+        LEFT JOIN orders o ON cu.order_id = o.id
+        WHERE cu.coupon_id = $1 AND o.payment_status = 'paid'`,
         [id]
       );
 
+      const stats = statsResult.rows[0];
+
+      // Get usage over time (last 30 days)
+      const usageOverTimeResult = await pool.query(
+        `SELECT 
+          DATE(cu.used_at) as date,
+          COUNT(*)::int as usage_count,
+          COALESCE(SUM(cu.discount_amount), 0)::numeric as daily_discount,
+          COALESCE(SUM(o.total_amount), 0)::numeric as daily_revenue
+        FROM coupon_usage cu
+        LEFT JOIN orders o ON cu.order_id = o.id AND o.payment_status = 'paid'
+        WHERE cu.coupon_id = $1 
+          AND cu.used_at >= CURRENT_DATE - INTERVAL '30 days'
+        GROUP BY DATE(cu.used_at)
+        ORDER BY date ASC`,
+        [id]
+      );
+
+      // Get top users by usage
+      const topUsersResult = await pool.query(
+        `SELECT 
+          cu.user_id,
+          u.email,
+          COUNT(*)::int as usage_count,
+          COALESCE(SUM(cu.discount_amount), 0)::numeric as total_discount,
+          COALESCE(SUM(o.total_amount), 0)::numeric as total_spent
+        FROM coupon_usage cu
+        LEFT JOIN users u ON cu.user_id = u.id
+        LEFT JOIN orders o ON cu.order_id = o.id AND o.payment_status = 'paid'
+        WHERE cu.coupon_id = $1 AND cu.user_id IS NOT NULL
+        GROUP BY cu.user_id, u.email
+        ORDER BY usage_count DESC
+        LIMIT 10`,
+        [id]
+      );
+
+      // Calculate additional metrics
+      const totalRevenueGenerated = parseFloat(stats.total_revenue_after_discount || '0');
+      const totalDiscountGiven = parseFloat(stats.total_discount || '0');
+      const totalRevenueBefore = parseFloat(stats.total_revenue_before_discount || '0');
+      const avgOrderValueBefore = parseFloat(stats.avg_order_value_before || '0');
+      const avgOrderValueAfter = parseFloat(stats.avg_order_value_after || '0');
+      const totalUses = parseInt(stats.total_uses || '0');
+      const uniqueUsers = parseInt(stats.unique_users || '0');
+
+      // Calculate ROI: Revenue After Discount / Discount Given * 100
+      // Shows how much revenue was generated per dollar of discount
+      // Example: If we gave $10 discount and got $90 revenue, ROI = 900% (9x return)
+      const roi = totalDiscountGiven > 0 
+        ? ((totalRevenueGenerated / totalDiscountGiven) * 100).toFixed(2)
+        : '0.00';
+
+      // Calculate average discount per use
+      const avgDiscountPerUse = totalUses > 0 
+        ? (totalDiscountGiven / totalUses).toFixed(2)
+        : '0.00';
+
+      // Calculate conversion rate (if we had tracking, for now we'll use usage as proxy)
+      const avgUsesPerUser = uniqueUsers > 0 
+        ? (totalUses / uniqueUsers).toFixed(2)
+        : '0.00';
+
       res.json(successResponse({
-        coupon: couponResult.rows[0],
-        stats: statsResult.rows[0]
+        coupon: {
+          id: coupon.id,
+          code: coupon.code,
+          type: coupon.discount_type,
+          value: coupon.discount_value,
+          description: coupon.description,
+          is_active: coupon.is_active,
+          region: coupon.region
+        },
+        summary: {
+          totalUses,
+          uniqueUsers,
+          totalDiscountGiven: parseFloat(totalDiscountGiven.toFixed(2)),
+          totalRevenueBefore: parseFloat(totalRevenueBefore.toFixed(2)),
+          totalRevenueAfter: parseFloat(totalRevenueGenerated.toFixed(2)),
+          totalSavings: parseFloat(stats.total_savings || '0'),
+          avgOrderValueBefore: parseFloat(avgOrderValueBefore.toFixed(2)),
+          avgOrderValueAfter: parseFloat(avgOrderValueAfter.toFixed(2)),
+          minOrderValue: parseFloat(stats.min_order_value || '0'),
+          maxOrderValue: parseFloat(stats.max_order_value || '0'),
+          roi: parseFloat(roi),
+          avgDiscountPerUse: parseFloat(avgDiscountPerUse),
+          avgUsesPerUser: parseFloat(avgUsesPerUser)
+        },
+        usageOverTime: usageOverTimeResult.rows,
+        topUsers: topUsersResult.rows
       }));
     } catch (error) {
       next(error);

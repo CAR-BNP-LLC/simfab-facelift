@@ -31,6 +31,7 @@ export class AdminOrderController {
       const status = req.query.status as string;
       const search = req.query.search as string;
       const region = req.query.region as string;
+      const couponId = req.query.coupon_id as string;
 
       const offset = (page - 1) * limit;
 
@@ -39,10 +40,15 @@ export class AdminOrderController {
                COUNT(oi.id) as item_count,
                u.email as user_email,
                u.first_name as user_first_name,
-               u.last_name as user_last_name
+               u.last_name as user_last_name,
+               cu.coupon_id,
+               c.code as coupon_code,
+               cu.discount_amount as coupon_discount
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
         LEFT JOIN order_items oi ON oi.order_id = o.id
+        LEFT JOIN coupon_usage cu ON cu.order_id = o.id
+        LEFT JOIN coupons c ON c.id = cu.coupon_id
         WHERE o.shipping_quote_id IS NULL
       `;
 
@@ -67,13 +73,33 @@ export class AdminOrderController {
         params.push(`%${search}%`);
       }
 
-      sql += ` GROUP BY o.id, u.email, u.first_name, u.last_name`;
+      if (couponId) {
+        if (couponId === 'with_coupon') {
+          sql += ` AND EXISTS (SELECT 1 FROM coupon_usage cu2 WHERE cu2.order_id = o.id)`;
+        } else if (couponId === 'no_coupon') {
+          sql += ` AND NOT EXISTS (SELECT 1 FROM coupon_usage cu2 WHERE cu2.order_id = o.id)`;
+        } else {
+          paramCount++;
+          sql += ` AND EXISTS (SELECT 1 FROM coupon_usage cu2 WHERE cu2.order_id = o.id AND cu2.coupon_id = $${paramCount})`;
+          params.push(parseInt(couponId));
+        }
+      }
+
+      sql += ` GROUP BY o.id, u.email, u.first_name, u.last_name, cu.coupon_id, c.code, cu.discount_amount`;
       sql += ` ORDER BY o.created_at DESC`;
       sql += ` LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
       params.push(limit, offset);
 
+      // Note: Since we're using LEFT JOIN, orders without coupons will have NULL coupon fields
+      // This is correct behavior - we want to show all orders, with coupon info when available
+
       // Get total count
-      let countSql = `SELECT COUNT(DISTINCT o.id)::int as total FROM orders o WHERE o.shipping_quote_id IS NULL`;
+      let countSql = `
+        SELECT COUNT(DISTINCT o.id)::int as total 
+        FROM orders o
+        LEFT JOIN coupon_usage cu ON cu.order_id = o.id
+        WHERE o.shipping_quote_id IS NULL
+      `;
       const countParams: any[] = [];
       let countParamCount = 0;
 
@@ -93,6 +119,18 @@ export class AdminOrderController {
         countParamCount++;
         countSql += ` AND (o.order_number ILIKE $${countParamCount} OR o.customer_email ILIKE $${countParamCount})`;
         countParams.push(`%${search}%`);
+      }
+
+      if (couponId) {
+        if (couponId === 'with_coupon') {
+          countSql += ` AND EXISTS (SELECT 1 FROM coupon_usage cu2 WHERE cu2.order_id = o.id)`;
+        } else if (couponId === 'no_coupon') {
+          countSql += ` AND NOT EXISTS (SELECT 1 FROM coupon_usage cu2 WHERE cu2.order_id = o.id)`;
+        } else {
+          countParamCount++;
+          countSql += ` AND EXISTS (SELECT 1 FROM coupon_usage cu2 WHERE cu2.order_id = o.id AND cu2.coupon_id = $${countParamCount})`;
+          countParams.push(parseInt(couponId));
+        }
       }
 
       const [ordersResult, countResult] = await Promise.all([
