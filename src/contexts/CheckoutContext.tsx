@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 export interface Address {
   firstName: string;
@@ -84,15 +84,40 @@ interface CheckoutProviderProps {
 export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) => {
   const [checkoutState, setCheckoutState] = useState<CheckoutState>(defaultCheckoutState);
 
+  // Wrap saveToStorage in useCallback to prevent recreation on every render
+  const saveToStorage = useCallback(() => {
+    try {
+      localStorage.setItem('checkout-state', JSON.stringify(checkoutState));
+    } catch (error) {
+      console.error('Failed to save checkout state to localStorage:', error);
+    }
+  }, [checkoutState]);
+
+  // Load from localStorage on mount
+  const loadFromStorage = useCallback(() => {
+    try {
+      const saved = localStorage.getItem('checkout-state');
+      if (saved) {
+        const parsedState = JSON.parse(saved);
+        console.log('Loading checkout state from localStorage:', parsedState);
+        console.log('Shipping state from localStorage:', parsedState.shippingAddress?.state);
+        console.log('Billing state from localStorage:', parsedState.billingAddress?.state);
+        setCheckoutState(parsedState);
+      }
+    } catch (error) {
+      console.error('Failed to load checkout state from localStorage:', error);
+    }
+  }, []);
+
   // Load from localStorage on mount
   useEffect(() => {
     loadFromStorage();
-  }, []);
+  }, [loadFromStorage]);
 
   // Save to localStorage whenever state changes
   useEffect(() => {
     saveToStorage();
-  }, [checkoutState]);
+  }, [saveToStorage]);
 
   const updateCheckoutState = (updates: Partial<CheckoutState>) => {
     console.log('Updating checkout state with:', updates);
@@ -119,29 +144,6 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
   const clearStorage = () => {
     console.log('Clearing localStorage');
     localStorage.removeItem('checkout-state');
-  };
-
-  const saveToStorage = () => {
-    try {
-      localStorage.setItem('checkout-state', JSON.stringify(checkoutState));
-    } catch (error) {
-      console.error('Failed to save checkout state to localStorage:', error);
-    }
-  };
-
-  const loadFromStorage = () => {
-    try {
-      const saved = localStorage.getItem('checkout-state');
-      if (saved) {
-        const parsedState = JSON.parse(saved);
-        console.log('Loading checkout state from localStorage:', parsedState);
-        console.log('Shipping state from localStorage:', parsedState.shippingAddress?.state);
-        console.log('Billing state from localStorage:', parsedState.billingAddress?.state);
-        setCheckoutState(parsedState);
-      }
-    } catch (error) {
-      console.error('Failed to load checkout state from localStorage:', error);
-    }
   };
 
   const value: CheckoutContextType = {

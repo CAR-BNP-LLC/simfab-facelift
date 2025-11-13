@@ -47,12 +47,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Use ref to always have the latest region value for the getter function
   // Initialize ref with initial region value
   const regionRef = useRef(region);
-  
-  // Register getter IMMEDIATELY and synchronously during render
-  // This ensures API calls that happen during render/early effects use the correct region
-  // We do this outside of useEffect to avoid race conditions where API calls happen
-  // before effects run. This is safe because setApiRegionGetter just sets a module-level variable.
-  setApiRegionGetter(() => regionRef.current);
 
   // Save to localStorage and register with api.ts whenever region changes
   useEffect(() => {
@@ -71,13 +65,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     url.searchParams.set('region', region);
     window.history.replaceState({}, '', url.toString());
   }, [region]);
-  
-  // Also register on mount to ensure it's set immediately
-  useEffect(() => {
-    regionRef.current = region; // Ensure ref is initialized
-    setApiRegionGetter(() => regionRef.current);
-    console.log('📍 RegionContext: Initial region set to', region);
-  }, []);
 
   const setRegion = (newRegion: Region) => {
     // Update ref synchronously BEFORE state update
