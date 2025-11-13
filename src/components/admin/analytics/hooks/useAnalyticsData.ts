@@ -180,3 +180,20 @@ export const useComparativeGrowth = (period: string = '30d') => {
 export const useYearOverYearComparison = (period: string = '30d') => {
   return useAnalyticsData<any>('comparative/year-over-year', { period });
 };
+
+// Visitor analytics hooks
+export const useVisitorOverview = (period: string = '30d') => {
+  return useAnalyticsData<any>('visitors/overview', { period });
+};
+
+export const useVisitorReferrers = (period: string = '30d') => {
+  return useAnalyticsData<any>('visitors/referrers', { period });
+};
+
+export const useVisitorReturning = (period: string = '30d') => {
+  return useAnalyticsData<any>('visitors/returning', { period });
+};
+
+export const useVisitorPages = (period: string = '30d', limit: number = 20) => {
+  return useAnalyticsData<any>('visitors/pages', { period, limit: limit.toString() });
+};

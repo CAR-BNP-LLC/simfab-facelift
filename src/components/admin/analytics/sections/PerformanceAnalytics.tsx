@@ -485,37 +485,78 @@ export const PerformanceAnalytics = ({ className, initialData }: PerformanceAnal
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {/* Mock funnel data - in real app this would come from API */}
-                {[
-                  { stage: 'Visitors', count: 10000, rate: 100 },
-                  { stage: 'Carts Created', count: 2500, rate: 25 },
-                  { stage: 'Checkouts Initiated', count: 1800, rate: 72 },
-                  { stage: 'Successful Payments', count: 1620, rate: 90 },
-                  { stage: 'Completed Orders', count: 1530, rate: 94.4 }
-                ].map((stage, index) => (
-                  <div key={stage.stage} className="relative">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">{stage.stage}</span>
-                      <div className="text-right">
-                        <div className="font-semibold">{stage.count.toLocaleString()}</div>
-                        <div className="text-sm text-muted-foreground">{stage.rate}%</div>
+              {conversionFunnelData.loading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="animate-pulse">
+                      <div className="h-4 bg-muted rounded mb-2" />
+                      <div className="h-3 bg-muted rounded" />
+                    </div>
+                  ))}
+                </div>
+              ) : conversionFunnelData.error ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-destructive" />
+                  <p>Failed to load funnel data</p>
+                  <p className="text-sm">{conversionFunnelData.error}</p>
+                </div>
+              ) : conversionFunnelData.data?.stages ? (
+                <div className="space-y-4">
+                  {conversionFunnelData.data.stages.map((stage: any, index: number) => {
+                    const prevStage = index > 0 ? conversionFunnelData.data.stages[index - 1] : null;
+                    const dropOff = prevStage ? prevStage.count - stage.count : 0;
+                    const dropOffRate = prevStage && prevStage.count > 0 
+                      ? ((dropOff / prevStage.count) * 100).toFixed(1) 
+                      : '0.0';
+                    
+                    return (
+                      <div key={stage.name} className="relative">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">{stage.name}</span>
+                          <div className="text-right">
+                            <div className="font-semibold">{stage.count.toLocaleString()}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {index === 0 ? '100%' : `${stage.conversion_rate.toFixed(1)}%`}
+                            </div>
+                          </div>
+                        </div>
+                        <Progress
+                          value={index === 0 ? 100 : stage.conversion_rate}
+                          className="h-3"
+                        />
+                        {index > 0 && prevStage && (
+                          <div className="text-center my-2">
+                            <span className="text-xs text-muted-foreground">
+                              ↓ {dropOff.toLocaleString()} dropped ({dropOffRate}%)
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  
+                  {conversionFunnelData.data.drop_off_points && conversionFunnelData.data.drop_off_points.length > 0 && (
+                    <div className="mt-6 pt-6 border-t">
+                      <h4 className="font-semibold mb-3">Drop-off Analysis</h4>
+                      <div className="space-y-2">
+                        {conversionFunnelData.data.drop_off_points.map((dropOff: any) => (
+                          <div key={dropOff.from} className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">{dropOff.from}</span>
+                            <div className="text-right">
+                              <span className="font-medium">{dropOff.drop_off.toLocaleString()}</span>
+                              <span className="text-muted-foreground ml-2">({dropOff.rate.toFixed(1)}%)</span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <Progress
-                      value={stage.rate}
-                      className="h-3"
-                    />
-                    {index < 4 && (
-                      <div className="text-center my-2">
-                        <span className="text-xs text-muted-foreground">
-                          ↓ {(stage.rate * (index < 3 ? [25, 72, 90][index] : 94.4) / 100).toFixed(1)}% conversion
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  No funnel data available
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

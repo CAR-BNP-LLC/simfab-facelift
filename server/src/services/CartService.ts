@@ -609,6 +609,9 @@ export class CartService {
         cartItem = insertResult.rows[0];
       }
 
+      // Clear all coupons when cart items change
+      await client.query('DELETE FROM cart_coupons WHERE cart_id = $1', [cart.id]);
+
       await client.query('COMMIT');
 
       // Return cart item with product details
@@ -720,6 +723,9 @@ export class CartService {
         itemId
       ]);
 
+      // Clear all coupons when cart items change
+      await client.query('DELETE FROM cart_coupons WHERE cart_id = $1', [item.cart_id]);
+
       await client.query('COMMIT');
 
       return result.rows[0];
@@ -739,11 +745,27 @@ export class CartService {
    * Remove item from cart
    */
   async removeItem(itemId: number): Promise<void> {
+    // Get cart_id before deleting the item
+    const itemResult = await this.pool.query(
+      'SELECT cart_id FROM cart_items WHERE id = $1',
+      [itemId]
+    );
+
+    if (itemResult.rows.length === 0) {
+      throw new NotFoundError('Cart item', { itemId });
+    }
+
+    const cartId = itemResult.rows[0].cart_id;
+
+    // Delete the item
     const result = await this.pool.query('DELETE FROM cart_items WHERE id = $1', [itemId]);
 
     if (result.rowCount === 0) {
       throw new NotFoundError('Cart item', { itemId });
     }
+
+    // Clear all coupons when cart items change
+    await this.pool.query('DELETE FROM cart_coupons WHERE cart_id = $1', [cartId]);
   }
 
   /**
@@ -1182,6 +1204,14 @@ export class CartService {
       }
       
       const coupon = couponResult.rows[0];
+      const cart = cartResult.rows[0];
+      
+      // Validate coupon region matches cart region
+      if (coupon.region !== cart.region) {
+        throw new ValidationError(
+          `This coupon is only valid for ${coupon.region.toUpperCase()} region. Your cart is for ${cart.region.toUpperCase()} region.`
+        );
+      }
       
       // Parse product restrictions from JSONB
       const applicableProducts: number[] = coupon.applicable_products 

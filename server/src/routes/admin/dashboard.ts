@@ -6,12 +6,14 @@
 import { Router } from 'express';
 import { Pool } from 'pg';
 import { AdminOrderController } from '../../controllers/adminOrderController';
+import { AnalyticsController } from '../../controllers/analyticsController';
 import { requireAuthority } from '../../middleware/auth';
 import { adminRateLimiter } from '../../middleware/rateLimiter';
 
 export const createAdminDashboardRoutes = (pool: Pool): Router => {
   const router = Router();
   const controller = new AdminOrderController(pool);
+  const analyticsController = new AnalyticsController(pool);
 
   // Apply rate limiting to all admin routes
   router.use(adminRateLimiter);
@@ -134,6 +136,34 @@ export const createAdminDashboardRoutes = (pool: Pool): Router => {
    * @access  Admin with dashboard:view authority
    */
   router.get('/analytics/inventory/stock-movements', requireAuthority('dashboard:view'), controller.getInventoryStockMovements);
+
+  /**
+   * @route   GET /api/admin/analytics/visitors/overview
+   * @desc    Get visitor overview statistics
+   * @access  Admin with dashboard:view authority
+   */
+  router.get('/analytics/visitors/overview', requireAuthority('dashboard:view'), analyticsController.getVisitorOverview);
+
+  /**
+   * @route   GET /api/admin/analytics/visitors/referrers
+   * @desc    Get referrer breakdown
+   * @access  Admin with dashboard:view authority
+   */
+  router.get('/analytics/visitors/referrers', requireAuthority('dashboard:view'), analyticsController.getReferrerBreakdown);
+
+  /**
+   * @route   GET /api/admin/analytics/visitors/returning
+   * @desc    Get returning vs new visitor stats
+   * @access  Admin with dashboard:view authority
+   */
+  router.get('/analytics/visitors/returning', requireAuthority('dashboard:view'), analyticsController.getReturningVisitors);
+
+  /**
+   * @route   GET /api/admin/analytics/visitors/pages
+   * @desc    Get top pages
+   * @access  Admin with dashboard:view authority
+   */
+  router.get('/analytics/visitors/pages', requireAuthority('dashboard:view'), analyticsController.getTopPages);
 
   return router;
 };

@@ -10,6 +10,14 @@ import { EmailTemplateEngine } from '../utils/EmailTemplateEngine';
 import { EmailTemplateWrapper } from '../utils/EmailTemplateWrapper';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
+export interface SendMarketingEmailOptions {
+  recipientEmail: string;
+  recipientName: string;
+  subject: string;
+  content: string;
+  unsubscribeToken: string;
+}
+
 export class EmailService {
   private transporter: nodemailer.Transporter | null = null;
   private templateEngine: EmailTemplateEngine;
@@ -496,6 +504,168 @@ export class EmailService {
     }
 
     return results;
+  }
+
+  /**
+   * Send marketing email with automatic unsubscribe footer
+   * This method ensures GDPR compliance by always including an unsubscribe link
+   */
+  async sendMarketingEmail(options: SendMarketingEmailOptions): Promise<EmailResult> {
+    const client = await this.pool.connect();
+    
+    try {
+      // Get email settings
+      const settings = await this.getEmailSettings();
+
+      // Wrap content with marketing email template (includes unsubscribe footer)
+      const htmlBody = EmailTemplateWrapper.wrapMarketingEmail(
+        options.content,
+        options.unsubscribeToken,
+        'SimFab Marketing',
+        undefined
+      );
+
+      // Determine actual recipient
+      const actualRecipient = settings.test_mode && settings.test_email
+        ? settings.test_email
+        : options.recipientEmail;
+
+      // Log email
+      const logId = await this.logEmail({
+        template_type: 'marketing_campaign',
+        recipient_email: actualRecipient,
+        recipient_name: options.recipientName,
+        subject: options.subject,
+        status: 'pending',
+        metadata: { unsubscribe_token: options.unsubscribeToken }
+      });
+
+      let result: EmailResult;
+
+      // Send email
+      const hasSMTPConfig = settings.smtp_host && settings.smtp_user && settings.smtp_password;
+      const isProductionMode = settings.test_mode === false && hasSMTPConfig;
+      
+      console.log('📧 Marketing Email Send Mode:', {
+        test_mode: settings.test_mode,
+        hasSMTPConfig: !!hasSMTPConfig, // Don't log the actual password
+        isProductionMode,
+        recipient: actualRecipient,
+        test_email: settings.test_email
+      });
+      
+      if (isProductionMode) {
+        if (!this.transporter) {
+          await this.initialize();
+        }
+        
+        if (!this.transporter) {
+          console.error('❌ Failed to initialize transporter for production');
+          result = {
+            success: false,
+            error: 'Email transporter not initialized',
+            logId
+          };
+          await client.query(
+            'UPDATE email_logs SET status = $1, error_message = $2 WHERE id = $3',
+            ['failed', 'Email transporter not initialized', logId]
+          );
+          client.release();
+          return result;
+        }
+        
+        // Send actual email in production mode
+        const mailOptions: any = {
+          from: `${settings.smtp_from_name} <${settings.smtp_from_email}>`,
+          to: actualRecipient,
+          subject: options.subject,
+          html: htmlBody,
+        };
+
+        try {
+          const info: any = await this.transporter!.sendMail(mailOptions);
+          
+          console.log('✅ Marketing email sent successfully:', {
+            to: actualRecipient,
+            messageId: info?.messageId,
+            logId
+          });
+          
+          result = {
+            success: true,
+            messageId: info?.messageId,
+            logId
+          };
+
+          // Update log
+          await client.query(
+            'UPDATE email_logs SET status = $1, sent_at = NOW() WHERE id = $2',
+            ['sent', logId]
+          );
+        } catch (error: any) {
+          console.error('❌ Error sending marketing email:', error);
+          console.error('❌ Error details:', {
+            message: error.message,
+            code: error.code,
+            command: error.command,
+            response: error.response
+          });
+          
+          result = {
+            success: false,
+            error: error.message || 'Failed to send email',
+            logId
+          };
+
+          // Update log with error
+          await client.query(
+            'UPDATE email_logs SET status = $1, error_message = $2 WHERE id = $3',
+            ['failed', error.message || 'Failed to send email', logId]
+          );
+        }
+      } else {
+        // Test mode or no SMTP configured
+        console.log('⚠️ Marketing email in TEST MODE - not actually sent:', {
+          recipient: actualRecipient,
+          test_email: settings.test_email,
+          would_send_to: settings.test_email || actualRecipient,
+          logId
+        });
+        
+        result = {
+          success: true,
+          logId
+        };
+        
+        // Update log
+        await client.query(
+          'UPDATE email_logs SET status = $1, sent_at = NOW() WHERE id = $2',
+          ['sent', logId]
+        );
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('❌ Marketing email sending error:', error);
+      
+      // Log error
+      await this.logEmail({
+        template_type: 'marketing_campaign',
+        recipient_email: options.recipientEmail,
+        recipient_name: options.recipientName,
+        subject: options.subject,
+        status: 'failed',
+        error_message: error.message,
+        metadata: { unsubscribe_token: options.unsubscribeToken }
+      });
+
+      return {
+        success: false,
+        error: error.message
+      };
+    } finally {
+      client.release();
+    }
   }
 }
 

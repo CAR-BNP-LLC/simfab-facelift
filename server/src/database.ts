@@ -26,6 +26,7 @@ export interface Product {
   height_in?: number;
   allow_customer_reviews?: string;
   purchase_note?: string;
+  note?: string;
   sale_price?: number;
   regular_price?: number;
   categories?: string;

@@ -12,6 +12,7 @@ import { createAdminOrderRoutes } from './routes/admin/orders';
 import { createAdminDashboardRoutes } from './routes/admin/dashboard';
 import { createAdminRBACRoutes } from './routes/admin/rbac';
 import { createAdminCouponRoutes } from './routes/admin/coupons';
+import { createAdminMarketingCampaignRoutes } from './routes/admin/marketing-campaigns';
 import { createEmailTemplateRoutes } from './routes/admin/email-templates';
 import { createVariationStockRoutes } from './routes/admin/variationStock';
 import { createBundleRoutes } from './routes/admin/bundles';
@@ -36,6 +37,9 @@ import { createAdminAssemblyManualRoutes } from './routes/admin/assemblyManuals'
 import { createAssemblyManualRoutes } from './routes/assemblyManuals';
 import { createAdminSettingsRoutes } from './routes/admin/settings';
 import { createSettingsRoutes } from './routes/settings';
+import { createSiteNoticeRoutes } from './routes/site-notices';
+import { createAdminSiteNoticeRoutes } from './routes/admin/site-notices';
+import { createAnalyticsRoutes } from './routes/analytics';
 import { pool, getSSLConfig } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
 import { regionDetection } from './middleware/regionDetection';
@@ -253,6 +257,7 @@ app.use('/api/admin/orders', createAdminOrderRoutes(pool));
 app.use('/api/admin/dashboard', createAdminDashboardRoutes(pool));
 app.use('/api/admin/rbac', createAdminRBACRoutes(pool));
 app.use('/api/admin/coupons', createAdminCouponRoutes(pool));
+app.use('/api/admin/marketing-campaigns', createAdminMarketingCampaignRoutes(pool));
 app.use('/api/admin', createEmailTemplateRoutes(pool));
 app.use('/api/admin/cleanup', createCleanupRoutes(pool));
 app.use('/api/admin/cron', createCronRoutes(pool, cronService));
@@ -271,6 +276,9 @@ app.use('/api/admin/assembly-manuals', createAdminAssemblyManualRoutes(pool));
 app.use('/api/manuals', createAssemblyManualRoutes(pool));
 app.use('/api/admin/settings', createAdminSettingsRoutes(pool));
 app.use('/api/settings', createSettingsRoutes(pool));
+app.use('/api/site-notices', createSiteNoticeRoutes(pool));
+app.use('/api/admin/site-notices', createAdminSiteNoticeRoutes(pool));
+app.use('/api/analytics', createAnalyticsRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

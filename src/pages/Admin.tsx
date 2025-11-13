@@ -40,7 +40,8 @@ import {
   LayoutGrid,
   AlertTriangle,
   Truck,
-  RotateCcw
+  RotateCcw,
+  Megaphone
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -84,7 +85,7 @@ import ShippingQuotes from '@/components/admin/ShippingQuotes';
 import { AnalyticsDashboard } from '@/components/admin/analytics/AnalyticsDashboard';
 import AssemblyManualsManagement from '@/components/admin/AssemblyManualsManagement';
 import SettingsTab from '@/components/admin/SettingsTab';
-import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto } from '@/services/api';
+import { adminVariationsAPI, VariationWithOptions, CreateVariationDto, UpdateVariationDto, siteNoticeAPI, SiteNotice, marketingCampaignAPI, MarketingCampaign, CampaignStats } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -138,6 +139,11 @@ const Admin = () => {
   const [pairedProduct, setPairedProduct] = useState<any>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   
+  // Site notice management state
+  const [siteNotices, setSiteNotices] = useState<SiteNotice[]>([]);
+  const [editingNotice, setEditingNotice] = useState<SiteNotice | null>(null);
+  const [noticeForm, setNoticeForm] = useState({ message: '', is_active: true });
+  
   // Variation management state
   const [productVariations, setProductVariations] = useState<VariationWithOptions[]>([]);
   const [variationsLoading, setVariationsLoading] = useState(false);
@@ -152,6 +158,15 @@ const Admin = () => {
   const [couponFormOpen, setCouponFormOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<any>(null);
   const [couponRefreshTrigger, setCouponRefreshTrigger] = useState(0);
+  
+  // Marketing campaign state
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<MarketingCampaign | null>(null);
+  const [campaignForm, setCampaignForm] = useState({ name: '', subject: '', content: '' });
+  const [showCampaignForm, setShowCampaignForm] = useState(false);
+  const [eligibleCount, setEligibleCount] = useState(0);
+  const [sendingCampaign, setSendingCampaign] = useState<number | null>(null);
   
   // CSV import/export state
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
@@ -202,6 +217,7 @@ const Admin = () => {
     stock_quantity_eu: '10', // Stock for EU when creating for both
     categories: 'accessories',
     tags: '',
+    note: '',
     region: 'us' as 'us' | 'eu' | 'both'
   });
 
@@ -218,6 +234,85 @@ const Admin = () => {
     }));
   };
 
+  // Load site notices
+  const fetchSiteNotices = async () => {
+    try {
+      const response = await siteNoticeAPI.getAllNotices();
+      if (response.success && response.data) {
+        setSiteNotices(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load site notices:', error);
+    }
+  };
+
+  // Load marketing campaigns
+  const fetchCampaigns = async () => {
+    try {
+      setCampaignsLoading(true);
+      const response = await marketingCampaignAPI.listCampaigns();
+      if (response.success && response.data) {
+        setCampaigns(response.data.campaigns || []);
+      }
+    } catch (error) {
+      console.error('Failed to load campaigns:', error);
+      handleError(error);
+    } finally {
+      setCampaignsLoading(false);
+    }
+  };
+
+  // Load eligible recipient count
+  const fetchEligibleCount = async () => {
+    try {
+      const response = await marketingCampaignAPI.getEligibleCount();
+      if (response.success && response.data) {
+        setEligibleCount(response.data.count);
+      }
+    } catch (error) {
+      console.error('Failed to load eligible count:', error);
+    }
+  };
+
+  // Handle create/edit campaign
+  const handleSaveCampaign = async () => {
+    try {
+      if (editingCampaign) {
+        await marketingCampaignAPI.updateCampaign(editingCampaign.id, campaignForm);
+        handleSuccess('Campaign updated successfully');
+      } else {
+        await marketingCampaignAPI.createCampaign(campaignForm);
+        handleSuccess('Campaign created successfully');
+      }
+      setEditingCampaign(null);
+      setCampaignForm({ name: '', subject: '', content: '' });
+      setShowCampaignForm(false);
+      fetchCampaigns();
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  // Handle send campaign
+  const handleSendCampaign = async (id: number) => {
+    if (!confirm(`Are you sure you want to send this campaign to ${eligibleCount} recipients? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setSendingCampaign(id);
+      const response = await marketingCampaignAPI.sendCampaign(id);
+      if (response.success) {
+        handleSuccess(`Campaign sent successfully! ${response.data.sent_count} emails sent.`);
+        fetchCampaigns();
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setSendingCampaign(null);
+    }
+  };
+
   // Load data based on active tab
   useEffect(() => {
     if (activeTab === 'dashboard' || activeTab === 'analytics') {
@@ -226,6 +321,11 @@ const Admin = () => {
       fetchProducts();
     } else if (activeTab === 'orders') {
       fetchOrders();
+    } else if (activeTab === 'site-notice') {
+      fetchSiteNotices();
+    } else if (activeTab === 'marketing-campaigns') {
+      fetchCampaigns();
+      fetchEligibleCount();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, orderRegionFilter]);
@@ -359,7 +459,8 @@ const Admin = () => {
           stock_quantity: parseInt(productForm.stock_quantity),
           featured: productForm.featured,
           categories: [productForm.categories],
-          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
+          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : [],
+          note: productForm.note || null
         };
 
         const response = await fetch(`${API_URL}/api/admin/products/${editingProduct.id}`, {
@@ -391,6 +492,7 @@ const Admin = () => {
             stock_quantity_eu: '10',
             categories: 'accessories',
             tags: '',
+            note: '',
             region: 'us'
           });
           setEditingProduct(null);
@@ -415,7 +517,8 @@ const Admin = () => {
           featured: productForm.featured,
           regular_price: parseFloat(productForm.regular_price),
           categories: [productForm.categories],
-          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
+          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : [],
+          note: productForm.note || null
         };
 
         const productGroupData = {
@@ -454,6 +557,7 @@ const Admin = () => {
             stock_quantity_eu: '10',
             categories: 'accessories',
             tags: '',
+            note: '',
             region: 'us'
           });
           fetchProducts();
@@ -471,7 +575,8 @@ const Admin = () => {
           stock_quantity: parseInt(productForm.stock_quantity),
           featured: productForm.featured,
           categories: [productForm.categories],
-          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : []
+          tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : [],
+          note: productForm.note || null
         };
 
         const response = await fetch(`${API_URL}/api/admin/products`, {
@@ -503,6 +608,7 @@ const Admin = () => {
             stock_quantity_eu: '10',
             categories: 'accessories',
             tags: '',
+            note: '',
             region: 'us'
           });
           fetchProducts();
@@ -796,6 +902,8 @@ const Admin = () => {
     if (!editingProduct?.id) return;
 
     try {
+      console.log('📤 Sending product update:', editingProduct.id, formData);
+      
       const response = await fetch(`${API_URL}/api/admin/products/${editingProduct.id}`, {
         method: 'PUT',
         headers: {
@@ -806,18 +914,36 @@ const Admin = () => {
       });
 
       const data = await response.json();
+      
+      console.log('📥 Product update response:', data);
 
       if (data.success) {
         toast({
           title: 'Success',
           description: 'Product updated successfully',
         });
-        fetchProducts(); // Refresh the products list
+        
+        // Update the products array with the updated product data
+        // This ensures the list shows the latest data immediately
+        if (data.data) {
+          setProducts(prevProducts => 
+            prevProducts.map(p => p.id === data.data.id ? data.data : p)
+          );
+          
+          // Also update editingProduct state
+          setEditingProduct(data.data);
+        }
+        
+        // Refresh the products list to ensure everything is in sync
+        await fetchProducts();
+        
         handleCloseEditDialog();
       } else {
+        console.error('❌ Product update failed:', data.error);
         throw new Error(data.error?.message || 'Failed to update product');
       }
     } catch (error) {
+      console.error('❌ Product update error:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to update product',
@@ -1187,7 +1313,7 @@ const Admin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-7 w-full">
+          <TabsList className="grid grid-cols-9 w-full">
             <TabsTrigger value="dashboard" className="flex items-center justify-center gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -1218,6 +1344,16 @@ const Admin = () => {
               <TrendingUp className="h-4 w-4" />
               <span className="hidden sm:inline">Analytics</span>
             </TabsTrigger>
+            <TabsTrigger value="site-notice" className="flex items-center justify-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Site Notice</span>
+            </TabsTrigger>
+            <PermittedFor authority="marketing:view">
+              <TabsTrigger value="marketing-campaigns" className="flex items-center justify-center gap-2">
+                <Megaphone className="h-4 w-4" />
+                <span className="hidden sm:inline">Marketing</span>
+              </TabsTrigger>
+            </PermittedFor>
           </TabsList>
 
           {/* Dashboard Tab - Navigation Squares */}
@@ -1307,6 +1443,22 @@ const Admin = () => {
                     </p>
                   </CardContent>
                 </Card>
+
+                {/* Marketing Campaigns Card - Email Marketing */}
+                <PermittedFor authority="marketing:view">
+                  <Card
+                    className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105"
+                    onClick={() => setActiveTab('marketing-campaigns')}
+                  >
+                    <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px]">
+                      <Megaphone className="h-12 w-12 text-primary mb-4" />
+                      <CardTitle className="text-xl font-bold mb-2">Marketing Campaigns</CardTitle>
+                      <p className="text-sm text-muted-foreground text-center">
+                        Send marketing emails to all registered users
+                      </p>
+                    </CardContent>
+                  </Card>
+                </PermittedFor>
 
                 {/* Email Templates Card - Communication */}
                 <PermittedFor authority="emails:view">
@@ -1405,6 +1557,147 @@ const Admin = () => {
                 loading={loading}
               />
             </PermittedFor>
+          </TabsContent>
+
+          {/* Site Notice Tab */}
+          <TabsContent value="site-notice" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Site-Wide Notice Management</CardTitle>
+                <CardDescription>
+                  Manage the notice displayed on the home page once per session
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Create/Edit Form */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="notice-message">Notice Message</Label>
+                    <Textarea
+                      id="notice-message"
+                      value={noticeForm.message}
+                      onChange={(e) => setNoticeForm({ ...noticeForm, message: e.target.value })}
+                      placeholder="e.g., 'Black Friday promo' or 'Out of office orders will be slowed by a few days'"
+                      rows={3}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="notice-active"
+                      checked={noticeForm.is_active}
+                      onCheckedChange={(checked) => setNoticeForm({ ...noticeForm, is_active: checked as boolean })}
+                    />
+                    <Label htmlFor="notice-active" className="cursor-pointer">
+                      Active (only one notice can be active at a time)
+                    </Label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          if (editingNotice) {
+                            await siteNoticeAPI.updateNotice(editingNotice.id, noticeForm.message, noticeForm.is_active);
+                            toast({ title: 'Success', description: 'Notice updated' });
+                          } else {
+                            await siteNoticeAPI.createNotice(noticeForm.message, noticeForm.is_active);
+                            toast({ title: 'Success', description: 'Notice created' });
+                          }
+                          setNoticeForm({ message: '', is_active: true });
+                          setEditingNotice(null);
+                          // Refresh notices list
+                          await fetchSiteNotices();
+                        } catch (error: any) {
+                          toast({
+                            title: 'Error',
+                            description: error.message || 'Failed to save notice',
+                            variant: 'destructive'
+                          });
+                        }
+                      }}
+                      disabled={!noticeForm.message.trim()}
+                    >
+                      {editingNotice ? 'Update Notice' : 'Create Notice'}
+                    </Button>
+                    {editingNotice && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setEditingNotice(null);
+                          setNoticeForm({ message: '', is_active: true });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notices List */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">All Notices</h3>
+                  {siteNotices.length === 0 ? (
+                    <p className="text-muted-foreground">No notices created yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {siteNotices.map((notice) => (
+                        <Card key={notice.id} className={notice.is_active ? 'border-blue-500' : ''}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  {notice.is_active && (
+                                    <Badge variant="default" className="bg-blue-500">
+                                      Active
+                                    </Badge>
+                                  )}
+                                  <span className="text-xs text-muted-foreground">
+                                    Created: {new Date(notice.created_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                                <p className="text-sm">{notice.message}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingNotice(notice);
+                                    setNoticeForm({ message: notice.message, is_active: notice.is_active });
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={async () => {
+                                    if (confirm('Are you sure you want to delete this notice?')) {
+                                      try {
+                                        await siteNoticeAPI.deleteNotice(notice.id);
+                                        toast({ title: 'Success', description: 'Notice deleted' });
+                                        await fetchSiteNotices();
+                                      } catch (error: any) {
+                                        toast({
+                                          title: 'Error',
+                                          description: error.message || 'Failed to delete notice',
+                                          variant: 'destructive'
+                                        });
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Orders Tab */}
@@ -2000,6 +2293,20 @@ const Admin = () => {
                     />
                   </div>
 
+                  <div>
+                    <Label htmlFor="note">Product Note</Label>
+                    <Textarea
+                      id="note"
+                      value={productForm.note}
+                      onChange={(e) => setProductForm({ ...productForm, note: e.target.value })}
+                      rows={2}
+                      placeholder="Optional note displayed on product detail page (e.g., 'Product available only on back order, expect on date')"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This note will be displayed prominently on the product detail page
+                    </p>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="regular_price">Price *</Label>
@@ -2302,6 +2609,178 @@ const Admin = () => {
           {/* Assembly Manuals Tab */}
           <TabsContent value="assembly-manuals" className="space-y-6">
             <AssemblyManualsManagement />
+          </TabsContent>
+
+          {/* Marketing Campaigns Tab */}
+          <TabsContent value="marketing-campaigns" className="space-y-6">
+            <PermittedFor authority="marketing:view">
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold">Marketing Campaigns</h2>
+                    <p className="text-muted-foreground">Create and send marketing emails to registered users</p>
+                  </div>
+                  <PermittedFor authority="marketing:create">
+                    <Button onClick={() => {
+                      setEditingCampaign(null);
+                      setCampaignForm({ name: '', subject: '', content: '' });
+                      setShowCampaignForm(true);
+                    }}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Campaign
+                    </Button>
+                  </PermittedFor>
+                </div>
+
+                {/* Eligible Recipients Info */}
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Eligible Recipients</p>
+                        <p className="text-2xl font-bold">{eligibleCount}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Campaign Form */}
+                {(editingCampaign || showCampaignForm) && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>{editingCampaign ? 'Edit Campaign' : 'Create New Campaign'}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label htmlFor="campaign-name">Campaign Name</Label>
+                        <Input
+                          id="campaign-name"
+                          value={campaignForm.name}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })}
+                          placeholder="e.g., Summer Sale 2024"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="campaign-subject">Email Subject</Label>
+                        <Input
+                          id="campaign-subject"
+                          value={campaignForm.subject}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })}
+                          placeholder="e.g., Summer Sale - Up to 50% Off!"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="campaign-content">Email Content (HTML)</Label>
+                        <Textarea
+                          id="campaign-content"
+                          value={campaignForm.content}
+                          onChange={(e) => setCampaignForm({ ...campaignForm, content: e.target.value })}
+                          placeholder="Enter your email content in HTML format..."
+                          rows={10}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Note: An unsubscribe link will be automatically added to the bottom of all emails for GDPR compliance.
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <PermittedFor authority="marketing:create">
+                          <Button onClick={handleSaveCampaign} disabled={!campaignForm.name || !campaignForm.subject || !campaignForm.content}>
+                            {editingCampaign ? 'Update Campaign' : 'Create Campaign'}
+                          </Button>
+                        </PermittedFor>
+                        <Button variant="outline" onClick={() => {
+                          setEditingCampaign(null);
+                          setCampaignForm({ name: '', subject: '', content: '' });
+                          setShowCampaignForm(false);
+                        }}>
+                          Cancel
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Campaigns List */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Campaigns</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {campaignsLoading ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    ) : campaigns.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">No campaigns yet. Create your first campaign above.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {campaigns.map((campaign) => (
+                          <Card key={campaign.id}>
+                            <CardContent className="pt-6">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h3 className="font-semibold">{campaign.name}</h3>
+                                    <Badge variant={campaign.status === 'sent' ? 'default' : campaign.status === 'sending' ? 'secondary' : 'outline'}>
+                                      {campaign.status}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground mb-1">
+                                    <strong>Subject:</strong> {campaign.subject}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Created: {new Date(campaign.created_at).toLocaleDateString()}
+                                    {campaign.sent_at && ` • Sent: ${new Date(campaign.sent_at).toLocaleDateString()}`}
+                                    {campaign.sent_count > 0 && ` • ${campaign.sent_count} sent`}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <PermittedFor authority="marketing:edit">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingCampaign(campaign);
+                                        setCampaignForm({ name: campaign.name, subject: campaign.subject, content: campaign.content });
+                                        setShowCampaignForm(true);
+                                      }}
+                                      disabled={campaign.status === 'sent' || campaign.status === 'sending'}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                  </PermittedFor>
+                                  <PermittedFor authority="marketing:send">
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => handleSendCampaign(campaign.id)}
+                                      disabled={campaign.status === 'sent' || campaign.status === 'sending' || sendingCampaign === campaign.id}
+                                    >
+                                      {sendingCampaign === campaign.id ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          Sending...
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Mail className="h-4 w-4 mr-2" />
+                                          Send
+                                        </>
+                                      )}
+                                    </Button>
+                                  </PermittedFor>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </PermittedFor>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">

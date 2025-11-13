@@ -47,6 +47,7 @@ interface Coupon {
   start_date?: string | null;
   end_date?: string | null;
   is_active?: boolean;
+  region?: 'us' | 'eu';
   applicable_products?: number[];
   applicable_categories?: number[];
   excluded_products?: number[];
@@ -81,6 +82,7 @@ export default function CouponForm({ open, onClose, onSave, coupon }: CouponForm
     usage_limit: undefined,
     per_user_limit: 1,
     is_active: true,
+    region: 'us',
     applicable_products: [],
     excluded_products: [],
   });
@@ -103,6 +105,7 @@ export default function CouponForm({ open, onClose, onSave, coupon }: CouponForm
         usage_limit: coupon.usage_limit || undefined,
         per_user_limit: coupon.per_user_limit || 1,
         is_active: coupon.is_active !== undefined ? coupon.is_active : true,
+        region: coupon.region || 'us',
         applicable_products: Array.isArray(coupon.applicable_products) ? coupon.applicable_products : 
           (coupon.applicable_products ? JSON.parse(coupon.applicable_products) : []),
         excluded_products: Array.isArray(coupon.excluded_products) ? coupon.excluded_products : 
@@ -180,6 +183,7 @@ export default function CouponForm({ open, onClose, onSave, coupon }: CouponForm
       usage_limit: undefined,
       per_user_limit: 1,
       is_active: true,
+      region: 'us',
       applicable_products: [],
       excluded_products: [],
     });
@@ -316,6 +320,27 @@ export default function CouponForm({ open, onClose, onSave, coupon }: CouponForm
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="region">Region *</Label>
+            <Select
+              value={formData.region || 'us'}
+              onValueChange={(value: 'us' | 'eu') =>
+                setFormData({ ...formData, region: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="us">US</SelectItem>
+                <SelectItem value="eu">EU</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground mt-1">
+              This coupon can only be applied to carts from the same region
+            </p>
           </div>
 
           {formData.type !== 'free_shipping' && (

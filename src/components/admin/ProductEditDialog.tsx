@@ -101,6 +101,7 @@ const ProductEditDialog = ({
     stock_quantity: '10',
     categories: 'accessories',
     tags: '',
+    note: '',
     region: 'us' as 'us' | 'eu'
   });
 
@@ -214,6 +215,7 @@ const ProductEditDialog = ({
             return '';
           }
         })(),
+        note: product.note || '',
         region: (product.region === 'eu' ? 'eu' : 'us') as 'us' | 'eu'
       });
       
@@ -551,7 +553,8 @@ const ProductEditDialog = ({
           featured: productForm.featured,
           status: productForm.status,
           categories: [productForm.categories],
-          tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : []
+          tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [],
+          note: productForm.note || null
         };
         await onSave(sharedFieldsData);
       } else if (isStandalone) {
@@ -565,6 +568,7 @@ const ProductEditDialog = ({
           status: productForm.status,
           categories: [productForm.categories],
           tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [],
+          note: productForm.note || null,
           regular_price: parseFloat(productForm.regular_price) || 0,
           sale_price: productForm.sale_price ? parseFloat(productForm.sale_price) : null,
           is_on_sale: productForm.is_on_sale,
@@ -705,6 +709,19 @@ const ProductEditDialog = ({
                           placeholder="Detailed product description..."
                           rows={3}
                         />
+                      </div>
+                      <div>
+                        <Label htmlFor="note">Product Note</Label>
+                        <Textarea
+                          id="note"
+                          value={productForm.note}
+                          onChange={(e) => setProductForm({ ...productForm, note: e.target.value })}
+                          placeholder="Optional note displayed on product detail page (e.g., 'Product available only on back order, expect on date')"
+                          rows={2}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          This note will be displayed prominently on the product detail page
+                        </p>
                       </div>
                     </div>
                   </CardContent>

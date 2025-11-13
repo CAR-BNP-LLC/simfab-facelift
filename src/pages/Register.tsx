@@ -20,7 +20,7 @@ const Register = () => {
     password: "",
     confirmPassword: "",
     phone: "",
-    subscribeNewsletter: false
+    subscribeNewsletter: true
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

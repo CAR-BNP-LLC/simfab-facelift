@@ -5,6 +5,8 @@ import RBACModel from '../models/rbac';
 import { Pool } from 'pg';
 import { EmailService } from '../services/EmailService';
 import { getSSLConfig } from '../config/database';
+import { validateUnsubscribeToken } from '../utils/unsubscribeToken';
+import { MarketingCampaignService } from '../services/MarketingCampaignService';
 
 // Use crypto for generating UUIDs instead of uuid package
 import { randomUUID } from 'crypto';
@@ -95,6 +97,13 @@ export class AuthController {
       const userFirstName = firstName || first_name;
       const userLastName = lastName || last_name;
       const subscribeToNewsletter = subscribeNewsletter !== undefined ? subscribeNewsletter : subscribe_newsletter;
+      
+      console.log('📝 Registration - Newsletter subscription:', {
+        subscribeNewsletter,
+        subscribe_newsletter,
+        subscribeToNewsletter,
+        email
+      });
 
       // Validate required fields
       if (!email || !password || !userFirstName || !userLastName) {
@@ -148,8 +157,16 @@ export class AuthController {
 
       // Subscribe to newsletter if requested
       if (subscribeToNewsletter) {
-        const subscribedAt = new Date().toISOString();
-        await userModel.subscribeToNewsletter(email, subscribedAt);
+        try {
+          const subscribedAt = new Date().toISOString();
+          const subscription = await userModel.subscribeToNewsletter(email, subscribedAt);
+          console.log('✅ Newsletter subscription created:', { email, status: subscription.status });
+        } catch (subError) {
+          console.error('❌ Failed to create newsletter subscription:', subError);
+          // Don't fail registration if newsletter subscription fails
+        }
+      } else {
+        console.log('ℹ️ User did not subscribe to newsletter:', email);
       }
 
       // Trigger new account creation email event
@@ -461,12 +478,40 @@ export class AuthController {
   // Unsubscribe from newsletter
   static async unsubscribeNewsletter(req: Request, res: Response): Promise<void> {
     try {
-      const { email } = req.body;
+      const { email, token } = req.body;
 
+      // Support both token-based (from email links) and email-based unsubscribe
+      if (token) {
+        // Token-based unsubscribe (from marketing email links)
+        const tokenData = validateUnsubscribeToken(token);
+        
+        if (!tokenData) {
+          res.status(400).json({
+            success: false,
+            error: 'Invalid or expired unsubscribe token'
+          });
+          return;
+        }
+
+        // Mark recipient as unsubscribed in marketing campaign
+        const campaignService = new MarketingCampaignService(pool);
+        await campaignService.markRecipientAsUnsubscribed(token);
+        
+        // Also unsubscribe from newsletter
+        await userModel.unsubscribeFromNewsletter(tokenData.email);
+
+        res.json({
+          success: true,
+          message: 'Successfully unsubscribed from marketing emails'
+        });
+        return;
+      }
+
+      // Email-based unsubscribe (legacy support)
       if (!email) {
         res.status(400).json({
           success: false,
-          error: 'Email is required'
+          error: 'Email or token is required'
         });
         return;
       }
@@ -479,6 +524,84 @@ export class AuthController {
       });
     } catch (error) {
       console.error('Newsletter unsubscription error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error'
+      });
+    }
+  }
+
+  // Unsubscribe via token (GET endpoint for email links)
+  static async unsubscribeByToken(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.query;
+
+      // Extract token string from query parameter
+      let tokenStr: string | null = null;
+      if (typeof token === 'string') {
+        tokenStr = token;
+      } else if (Array.isArray(token) && token.length > 0 && typeof token[0] === 'string') {
+        tokenStr = token[0];
+      }
+
+      console.log('🔗 Unsubscribe request received:', {
+        token: tokenStr ? tokenStr.substring(0, 20) + '...' : 'missing',
+        tokenLength: tokenStr ? tokenStr.length : 0,
+        queryParams: Object.keys(req.query)
+      });
+
+      if (!tokenStr) {
+        console.error('❌ No token provided in unsubscribe request');
+        res.status(400).json({
+          success: false,
+          error: 'Unsubscribe token is required'
+        });
+        return;
+      }
+
+      // First, try to find the recipient by token in the database
+      // This is more reliable than validating the signature
+      const campaignService = new MarketingCampaignService(pool);
+      const recipient = await campaignService.getRecipientByToken(tokenStr);
+      
+      if (recipient) {
+        // Token exists in database - mark as unsubscribed
+        await campaignService.markRecipientAsUnsubscribed(tokenStr);
+        await userModel.unsubscribeFromNewsletter(recipient.email);
+        
+        console.log('✅ Unsubscribed via database token lookup:', recipient.email);
+        
+        res.json({
+          success: true,
+          message: 'Successfully unsubscribed from marketing emails'
+        });
+        return;
+      }
+      
+      // Fallback: Try to validate the token signature
+      const tokenData = validateUnsubscribeToken(tokenStr);
+      
+      if (!tokenData) {
+        console.error('❌ Token validation failed - token not found in database and signature invalid');
+        res.status(400).json({
+          success: false,
+          error: 'Invalid or expired unsubscribe token'
+        });
+        return;
+      }
+
+      // Mark recipient as unsubscribed in marketing campaign
+      await campaignService.markRecipientAsUnsubscribed(tokenStr);
+      
+      // Also unsubscribe from newsletter
+      await userModel.unsubscribeFromNewsletter(tokenData.email);
+
+      res.json({
+        success: true,
+        message: 'Successfully unsubscribed from marketing emails'
+      });
+    } catch (error) {
+      console.error('Token-based unsubscription error:', error);
       res.status(500).json({
         success: false,
         error: 'Internal server error'

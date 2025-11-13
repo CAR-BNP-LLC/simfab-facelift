@@ -1417,31 +1417,42 @@ export class AdminOrderController {
       const { period = '30d' } = req.query;
 
       // Calculate date range based on period
-      let dateCondition = '';
+      let dateInterval = '';
+      let visitorDateCondition = '';
 
       switch (period) {
         case '7d':
-          dateCondition = "created_at >= CURRENT_DATE - INTERVAL '7 days'";
+          dateInterval = "7 days";
+          visitorDateCondition = "first_visit_at >= CURRENT_DATE - INTERVAL '7 days'";
           break;
         case '30d':
-          dateCondition = "created_at >= CURRENT_DATE - INTERVAL '30 days'";
+          dateInterval = "30 days";
+          visitorDateCondition = "first_visit_at >= CURRENT_DATE - INTERVAL '30 days'";
           break;
         case '90d':
-          dateCondition = "created_at >= CURRENT_DATE - INTERVAL '90 days'";
+          dateInterval = "90 days";
+          visitorDateCondition = "first_visit_at >= CURRENT_DATE - INTERVAL '90 days'";
           break;
         case '1y':
-          dateCondition = "created_at >= CURRENT_DATE - INTERVAL '1 year'";
+          dateInterval = "1 year";
+          visitorDateCondition = "first_visit_at >= CURRENT_DATE - INTERVAL '1 year'";
           break;
         default:
-          dateCondition = "created_at >= CURRENT_DATE - INTERVAL '30 days'";
+          dateInterval = "30 days";
+          visitorDateCondition = "first_visit_at >= CURRENT_DATE - INTERVAL '30 days'";
       }
+
+      // Get real visitor count from visitor_sessions table
+      // Use deduplication: COUNT(DISTINCT COALESCE(user_id::text, session_id))
+      const visitorSql = `
+        SELECT COUNT(DISTINCT COALESCE(user_id::text, session_id))::int as visitors
+        FROM visitor_sessions
+        WHERE ${visitorDateCondition}
+      `;
 
       // Get funnel metrics
       const funnelSql = `
         SELECT
-          -- Page visits (estimated from sessions - this would need actual analytics data)
-          COUNT(DISTINCT CASE WHEN c.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN c.user_id END)::int as visitors,
-
           -- Cart creation
           COUNT(DISTINCT c.id)::int as carts_created,
 
@@ -1456,12 +1467,17 @@ export class AdminOrderController {
 
         FROM carts c
         FULL OUTER JOIN orders o ON o.cart_id::integer = c.id
-        WHERE (c.created_at >= CURRENT_DATE - INTERVAL '30 days' OR c.created_at IS NULL)
-        AND (o.created_at >= CURRENT_DATE - INTERVAL '30 days' OR o.created_at IS NULL)
+        WHERE (c.created_at >= CURRENT_DATE - INTERVAL '${dateInterval}' OR c.created_at IS NULL)
+        AND (o.created_at >= CURRENT_DATE - INTERVAL '${dateInterval}' OR o.created_at IS NULL)
       `;
 
-      const result = await pool.query(funnelSql);
-      const data = result.rows[0];
+      const [visitorResult, funnelResult] = await Promise.all([
+        pool.query(visitorSql),
+        pool.query(funnelSql)
+      ]);
+
+      const visitors = visitorResult.rows[0].visitors || 0;
+      const data = funnelResult.rows[0];
 
       // Calculate funnel conversion rates
       const funnel = {
@@ -1469,45 +1485,45 @@ export class AdminOrderController {
         stages: [
           {
             name: 'Visitors',
-            count: data.visitors || 0,
+            count: visitors,
             conversion_rate: 100
           },
           {
             name: 'Carts Created',
             count: data.carts_created || 0,
-            conversion_rate: data.visitors > 0 ? (data.carts_created / data.visitors) * 100 : 0
+            conversion_rate: visitors > 0 ? ((data.carts_created || 0) / visitors) * 100 : 0
           },
           {
             name: 'Checkouts Initiated',
             count: data.checkouts_initiated || 0,
-            conversion_rate: data.carts_created > 0 ? (data.checkouts_initiated / data.carts_created) * 100 : 0
+            conversion_rate: (data.carts_created || 0) > 0 ? ((data.checkouts_initiated || 0) / (data.carts_created || 0)) * 100 : 0
           },
           {
             name: 'Successful Payments',
             count: data.successful_payments || 0,
-            conversion_rate: data.checkouts_initiated > 0 ? (data.successful_payments / data.checkouts_initiated) * 100 : 0
+            conversion_rate: (data.checkouts_initiated || 0) > 0 ? ((data.successful_payments || 0) / (data.checkouts_initiated || 0)) * 100 : 0
           },
           {
             name: 'Completed Orders',
             count: data.completed_orders || 0,
-            conversion_rate: data.successful_payments > 0 ? (data.completed_orders / data.successful_payments) * 100 : 0
+            conversion_rate: (data.successful_payments || 0) > 0 ? ((data.completed_orders || 0) / (data.successful_payments || 0)) * 100 : 0
           }
         ],
         drop_off_points: [
           {
             from: 'Visitors to Carts',
-            drop_off: data.visitors - data.carts_created,
-            rate: data.visitors > 0 ? ((data.visitors - data.carts_created) / data.visitors) * 100 : 0
+            drop_off: visitors - (data.carts_created || 0),
+            rate: visitors > 0 ? ((visitors - (data.carts_created || 0)) / visitors) * 100 : 0
           },
           {
             from: 'Carts to Checkout',
-            drop_off: data.carts_created - data.checkouts_initiated,
-            rate: data.carts_created > 0 ? ((data.carts_created - data.checkouts_initiated) / data.carts_created) * 100 : 0
+            drop_off: (data.carts_created || 0) - (data.checkouts_initiated || 0),
+            rate: (data.carts_created || 0) > 0 ? (((data.carts_created || 0) - (data.checkouts_initiated || 0)) / (data.carts_created || 0)) * 100 : 0
           },
           {
             from: 'Checkout to Payment',
-            drop_off: data.checkouts_initiated - data.successful_payments,
-            rate: data.checkouts_initiated > 0 ? ((data.checkouts_initiated - data.successful_payments) / data.checkouts_initiated) * 100 : 0
+            drop_off: (data.checkouts_initiated || 0) - (data.successful_payments || 0),
+            rate: (data.checkouts_initiated || 0) > 0 ? (((data.checkouts_initiated || 0) - (data.successful_payments || 0)) / (data.checkouts_initiated || 0)) * 100 : 0
           }
         ]
       };

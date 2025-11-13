@@ -33,11 +33,13 @@ import InternationalShipping from "./pages/InternationalShipping";
 import IntellectualProperties from "./pages/IntellectualProperties";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import FAQ from "./pages/FAQ";
+import Unsubscribe from "./pages/Unsubscribe";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Wishlist from "./pages/Wishlist";
 import CookieNotice from "./components/CookieNotice";
+import { AnalyticsTracker } from "./components/AnalyticsTracker";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <BrowserRouter>
+          <AnalyticsTracker />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/shop" element={<Shop />} />
@@ -82,6 +85,7 @@ const App = () => (
             <Route path="/intellectual-properties" element={<IntellectualProperties />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/unsubscribe" element={<Unsubscribe />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -259,6 +259,7 @@ export class ProductService {
           tax_class, shipping_class,
           categories, tags, meta_data,
           seo_title, seo_description,
+          note,
           region, product_group_id
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
@@ -268,7 +269,8 @@ export class ProductService {
           $18, $19,
           $20, $21, $22,
           $23, $24,
-          $25, $26
+          $25,
+          $26, $27
         )
         RETURNING *
       `;
@@ -299,6 +301,7 @@ export class ProductService {
         data.meta_data ? JSON.stringify(data.meta_data) : null,
         data.seo_title || data.name,
         data.seo_description || data.short_description || null,
+        data.note || null,
         region,
         productGroupId
       ];
@@ -358,7 +361,7 @@ export class ProductService {
         'name', 'slug', 'description', 'short_description', 'type', 'status', 'featured',
         'weight_lbs', 'length_in', 'width_in', 'height_in',
         'tax_class', 'shipping_class', 'categories', 'tags', 'meta_data',
-        'seo_title', 'seo_description'
+        'seo_title', 'seo_description', 'note'
       ];
 
       // Fields that are region-specific (should NOT be synced)
@@ -402,12 +405,12 @@ export class ProductService {
         if (hasGroup) sharedFieldsToSync['slug'] = data.slug;
       }
       if (data.description !== undefined) {
-        addField('description', data.description);
-        if (hasGroup) sharedFieldsToSync['description'] = data.description;
+        forceAddField('description', data.description || null);
+        if (hasGroup) sharedFieldsToSync['description'] = data.description || null;
       }
       if (data.short_description !== undefined) {
-        addField('short_description', data.short_description);
-        if (hasGroup) sharedFieldsToSync['short_description'] = data.short_description;
+        forceAddField('short_description', data.short_description || null);
+        if (hasGroup) sharedFieldsToSync['short_description'] = data.short_description || null;
       }
       if (data.type !== undefined) {
         addField('type', data.type);
@@ -467,8 +470,12 @@ export class ProductService {
       }
       
       // Stock fields - NOT synced (region-specific)
-      addField('stock', data.stock_quantity);
-      addField('low_stock_amount', data.low_stock_threshold);
+      if (data.stock_quantity !== undefined) {
+        addField('stock', data.stock_quantity);
+      }
+      if (data.low_stock_threshold !== undefined) {
+        addField('low_stock_amount', data.low_stock_threshold);
+      }
       
       if (data.tax_class !== undefined) {
         addField('tax_class', data.tax_class);
@@ -479,14 +486,18 @@ export class ProductService {
         if (hasGroup) sharedFieldsToSync['shipping_class'] = data.shipping_class;
       }
       
-      if (data.categories) {
-        const categoriesJson = JSON.stringify(data.categories);
-        addField('categories', categoriesJson);
+      if (data.categories !== undefined) {
+        const categoriesJson = data.categories && data.categories.length > 0 
+          ? JSON.stringify(data.categories) 
+          : null;
+        forceAddField('categories', categoriesJson);
         if (hasGroup) sharedFieldsToSync['categories'] = categoriesJson;
       }
-      if (data.tags) {
-        const tagsJson = JSON.stringify(data.tags);
-        addField('tags', tagsJson);
+      if (data.tags !== undefined) {
+        const tagsJson = data.tags && data.tags.length > 0 
+          ? JSON.stringify(data.tags) 
+          : null;
+        forceAddField('tags', tagsJson);
         if (hasGroup) sharedFieldsToSync['tags'] = tagsJson;
       }
       if (data.meta_data) {
@@ -502,6 +513,12 @@ export class ProductService {
       if (data.seo_description !== undefined) {
         addField('seo_description', data.seo_description);
         if (hasGroup) sharedFieldsToSync['seo_description'] = data.seo_description;
+      }
+      
+      // Note field - allow null and empty string, use forceAddField to ensure it's included
+      if ('note' in data) {
+        forceAddField('note', data.note === '' ? null : data.note);
+        if (hasGroup) sharedFieldsToSync['note'] = data.note === '' ? null : data.note;
       }
       
       // Region support (these shouldn't change, but handle if needed)
@@ -529,8 +546,15 @@ export class ProductService {
       `;
 
       values.push(id);
+      
+      console.log('🔧 Updating product SQL:', sql);
+      console.log('🔧 Update values:', values);
+      console.log('🔧 Update fields count:', updateFields.length);
+      
       const result = await client.query(sql, values);
       const updatedProduct = result.rows[0];
+      
+      console.log('✅ Product updated, returned data:', JSON.stringify(updatedProduct, null, 2));
 
       // If product is in a group and we have shared fields to sync, update the paired product
       if (hasGroup && pairedProductId && Object.keys(sharedFieldsToSync).length > 0) {
@@ -635,7 +659,11 @@ export class ProductService {
           syncFields.push(`seo_description = $${syncParamCounter++}`);
           syncValues.push(sharedFieldsToSync.seo_description);
         }
-
+        if ('note' in sharedFieldsToSync) {
+          syncFields.push(`note = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.note);
+        }
+        
         if (syncFields.length > 0) {
           syncFields.push(`updated_at = CURRENT_TIMESTAMP`);
           syncValues.push(pairedProductId);
@@ -678,6 +706,7 @@ export class ProductService {
     regular_price: number;
     categories?: string[];
     tags?: string[];
+    note?: string | null;
     sku: string;
     stock_quantity_us: number;
     stock_quantity_eu: number;
@@ -722,6 +751,7 @@ export class ProductService {
           stock, low_stock_amount, in_stock,
           categories, tags,
           seo_title, seo_description,
+          note,
           region, product_group_id
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8,
@@ -729,7 +759,8 @@ export class ProductService {
           $10, 5, $11,
           $12, $13,
           $14, $15,
-          $16, $17
+          $16,
+          $17, $18
         )
         RETURNING *
       `;
@@ -752,6 +783,7 @@ export class ProductService {
         data.tags ? JSON.stringify(data.tags) : null,
         data.name,
         data.short_description || null,
+        data.note || null,
         'us',
         productGroupId
       ];
@@ -776,6 +808,7 @@ export class ProductService {
         data.tags ? JSON.stringify(data.tags) : null,
         data.name,
         data.short_description || null,
+        data.note || null,
         'eu',
         productGroupId
       ];

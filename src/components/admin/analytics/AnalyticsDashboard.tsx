@@ -22,6 +22,7 @@ const ProductAnalytics = lazy(() => import('./sections/ProductAnalytics').then(m
 const ComparativeAnalytics = lazy(() => import('./sections/ComparativeAnalytics').then(module => ({ default: module.ComparativeAnalytics })));
 const PerformanceAnalytics = lazy(() => import('./sections/PerformanceAnalytics').then(module => ({ default: module.PerformanceAnalytics })));
 const InventoryAnalytics = lazy(() => import('./sections/InventoryAnalytics').then(module => ({ default: module.InventoryAnalytics })));
+const VisitorAnalytics = lazy(() => import('./sections/VisitorAnalytics').then(module => ({ default: module.VisitorAnalytics })));
 
 // Existing dashboard stats interface
 interface DashboardStats {
@@ -121,8 +122,9 @@ export const AnalyticsDashboard = ({ dashboardStats, loading }: AnalyticsDashboa
 
       {/* Analytics Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="visitors">Visitors</TabsTrigger>
           <TabsTrigger value="customers">Customers</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -282,6 +284,13 @@ export const AnalyticsDashboard = ({ dashboardStats, loading }: AnalyticsDashboa
           </CardContent>
         </Card>
       </div>
+        </TabsContent>
+
+        {/* Visitor Analytics Tab */}
+        <TabsContent value="visitors" className="space-y-6">
+          <Suspense fallback={<LoadingSkeleton type="section" />}>
+            <VisitorAnalytics />
+          </Suspense>
         </TabsContent>
 
         {/* Customer Analytics Tab */}

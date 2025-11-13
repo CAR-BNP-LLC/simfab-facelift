@@ -207,5 +207,37 @@ export class EmailTemplateWrapper {
       </table>
     `;
   }
+
+  /**
+   * Wrap marketing email content with SimFab branded template and unsubscribe footer
+   * This ensures GDPR compliance by always including an unsubscribe link
+   */
+  static wrapMarketingEmail(
+    content: string,
+    unsubscribeToken: string,
+    headerTitle?: string,
+    headerImage?: string
+  ): string {
+    const baseUrl = process.env.FRONTEND_URL 
+      || process.env.VITE_FRONTEND_URL 
+      || process.env.API_URL?.replace('/api', '') 
+      || (process.env.NODE_ENV === 'production' ? 'https://simfab.com' : 'http://localhost:5173');
+    
+    const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
+    
+    // Add unsubscribe footer to content
+    const contentWithUnsubscribe = `
+      ${content}
+      <div style="margin-top: 40px; padding-top: 30px; border-top: 1px solid ${this.BORDER_COLOR};">
+        <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6; text-align: center;">
+          If you no longer wish to receive these emails, you can 
+          <a href="${unsubscribeUrl}" style="color: ${this.BRAND_COLOR}; text-decoration: underline;">unsubscribe here</a>.
+        </p>
+      </div>
+    `;
+    
+    // Use the regular wrap method with the content that includes unsubscribe
+    return this.wrap(contentWithUnsubscribe, headerTitle, headerImage);
+  }
 }
 

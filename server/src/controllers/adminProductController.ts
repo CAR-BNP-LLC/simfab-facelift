@@ -101,7 +101,7 @@ export class AdminProductController {
     try {
       const {
         name, slug, description, short_description, type, status, featured,
-        regular_price, categories, tags,
+        regular_price, categories, tags, note,
         sku,
         stock_quantity_us, stock_quantity_eu
       } = req.body;
@@ -117,6 +117,7 @@ export class AdminProductController {
         regular_price,
         categories,
         tags,
+        note,
         sku,
         stock_quantity_us,
         stock_quantity_eu
@@ -138,10 +139,14 @@ export class AdminProductController {
       const updateData: Partial<UpdateProductDto> = req.body;
 
       // Log the request for debugging
+      console.log('📝 Updating product:', productId, 'with data:', JSON.stringify(updateData, null, 2));
+      
       const product = await this.productService.updateProduct(productId, updateData);
 
+      console.log('✅ Product updated successfully:', product.id);
       res.json(successResponse(product, 'Product updated successfully'));
     } catch (error) {
+      console.error('❌ Error updating product:', error);
       next(error);
     }
   };

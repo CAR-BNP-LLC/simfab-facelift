@@ -12,6 +12,7 @@ router.post('/password-reset/request', AuthController.requestPasswordReset);
 router.post('/password-reset/reset', AuthController.resetPassword);
 router.post('/newsletter/subscribe', AuthController.subscribeNewsletter);
 router.post('/newsletter/unsubscribe', AuthController.unsubscribeNewsletter);
+router.get('/newsletter/unsubscribe', AuthController.unsubscribeByToken);
 
 // Protected routes
 router.get('/profile', requireAuth, AuthController.getProfile);

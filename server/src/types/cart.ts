@@ -103,6 +103,7 @@ export interface Coupon {
   start_date: Date | null;
   end_date: Date | null;
   is_active: boolean;
+  region: 'us' | 'eu'; // Region of the coupon (us or eu). Coupons can only be applied to carts from the same region.
   applicable_products: number[] | null;
   applicable_categories: number[] | null;
   excluded_products: number[] | null;

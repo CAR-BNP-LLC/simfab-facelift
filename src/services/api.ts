@@ -353,6 +353,8 @@ export interface Product {
   sale_start_date?: string | null;
   sale_end_date?: string | null;
   sale_label?: string | null;
+  // Product note
+  note?: string | null;
 }
 
 export interface ProductWithDetails extends Product {
@@ -2020,6 +2022,237 @@ export const regionSettingsAPI = {
     }>(`/api/admin/settings/regions/${region}/${key}`, {
       method: 'PUT',
       body: JSON.stringify({ value }),
+      credentials: 'include',
+    });
+  },
+};
+
+// ============================================================================
+// SITE NOTICE API
+// ============================================================================
+
+export interface SiteNotice {
+  id: number;
+  message: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// ============================================================================
+// MARKETING CAMPAIGNS API
+// ============================================================================
+
+export interface MarketingCampaign {
+  id: number;
+  name: string;
+  subject: string;
+  content: string;
+  status: 'draft' | 'sending' | 'sent' | 'cancelled';
+  sent_count: number;
+  created_by?: number;
+  created_at: string;
+  sent_at?: string;
+  updated_at: string;
+}
+
+export interface CampaignStats {
+  total_sent: number;
+  total_opened: number;
+  total_clicked: number;
+  total_unsubscribed: number;
+  open_rate: number;
+  click_rate: number;
+  unsubscribe_rate: number;
+}
+
+export const marketingCampaignAPI = {
+  /**
+   * List all marketing campaigns
+   */
+  async listCampaigns(filters?: { page?: number; limit?: number; status?: string }) {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+    if (filters?.status) params.append('status', filters.status);
+
+    return apiRequest<{
+      success: boolean;
+      data: {
+        campaigns: MarketingCampaign[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+        };
+      };
+    }>(`/api/admin/marketing-campaigns?${params.toString()}`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Get single campaign
+   */
+  async getCampaign(id: number) {
+    return apiRequest<{
+      success: boolean;
+      data: MarketingCampaign;
+    }>(`/api/admin/marketing-campaigns/${id}`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Create new campaign
+   */
+  async createCampaign(data: { name: string; subject: string; content: string }) {
+    return apiRequest<{
+      success: boolean;
+      data: MarketingCampaign;
+      message: string;
+    }>('/api/admin/marketing-campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Update campaign
+   */
+  async updateCampaign(id: number, data: { name?: string; subject?: string; content?: string; status?: string }) {
+    return apiRequest<{
+      success: boolean;
+      data: MarketingCampaign;
+      message: string;
+    }>(`/api/admin/marketing-campaigns/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Send campaign to all eligible users
+   */
+  async sendCampaign(id: number) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        campaign_id: number;
+        total_recipients: number;
+        sent_count: number;
+        error_count: number;
+      };
+      message: string;
+    }>(`/api/admin/marketing-campaigns/${id}/send`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Get campaign statistics
+   */
+  async getCampaignStats(id: number) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        campaign: MarketingCampaign;
+        stats: CampaignStats;
+      };
+    }>(`/api/admin/marketing-campaigns/${id}/stats`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Get count of eligible recipients
+   */
+  async getEligibleCount() {
+    return apiRequest<{
+      success: boolean;
+      data: { count: number };
+    }>('/api/admin/marketing-campaigns/eligible-count', {
+      method: 'GET',
+      credentials: 'include',
+    });
+  },
+};
+
+export const siteNoticeAPI = {
+  /**
+   * Get active site notice (public)
+   */
+  async getActiveNotice() {
+    return apiRequest<{
+      success: boolean;
+      data: SiteNotice | null;
+      message: string;
+    }>('/api/site-notices/active', {
+      method: 'GET',
+    });
+  },
+
+  /**
+   * Get all site notices (admin)
+   */
+  async getAllNotices() {
+    return apiRequest<{
+      success: boolean;
+      data: SiteNotice[];
+      message: string;
+    }>('/api/admin/site-notices', {
+      method: 'GET',
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Create site notice (admin)
+   */
+  async createNotice(message: string, isActive: boolean = true) {
+    return apiRequest<{
+      success: boolean;
+      data: SiteNotice;
+      message: string;
+    }>('/api/admin/site-notices', {
+      method: 'POST',
+      body: JSON.stringify({ message, is_active: isActive }),
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Update site notice (admin)
+   */
+  async updateNotice(id: number, message: string, isActive: boolean) {
+    return apiRequest<{
+      success: boolean;
+      data: SiteNotice;
+      message: string;
+    }>(`/api/admin/site-notices/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ message, is_active: isActive }),
+      credentials: 'include',
+    });
+  },
+
+  /**
+   * Delete site notice (admin)
+   */
+  async deleteNotice(id: number) {
+    return apiRequest<{
+      success: boolean;
+      data: null;
+      message: string;
+    }>(`/api/admin/site-notices/${id}`, {
+      method: 'DELETE',
       credentials: 'include',
     });
   },

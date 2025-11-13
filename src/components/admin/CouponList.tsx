@@ -36,6 +36,7 @@ interface Coupon {
   start_date: string | null;
   end_date: string | null;
   is_active: boolean;
+  region?: 'us' | 'eu';
   created_at: string;
 }
 
@@ -181,6 +182,7 @@ export default function CouponList({ onCreateClick, onEditClick, onDeleteClick, 
                 <TableRow>
                   <TableHead>Code</TableHead>
                   <TableHead>Discount</TableHead>
+                  <TableHead>Region</TableHead>
                   <TableHead>Usage</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Valid Period</TableHead>
@@ -207,6 +209,11 @@ export default function CouponList({ onCreateClick, onEditClick, onDeleteClick, 
                           Min: ${coupon.minimum_order_amount.toFixed(2)}
                         </div>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {coupon.region?.toUpperCase() || 'US'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {coupon.usage_limit ? (

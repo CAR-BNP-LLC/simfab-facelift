@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI, User } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { linkSessionToUser } from '@/utils/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -51,6 +52,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authAPI.login({ email, password, rememberMe });
       console.log('Login successful:', response.data.user);
       setUser(response.data.user);
+      
+      // Link analytics session to user
+      try {
+        await linkSessionToUser();
+      } catch (analyticsError) {
+        console.warn('Failed to link analytics session:', analyticsError);
+      }
+      
       toast({
         title: 'Welcome back!',
         description: `Logged in as ${response.data.user.email}`,
@@ -71,6 +80,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const response = await authAPI.register(data);
       setUser(response.data.user);
+      
+      // Link analytics session to user
+      try {
+        await linkSessionToUser();
+      } catch (analyticsError) {
+        console.warn('Failed to link analytics session:', analyticsError);
+      }
+      
       toast({
         title: 'Account created!',
         description: response.message || 'Please check your email to verify your account.',

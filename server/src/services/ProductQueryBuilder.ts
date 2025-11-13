@@ -56,6 +56,7 @@ export class ProductQueryBuilder {
         p.status, p.featured, p.price_min, p.price_max, p.meta_data,
         p.seo_title, p.seo_description,
         p.is_on_sale, p.sale_start_date, p.sale_end_date, p.sale_label,
+        p.note,
         p.region, p.product_group_id, p.deleted_at,
         COALESCE(
           (SELECT json_agg(row_to_json(pi))

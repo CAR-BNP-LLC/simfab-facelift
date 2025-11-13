@@ -88,6 +88,9 @@ export interface Product {
   seo_title: string | null;
   seo_description: string | null;
   
+  // Product note
+  note: string | null; // Optional note displayed on product detail page
+  
   // Timestamps
   created_at: Date;
   updated_at: Date;
@@ -328,6 +331,9 @@ export interface CreateProductDto {
   // SEO
   seo_title?: string;
   seo_description?: string;
+  
+  // Product note
+  note?: string; // Optional note displayed on product detail page
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> {

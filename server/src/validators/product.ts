@@ -15,7 +15,7 @@ export const createProductSchema = Joi.object({
   name: Joi.string().min(1).max(255).required(),
   slug: Joi.string().min(3).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
-  short_description: Joi.string().max(500).allow('', null).optional(),
+  short_description: Joi.string().max(1000).allow('', null).optional(),
   type: Joi.string().valid(...Object.values(ProductType)).required(),
   status: Joi.string().valid(...Object.values(ProductStatus)).optional(),
   featured: Joi.boolean().optional(),
@@ -58,7 +58,10 @@ export const createProductSchema = Joi.object({
 
   // SEO
   seo_title: Joi.string().max(255).optional(),
-  seo_description: Joi.string().max(500).optional()
+  seo_description: Joi.string().max(500).optional(),
+
+  // Product note
+  note: Joi.string().max(1000).allow('', null).optional()
 });
 
 export const updateProductSchema = Joi.object({
@@ -66,7 +69,7 @@ export const updateProductSchema = Joi.object({
   name: Joi.string().min(1).max(255).optional(),
   slug: Joi.string().min(3).max(255).optional(),
   description: Joi.string().allow('', null).optional(),
-  short_description: Joi.string().max(500).allow('', null).optional(),
+  short_description: Joi.string().max(1000).allow('', null).optional(),
   type: Joi.string().valid(...Object.values(ProductType)).optional(),
   status: Joi.string().valid(...Object.values(ProductStatus)).optional(),
   featured: Joi.boolean().optional(),
@@ -109,7 +112,10 @@ export const updateProductSchema = Joi.object({
 
   // SEO
   seo_title: Joi.string().max(255).optional(),
-  seo_description: Joi.string().max(500).optional()
+  seo_description: Joi.string().max(500).optional(),
+
+  // Product note
+  note: Joi.string().max(1000).allow('', null).optional()
 }).min(1); // At least one field must be provided
 
 // ============================================================================

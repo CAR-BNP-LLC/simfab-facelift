@@ -70,7 +70,7 @@ export class AdminCouponController {
             minimum_order_amount, maximum_discount_amount,
             usage_limit, usage_count, per_user_limit,
             valid_from as start_date, valid_until as end_date,
-            is_active, applicable_products, applicable_categories, 
+            is_active, region, applicable_products, applicable_categories, 
             excluded_products, created_by, created_at, updated_at
            FROM coupons ${whereClause} ORDER BY created_at DESC LIMIT $${paramCounter} OFFSET $${paramCounter + 1}`,
           [...params, limit, offset]
@@ -110,7 +110,7 @@ export class AdminCouponController {
           minimum_order_amount, maximum_discount_amount,
           usage_limit, usage_count, per_user_limit,
           valid_from as start_date, valid_until as end_date,
-          is_active, applicable_products, applicable_categories, 
+          is_active, region, applicable_products, applicable_categories, 
           excluded_products, created_by, created_at, updated_at
         FROM coupons WHERE id = $1`,
         [id]
@@ -143,6 +143,7 @@ export class AdminCouponController {
         per_user_limit,
         start_date,
         end_date,
+        region,
         applicable_products,
         applicable_categories,
         excluded_products
@@ -151,6 +152,11 @@ export class AdminCouponController {
       // Validate required fields
       if (!code || !type || value === undefined) {
         throw new ValidationError('Code, type, and value are required');
+      }
+
+      // Validate region
+      if (!region || (region !== 'us' && region !== 'eu')) {
+        throw new ValidationError('Region is required and must be either "us" or "eu"');
       }
 
       // Validate value based on type
@@ -173,6 +179,7 @@ export class AdminCouponController {
         per_user_limit: per_user_limit || 1,
         start_date: start_date ? new Date(start_date) : undefined,
         end_date: end_date ? new Date(end_date) : undefined,
+        region,
         applicable_products: Array.isArray(applicable_products) ? applicable_products : undefined,
         applicable_categories: Array.isArray(applicable_categories) ? applicable_categories : undefined,
         excluded_products: Array.isArray(excluded_products) ? excluded_products : undefined
@@ -207,6 +214,11 @@ export class AdminCouponController {
           throw new NotFoundError('Coupon', { couponId: id });
         }
 
+        // Validate region if provided
+        if (req.body.region !== undefined && req.body.region !== 'us' && req.body.region !== 'eu') {
+          throw new ValidationError('Region must be either "us" or "eu"');
+        }
+
         // Build update query - map API field names to database column names
         const updates: string[] = [];
         const values: any[] = [];
@@ -224,6 +236,7 @@ export class AdminCouponController {
           'start_date': { dbField: 'valid_from' },
           'end_date': { dbField: 'valid_until' },
           'is_active': { dbField: 'is_active' },
+          'region': { dbField: 'region' },
           'applicable_products': { dbField: 'applicable_products', jsonField: true },
           'applicable_categories': { dbField: 'applicable_categories', jsonField: true },
           'excluded_products': { dbField: 'excluded_products', jsonField: true }
@@ -282,7 +295,7 @@ export class AdminCouponController {
             minimum_order_amount, maximum_discount_amount,
             usage_limit, usage_count, per_user_limit,
             valid_from as start_date, valid_until as end_date,
-            applicable_products, applicable_categories, excluded_products,
+            region, applicable_products, applicable_categories, excluded_products,
             is_active, created_at, updated_at
         `;
 
