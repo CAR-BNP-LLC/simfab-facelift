@@ -40,7 +40,7 @@ export class ShippingController {
         });
       }
 
-      const { shippingAddress, packageSize = 'M', orderTotal = 0 } = value;
+      const { shippingAddress, packageSize = 'M', orderTotal = 0, cartItems } = value;
 
       // Calculate shipping
       const calculations = await this.shippingService.calculateShipping({
@@ -55,7 +55,8 @@ export class ShippingController {
           state: shippingAddress.state,
           postalCode: shippingAddress.postalCode,
           country: shippingAddress.country
-        }
+        },
+        cartItems: cartItems || []
       });
 
       // Convert to ShippingMethod format

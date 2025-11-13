@@ -1787,6 +1787,11 @@ export const shippingAPI = {
     };
     packageSize?: 'S' | 'M' | 'L';
     orderTotal?: number;
+    cartItems?: Array<{
+      productId: number;
+      quantity: number;
+      unitPrice: number;
+    }>;
   }) => {
     return apiRequest<{
       success: boolean;

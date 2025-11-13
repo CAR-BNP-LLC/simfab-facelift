@@ -6,15 +6,20 @@
 import { Router } from 'express';
 import { Pool } from 'pg';
 import { AdminSettingsController } from '../../controllers/adminSettingsController';
-import { requireAuthority } from '../../middleware/auth';
+import { requireAuthority, loadUserAuthorities } from '../../middleware/auth';
 import { adminRateLimiter } from '../../middleware/rateLimiter';
+import RBACModel from '../../models/rbac';
 
 export const createAdminSettingsRoutes = (pool: Pool): Router => {
   const router = Router();
   const controller = new AdminSettingsController(pool);
+  const rbacModel = new RBACModel(pool);
 
   // Apply rate limiting to all admin routes
   router.use(adminRateLimiter);
+  
+  // Load user authorities into session for all authenticated routes
+  router.use(loadUserAuthorities(rbacModel));
 
   /**
    * @route   GET /api/admin/settings/regions/:region

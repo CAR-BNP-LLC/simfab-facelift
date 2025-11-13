@@ -229,7 +229,14 @@ export const cartValidation = {
       country: Joi.string().length(2).uppercase().default('US')
     }).required(),
     packageSize: Joi.string().valid('S', 'M', 'L').default('M'),
-    orderTotal: Joi.number().min(0).default(0)
+    orderTotal: Joi.number().min(0).default(0),
+    cartItems: Joi.array().items(
+      Joi.object({
+        productId: Joi.number().integer().positive().required(),
+        quantity: Joi.number().integer().min(1).required(),
+        unitPrice: Joi.number().min(0).required()
+      })
+    ).optional()
   })
 };
 

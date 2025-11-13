@@ -67,7 +67,7 @@ export class AdminSettingsController {
     try {
       const region = req.params.region as 'us' | 'eu';
       const { settings } = req.body;
-      const adminId = (req as any).user?.id;
+      const adminId = req.session?.userId;
 
       if (!adminId) {
         return res.status(401).json({
@@ -104,7 +104,7 @@ export class AdminSettingsController {
       const region = req.params.region as 'us' | 'eu';
       const key = req.params.key;
       const { value } = req.body;
-      const adminId = (req as any).user?.id;
+      const adminId = req.session?.userId;
 
       if (!adminId) {
         return res.status(401).json({

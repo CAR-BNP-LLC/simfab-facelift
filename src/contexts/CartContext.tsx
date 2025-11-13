@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useRegion } from '@/contexts/RegionContext';
+import { CheckoutContext } from '@/contexts/CheckoutContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -80,6 +81,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true); // Start as true since we load cart on mount
   const { toast } = useToast();
   const { region } = useRegion();
+  // Safely access checkout context (may not be available if CheckoutProvider is not a parent)
+  const checkoutContext = useContext(CheckoutContext);
 
   // Load cart on mount
   useEffect(() => {
@@ -213,6 +216,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Refresh cart
       await refreshCart();
+      
+      // Clear shipping selection when cart items change (if checkout context is available)
+      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
     } catch (error) {
       toast({
         title: 'Error',
@@ -250,6 +256,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Refresh cart
       await refreshCart();
+      
+      // Clear shipping selection when cart items change (if checkout context is available)
+      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
     } catch (error) {
       toast({
         title: 'Error',
@@ -288,6 +297,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Refresh cart
       await refreshCart();
+      
+      // Clear shipping selection when cart items change (if checkout context is available)
+      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
     } catch (error) {
       toast({
         title: 'Error',
@@ -320,6 +332,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
 
       setCart(null);
+
+      // Clear shipping selection when cart is cleared (if checkout context is available)
+      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
 
       toast({
         title: 'Cart cleared',

@@ -170,8 +170,23 @@ export class RegionSettingsService {
         );
 
         if (existing.rows.length === 0) {
-          // Setting doesn't exist, skip or create? For now, skip unknown keys
-          console.warn(`Setting "${key}" not found for region "${region}", skipping`);
+          // Setting doesn't exist, create it with appropriate type
+          // Determine type from value
+          let settingType: 'string' | 'number' | 'boolean' | 'json' = 'string';
+          if (typeof value === 'number') {
+            settingType = 'number';
+          } else if (typeof value === 'boolean') {
+            settingType = 'boolean';
+          } else if (typeof value === 'object' && value !== null) {
+            settingType = 'json';
+          }
+
+          await client.query(
+            `INSERT INTO region_settings 
+             (region, setting_key, setting_value, setting_type, is_public, updated_by, updated_at)
+             VALUES ($1, $2, $3, $4, false, $5, CURRENT_TIMESTAMP)`,
+            [region, key, this.stringifySettingValue(value, settingType), settingType, adminId]
+          );
           continue;
         }
 

@@ -67,7 +67,7 @@ const defaultCheckoutState: CheckoutState = {
   isBillingSameAsShipping: true
 };
 
-const CheckoutContext = createContext<CheckoutContextType | undefined>(undefined);
+export const CheckoutContext = createContext<CheckoutContextType | undefined>(undefined);
 
 export const useCheckout = () => {
   const context = useContext(CheckoutContext);

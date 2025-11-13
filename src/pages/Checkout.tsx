@@ -3,7 +3,7 @@
  * Multi-step checkout flow: Cart Review → Address → Shipping → Review → Order
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,6 +138,17 @@ const Checkout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, hasAutoFilled]);
 
+  // Create a signature of cart items to detect any changes (including quantity changes)
+  const cartItemsSignature = React.useMemo(() => {
+    return JSON.stringify(
+      items.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        unitPrice: parseFloat(item.unit_price.toString())
+      })).sort((a, b) => a.productId - b.productId)
+    );
+  }, [items]);
+
   // Fetch shipping rates when address is complete
   useEffect(() => {
     const fetchShippingRates = async () => {
@@ -155,6 +166,13 @@ const Checkout = () => {
 
       setLoadingShipping(true);
       try {
+        // Build cartItems array from cart items
+        const cartItems = items.map(item => ({
+          productId: item.product_id,
+          quantity: item.quantity,
+          unitPrice: parseFloat(item.unit_price.toString())
+        }));
+
         const response = await shippingAPI.calculateShipping({
           shippingAddress: {
             addressLine1: shippingAddress.addressLine1,
@@ -165,12 +183,13 @@ const Checkout = () => {
             country: shippingAddress.country
           },
           packageSize,
-          orderTotal: totals.subtotal
+          orderTotal: totals.subtotal,
+          cartItems: cartItems.length > 0 ? cartItems : undefined
         });
 
         if (response.success && response.data.shippingMethods) {
           setShippingOptions(response.data.shippingMethods);
-          // Auto-select first option if none selected
+          // Auto-select first option if none selected or if shipping was cleared
           if (!selectedShipping && response.data.shippingMethods.length > 0) {
             updateCheckoutState({ 
               selectedShipping: response.data.shippingMethods[0].id 
@@ -199,7 +218,8 @@ const Checkout = () => {
     shippingAddress.country,
     step,
     packageSize,
-    totals.subtotal
+    cartItemsSignature, // Recalculate when cart items change (including quantities)
+    totals.subtotal // Recalculate when cart total changes
   ]);
 
   // Redirect if cart is empty

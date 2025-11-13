@@ -21,13 +21,67 @@ export class FedExService {
 
   constructor(pool: Pool) {
     this.pool = pool;
-    this.loadConfig();
+    // Load config asynchronously - it will be ready before first API call
+    this.loadConfig().catch(error => {
+      console.error('Failed to load FedEx config:', error);
+    });
+  }
+
+  /**
+   * Get warehouse address from database, env var, or default
+   */
+  private async getWarehouseAddress(region: 'us' | 'eu' = 'us'): Promise<FedExAddress> {
+    // Try database first
+    try {
+      const result = await this.pool.query(
+        `SELECT setting_value FROM region_settings 
+         WHERE region = $1 AND setting_key = 'fedex_warehouse_address'`,
+        [region]
+      );
+
+      if (result.rows.length > 0 && result.rows[0].setting_value) {
+        const addressJson = result.rows[0].setting_value;
+        try {
+          const address = typeof addressJson === 'string' ? JSON.parse(addressJson) : addressJson;
+          if (address && address.streetLines && address.city && address.postalCode && address.countryCode) {
+            console.log(`✅ Using warehouse address from database for region: ${region}`);
+            return address as FedExAddress;
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse warehouse address from database:', parseError);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load warehouse address from database:', error);
+    }
+
+    // Fallback to environment variable
+    try {
+      const addressJson = process.env.FEDEX_SHIP_FROM_ADDRESS;
+      if (addressJson) {
+        const address = JSON.parse(addressJson);
+        console.log('✅ Using warehouse address from environment variable');
+        return address as FedExAddress;
+      }
+    } catch (error) {
+      console.warn('Failed to parse FEDEX_SHIP_FROM_ADDRESS:', error);
+    }
+
+    // Fallback to hardcoded default
+    console.warn('⚠️ Using hardcoded default warehouse address. Please configure in admin dashboard or environment variable.');
+    return {
+      streetLines: ['123 Business St'],
+      city: 'Miami',
+      stateOrProvinceCode: 'FL',
+      postalCode: '33101',
+      countryCode: 'US'
+    };
   }
 
   /**
    * Load FedEx configuration from environment variables
    */
-  private loadConfig(): void {
+  private async loadConfig(): Promise<void> {
     const apiKey = process.env.FEDEX_API_KEY;
     const apiSecret = process.env.FEDEX_API_SECRET;
     const accountNumber = process.env.FEDEX_ACCOUNT_NUMBER;
@@ -52,32 +106,8 @@ export class FedExService {
       console.warn('FedEx Account Number not configured. Only LIST rates will be available (no negotiated rates).');
     }
 
-    // Parse ship-from address from environment or use defaults
-    let shipFromAddress: FedExAddress;
-    try {
-      const addressJson = process.env.FEDEX_SHIP_FROM_ADDRESS;
-      if (addressJson) {
-        shipFromAddress = JSON.parse(addressJson);
-      } else {
-        // Default address (should be configured in production)
-        shipFromAddress = {
-          streetLines: ['123 Business St'],
-          city: 'Miami',
-          stateOrProvinceCode: 'FL',
-          postalCode: '33101',
-          countryCode: 'US'
-        };
-      }
-    } catch (error) {
-      console.error('Failed to parse FEDEX_SHIP_FROM_ADDRESS:', error);
-      shipFromAddress = {
-        streetLines: ['123 Business St'],
-        city: 'Miami',
-        stateOrProvinceCode: 'FL',
-        postalCode: '33101',
-        countryCode: 'US'
-      };
-    }
+    // Get ship-from address (default to 'us' region, will be updated per request if needed)
+    const shipFromAddress = await this.getWarehouseAddress('us');
 
     this.config = {
       apiKey,
@@ -301,12 +331,205 @@ export class FedExService {
   }
 
   /**
+   * Build package line items from cart items
+   */
+  private async buildPackageLineItems(
+    cartItems?: Array<{ productId: number; quantity: number; unitPrice: number }>,
+    packageSize: 'S' | 'M' | 'L' = 'M'
+  ): Promise<Array<{
+    weight: { value: number; units: string };
+    dimensions: { length: number; width: number; height: number; units: string };
+  }>> {
+    // If no cart items, use package size mapping
+    if (!cartItems || cartItems.length === 0) {
+      const mapping = this.getPackageSizeMapping(packageSize);
+      return [{
+        weight: { value: mapping.weight, units: 'LB' },
+        dimensions: {
+          length: mapping.dimensions.length,
+          width: mapping.dimensions.width,
+          height: mapping.dimensions.height,
+          units: 'IN'
+        }
+      }];
+    }
+
+    // Query product package data from database
+    const productIds = cartItems.map(item => item.productId);
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(
+        `SELECT id, package_weight, package_weight_unit, package_length, package_width, package_height, package_dimension_unit, name
+         FROM products 
+         WHERE id = ANY($1::int[])`,
+        [productIds]
+      );
+
+      const productsMap = new Map(
+        result.rows.map(row => [row.id, row])
+      );
+
+      const packageLineItems: Array<{
+        weight: { value: number; units: string };
+        dimensions: { length: number; width: number; height: number; units: string };
+      }> = [];
+
+      // Create one package per item (repeat for quantity > 1)
+      for (const item of cartItems) {
+        const product = productsMap.get(item.productId);
+        
+        if (product && product.package_weight && product.package_length && product.package_width && product.package_height) {
+          // Convert weight to lbs
+          let weightLbs = product.package_weight;
+          if (product.package_weight_unit === 'kg') {
+            weightLbs = product.package_weight * 2.20462;
+          }
+
+          // Convert dimensions to inches
+          let lengthIn = product.package_length;
+          let widthIn = product.package_width;
+          let heightIn = product.package_height;
+          if (product.package_dimension_unit === 'cm') {
+            lengthIn = product.package_length / 2.54;
+            widthIn = product.package_width / 2.54;
+            heightIn = product.package_height / 2.54;
+          }
+
+          // Create one package per quantity
+          for (let i = 0; i < item.quantity; i++) {
+            packageLineItems.push({
+              weight: { value: weightLbs, units: 'LB' },
+              dimensions: {
+                length: lengthIn,
+                width: widthIn,
+                height: heightIn,
+                units: 'IN'
+              }
+            });
+          }
+        } else {
+          // Fallback to package size mapping if product data missing
+          console.warn(`Product ${item.productId} missing package dimensions, using packageSize mapping`);
+          const mapping = this.getPackageSizeMapping(packageSize);
+          for (let i = 0; i < item.quantity; i++) {
+            packageLineItems.push({
+              weight: { value: mapping.weight, units: 'LB' },
+              dimensions: {
+                length: mapping.dimensions.length,
+                width: mapping.dimensions.width,
+                height: mapping.dimensions.height,
+                units: 'IN'
+              }
+            });
+          }
+        }
+      }
+
+      if (packageLineItems.length === 0) {
+        const mapping = this.getPackageSizeMapping(packageSize);
+        return [{
+          weight: { value: mapping.weight, units: 'LB' },
+          dimensions: {
+            length: mapping.dimensions.length,
+            width: mapping.dimensions.width,
+            height: mapping.dimensions.height,
+            units: 'IN'
+          }
+        }];
+      }
+
+      return packageLineItems;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Build customs commodities from cart items
+   */
+  private async buildCustomsCommodities(
+    cartItems?: Array<{ productId: number; quantity: number; unitPrice: number }>,
+    packageSize: 'S' | 'M' | 'L' = 'M'
+  ): Promise<Array<{
+    description: string;
+    quantity: number;
+    weight: { value: number; units: string };
+    unitPrice: { amount: number; currency: string };
+    customsValue: { amount: number; currency: string };
+    tariffCode?: string;
+  }>> {
+    // If no cart items, use default
+    if (!cartItems || cartItems.length === 0) {
+      const mapping = this.getPackageSizeMapping(packageSize);
+      return [{
+        description: 'Industrial Equipment',
+        quantity: 1,
+        weight: { value: mapping.weight, units: 'LB' },
+        unitPrice: { amount: 0, currency: 'USD' },
+        customsValue: { amount: 0, currency: 'USD' }
+      }];
+    }
+
+    // Query product data from database
+    const productIds = cartItems.map(item => item.productId);
+    const client = await this.pool.connect();
+    
+    try {
+      const result = await client.query(
+        `SELECT id, package_weight, package_weight_unit, name, tariff_code
+         FROM products 
+         WHERE id = ANY($1::int[])`,
+        [productIds]
+      );
+
+      const productsMap = new Map(
+        result.rows.map(row => [row.id, row])
+      );
+
+      const commodities: Array<{
+        description: string;
+        quantity: number;
+        weight: { value: number; units: string };
+        unitPrice: { amount: number; currency: string };
+        customsValue: { amount: number; currency: string };
+        tariffCode?: string;
+      }> = [];
+
+      for (const item of cartItems) {
+        const product = productsMap.get(item.productId);
+        const productName = product?.name || `Product ${item.productId}`;
+        
+        // Convert weight to lbs
+        let weightLbs = product?.package_weight || this.getPackageSizeMapping(packageSize).weight;
+        if (product?.package_weight_unit === 'kg') {
+          weightLbs = product.package_weight * 2.20462;
+        }
+
+        commodities.push({
+          description: productName,
+          quantity: item.quantity,
+          weight: { value: weightLbs, units: 'LB' },
+          unitPrice: { amount: item.unitPrice, currency: 'USD' },
+          customsValue: { amount: item.unitPrice * item.quantity, currency: 'USD' },
+          tariffCode: product?.tariff_code || undefined
+        });
+      }
+
+      return commodities;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Get shipping rates from FedEx API
    */
   async getRates(
     destinationAddress: FedExAddress,
     packageSize: 'S' | 'M' | 'L',
-    orderValue: number = 100.00
+    orderValue: number = 100.00,
+    cartItems?: Array<{ productId: number; quantity: number; unitPrice: number }>
   ): Promise<FedExRateResult> {
     console.log('🚀 FedEx getRates called:', { destinationAddress, packageSize });
     
@@ -328,16 +551,23 @@ export class FedExService {
       environment: this.config.environment
     });
 
-    // Check cache first
-    const cached = await this.getCachedRate(
-      destinationAddress.countryCode,
-      destinationAddress.postalCode,
-      packageSize,
-      destinationAddress.stateOrProvinceCode
-    );
+    // Only use cache if we don't have cart items (static package size)
+    // When we have cart items, package count and dimensions vary, so we can't cache
+    let cached: FedExRateResult | null = null;
+    if (!cartItems || cartItems.length === 0) {
+      cached = await this.getCachedRate(
+        destinationAddress.countryCode,
+        destinationAddress.postalCode,
+        packageSize,
+        destinationAddress.stateOrProvinceCode
+      );
 
-    if (cached) {
-      return cached;
+      if (cached) {
+        console.log('✅ Using cached rate (no cart items, static package size)');
+        return cached;
+      }
+    } else {
+      console.log('⚠️ Skipping cache - cart items provided, package count/dimensions vary');
     }
 
     try {
@@ -345,8 +575,17 @@ export class FedExService {
       const accessToken = await this.getAccessToken();
       console.log('✅ FedEx access token obtained');
 
-      // Get package mapping
-      const packageMapping = this.getPackageSizeMapping(packageSize);
+      // Build package line items from cart items or use package size mapping
+      const packageLineItems = await this.buildPackageLineItems(cartItems, packageSize);
+      console.log(`📦 Built ${packageLineItems.length} package line items from ${cartItems?.length || 0} cart items`);
+      if (cartItems && cartItems.length > 0) {
+        const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+        console.log(`📊 Cart items breakdown: ${cartItems.map(i => `Product ${i.productId} x${i.quantity}`).join(', ')} (Total quantity: ${totalQuantity})`);
+        console.log(`📦 Package breakdown: ${packageLineItems.length} packages (expected: ${totalQuantity})`);
+        if (packageLineItems.length > 0) {
+          console.log(`📏 First package: ${packageLineItems[0].weight.value}${packageLineItems[0].weight.units}, ${packageLineItems[0].dimensions.length}x${packageLineItems[0].dimensions.width}x${packageLineItems[0].dimensions.height} ${packageLineItems[0].dimensions.units}`);
+        }
+      }
 
       // Check if account number is a placeholder (not a real account)
       const isPlaceholderAccount = !this.config.accountNumber || 
@@ -369,13 +608,17 @@ export class FedExService {
       // Note: accountNumber field is REQUIRED even for LIST-only rates
       const isInternational = destinationAddress.countryCode !== 'US';
       
+      // Determine region for warehouse address (default to 'us', could be enhanced to detect from destination)
+      const region: 'us' | 'eu' = 'us';
+      const shipFromAddress = await this.getWarehouseAddress(region);
+      
       const rateRequest: any = {
         accountNumber: {
           value: accountNumberForRequest
         },
         requestedShipment: {
           shipper: {
-            address: this.config.shipFromAddress
+            address: shipFromAddress
           },
           recipient: {
             address: destinationAddress
@@ -385,18 +628,7 @@ export class FedExService {
           pickupType: 'USE_SCHEDULED_PICKUP',
           blockInsightVisibility: false,
           rateRequestType: isPlaceholderAccount ? ['LIST'] : ['ACCOUNT', 'LIST'],
-          requestedPackageLineItems: [{
-            weight: {
-              value: packageMapping.weight,
-              units: 'LB'
-            },
-            dimensions: {
-              length: packageMapping.dimensions.length,
-              width: packageMapping.dimensions.width,
-              height: packageMapping.dimensions.height,
-              units: 'IN'
-            }
-          }]
+          requestedPackageLineItems: packageLineItems
         },
         rateRequestControlParameters: {
           returnTransitTimes: true,
@@ -406,30 +638,18 @@ export class FedExService {
 
       // Add customs clearance details for international shipments
       if (isInternational) {
+        const commodities = await this.buildCustomsCommodities(cartItems, packageSize);
+        const totalCustomsValue = commodities.reduce((sum, c) => sum + c.customsValue.amount, 0);
+        
         rateRequest.requestedShipment.customsClearanceDetail = {
           dutiesPayment: {
             paymentType: 'SENDER'
           },
           customsValue: {
-            amount: orderValue,
+            amount: totalCustomsValue || orderValue,
             currency: 'USD'
           },
-          commodities: [{
-            description: 'Industrial Equipment',
-            quantity: 1,
-            weight: {
-              value: packageMapping.weight,
-              units: 'LB'
-            },
-            unitPrice: {
-              amount: orderValue,
-              currency: 'USD'
-            },
-            customsValue: {
-              amount: orderValue,
-              currency: 'USD'
-            }
-          }]
+          commodities: commodities
         };
       }
 
@@ -497,17 +717,40 @@ export class FedExService {
       }
 
       // Check for alerts/errors in response
+      // Only treat ERROR type alerts as failures; NOTE and WARNING are informational
       if (data.output.alerts && data.output.alerts.length > 0) {
-        console.error('⚠️ FedEx API alerts:', data.output.alerts);
-        const alertMessages = data.output.alerts.map((a: any) => `${a.code}: ${a.message}`).join('; ');
-        return {
-          success: false,
-          error: {
-            code: 'API_ALERT',
-            message: alertMessages
-          },
-          rawResponse: data
-        };
+        const errorAlerts = data.output.alerts.filter((a: any) => a.alertType === 'ERROR');
+        const warningAlerts = data.output.alerts.filter((a: any) => a.alertType === 'WARNING');
+        const noteAlerts = data.output.alerts.filter((a: any) => a.alertType === 'NOTE');
+        
+        // Log all alerts for debugging
+        if (errorAlerts.length > 0) {
+          console.error('❌ FedEx API ERROR alerts:', errorAlerts);
+        }
+        if (warningAlerts.length > 0) {
+          console.warn('⚠️ FedEx API WARNING alerts:', warningAlerts);
+        }
+        if (noteAlerts.length > 0) {
+          console.log('ℹ️ FedEx API NOTE alerts:', noteAlerts);
+        }
+        
+        // Only fail on ERROR type alerts
+        if (errorAlerts.length > 0) {
+          const alertMessages = errorAlerts.map((a: any) => `${a.code}: ${a.message}`).join('; ');
+          return {
+            success: false,
+            error: {
+              code: 'API_ALERT',
+              message: alertMessages
+            },
+            rawResponse: data
+          };
+        }
+        
+        // Log warnings but continue processing
+        if (warningAlerts.length > 0) {
+          console.warn('⚠️ FedEx API warnings (continuing):', warningAlerts.map((a: any) => `${a.code}: ${a.message}`).join('; '));
+        }
       }
 
       if (!data.output.rateReplyDetails || data.output.rateReplyDetails.length === 0) {
@@ -628,14 +871,19 @@ export class FedExService {
         rawResponse: data
       };
 
-      // Cache the result
-      await this.cacheRate(
-        destinationAddress.countryCode,
-        destinationAddress.postalCode,
-        packageSize,
-        result,
-        destinationAddress.stateOrProvinceCode
-      );
+      // Only cache if we don't have cart items (static package size)
+      // When we have cart items, package count and dimensions vary, so we can't cache
+      if (!cartItems || cartItems.length === 0) {
+        await this.cacheRate(
+          destinationAddress.countryCode,
+          destinationAddress.postalCode,
+          packageSize,
+          result,
+          destinationAddress.stateOrProvinceCode
+        );
+      } else {
+        console.log('⚠️ Not caching rate - cart items provided, package count/dimensions vary');
+      }
 
       return result;
     } catch (error) {

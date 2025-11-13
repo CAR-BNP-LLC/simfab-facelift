@@ -186,7 +186,12 @@ export const loadUserAuthorities = (rbacModel: RBACModel) => {
  */
 export const requireAuthority = (authority: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
+    // First check if user is authenticated
+    if (!req.session || !req.session.userId) {
+      throw new AuthenticationError('Authentication required', ErrorCode.UNAUTHORIZED);
+    }
 
+    // Then check if user has the required authority
     if (!req.session.authorities || !req.session.authorities.includes(authority)) {
       throw new AuthorizationError(
         `Authority '${authority}' required`,

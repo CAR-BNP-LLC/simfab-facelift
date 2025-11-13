@@ -13,6 +13,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { regionSettingsAPI } from '@/services/api';
 
+interface WarehouseAddress {
+  streetLines: string[];
+  city: string;
+  stateOrProvinceCode: string;
+  postalCode: string;
+  countryCode: string;
+}
+
 interface SettingsForm {
   admin_email: string;
   phone_number: string;
@@ -23,6 +31,7 @@ interface SettingsForm {
   tax_rate: string;
   free_shipping_threshold: string;
   site_name: string;
+  fedex_warehouse_address?: WarehouseAddress;
 }
 
 export default function SettingsTab() {
@@ -37,6 +46,13 @@ export default function SettingsTab() {
     tax_rate: '0.08',
     free_shipping_threshold: '500',
     site_name: 'SimFab',
+    fedex_warehouse_address: {
+      streetLines: [''],
+      city: '',
+      stateOrProvinceCode: '',
+      postalCode: '',
+      countryCode: 'US',
+    },
   });
   const [euSettings, setEuSettings] = useState<SettingsForm>({
     admin_email: '',
@@ -48,6 +64,13 @@ export default function SettingsTab() {
     tax_rate: '0.19',
     free_shipping_threshold: '500',
     site_name: 'SimFab',
+    fedex_warehouse_address: {
+      streetLines: [''],
+      city: '',
+      stateOrProvinceCode: '',
+      postalCode: '',
+      countryCode: 'US',
+    },
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -75,6 +98,13 @@ export default function SettingsTab() {
           tax_rate: settings.tax_rate?.toString() || (region === 'eu' ? '0.19' : '0.08'),
           free_shipping_threshold: settings.free_shipping_threshold?.toString() || '500',
           site_name: settings.site_name || 'SimFab',
+          fedex_warehouse_address: settings.fedex_warehouse_address || {
+            streetLines: [''],
+            city: '',
+            stateOrProvinceCode: '',
+            postalCode: '',
+            countryCode: region === 'eu' ? 'DE' : 'US',
+          },
         };
 
         if (region === 'us') {
@@ -107,6 +137,9 @@ export default function SettingsTab() {
           // Convert numeric strings to numbers where appropriate
           if (key === 'tax_rate' || key === 'free_shipping_threshold') {
             settingsToUpdate[key] = parseFloat(value) || 0;
+          } else if (key === 'fedex_warehouse_address') {
+            // Keep warehouse address as object for JSON type
+            settingsToUpdate[key] = value;
           } else {
             settingsToUpdate[key] = value;
           }
@@ -235,6 +268,94 @@ export default function SettingsTab() {
                   </div>
                 </div>
 
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Warehouse Address (FedEx)</h3>
+                  <CardDescription className="mb-4">
+                    This address is used as the ship-from address for FedEx shipping calculations.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="us_warehouse_street">Street Address *</Label>
+                      <Input
+                        id="us_warehouse_street"
+                        value={usSettings.fedex_warehouse_address?.streetLines[0] || ''}
+                        onChange={(e) => setUsSettings({
+                          ...usSettings,
+                          fedex_warehouse_address: {
+                            ...usSettings.fedex_warehouse_address!,
+                            streetLines: [e.target.value]
+                          }
+                        })}
+                        placeholder="123 Business St"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="us_warehouse_city">City *</Label>
+                      <Input
+                        id="us_warehouse_city"
+                        value={usSettings.fedex_warehouse_address?.city || ''}
+                        onChange={(e) => setUsSettings({
+                          ...usSettings,
+                          fedex_warehouse_address: {
+                            ...usSettings.fedex_warehouse_address!,
+                            city: e.target.value
+                          }
+                        })}
+                        placeholder="Miami"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="us_warehouse_state">State/Province Code *</Label>
+                        <Input
+                          id="us_warehouse_state"
+                          value={usSettings.fedex_warehouse_address?.stateOrProvinceCode || ''}
+                          onChange={(e) => setUsSettings({
+                            ...usSettings,
+                            fedex_warehouse_address: {
+                              ...usSettings.fedex_warehouse_address!,
+                              stateOrProvinceCode: e.target.value
+                            }
+                          })}
+                          placeholder="FL"
+                          maxLength={2}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="us_warehouse_postal">Postal Code *</Label>
+                        <Input
+                          id="us_warehouse_postal"
+                          value={usSettings.fedex_warehouse_address?.postalCode || ''}
+                          onChange={(e) => setUsSettings({
+                            ...usSettings,
+                            fedex_warehouse_address: {
+                              ...usSettings.fedex_warehouse_address!,
+                              postalCode: e.target.value
+                            }
+                          })}
+                          placeholder="33101"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="us_warehouse_country">Country Code *</Label>
+                      <Input
+                        id="us_warehouse_country"
+                        value={usSettings.fedex_warehouse_address?.countryCode || 'US'}
+                        onChange={(e) => setUsSettings({
+                          ...usSettings,
+                          fedex_warehouse_address: {
+                            ...usSettings.fedex_warehouse_address!,
+                            countryCode: e.target.value.toUpperCase()
+                          }
+                        })}
+                        placeholder="US"
+                        maxLength={2}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4">
                   <Button onClick={() => handleSave('us')} disabled={saving}>
                     {saving ? (
@@ -320,6 +441,94 @@ export default function SettingsTab() {
                         value={euSettings.site_name}
                         onChange={(e) => setEuSettings({ ...euSettings, site_name: e.target.value })}
                         placeholder="SimFab"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Warehouse Address (FedEx)</h3>
+                  <CardDescription className="mb-4">
+                    This address is used as the ship-from address for FedEx shipping calculations.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="eu_warehouse_street">Street Address *</Label>
+                      <Input
+                        id="eu_warehouse_street"
+                        value={euSettings.fedex_warehouse_address?.streetLines[0] || ''}
+                        onChange={(e) => setEuSettings({
+                          ...euSettings,
+                          fedex_warehouse_address: {
+                            ...euSettings.fedex_warehouse_address!,
+                            streetLines: [e.target.value]
+                          }
+                        })}
+                        placeholder="123 Business St"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_warehouse_city">City *</Label>
+                      <Input
+                        id="eu_warehouse_city"
+                        value={euSettings.fedex_warehouse_address?.city || ''}
+                        onChange={(e) => setEuSettings({
+                          ...euSettings,
+                          fedex_warehouse_address: {
+                            ...euSettings.fedex_warehouse_address!,
+                            city: e.target.value
+                          }
+                        })}
+                        placeholder="Berlin"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="eu_warehouse_state">State/Province Code</Label>
+                        <Input
+                          id="eu_warehouse_state"
+                          value={euSettings.fedex_warehouse_address?.stateOrProvinceCode || ''}
+                          onChange={(e) => setEuSettings({
+                            ...euSettings,
+                            fedex_warehouse_address: {
+                              ...euSettings.fedex_warehouse_address!,
+                              stateOrProvinceCode: e.target.value
+                            }
+                          })}
+                          placeholder="BE"
+                          maxLength={2}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="eu_warehouse_postal">Postal Code *</Label>
+                        <Input
+                          id="eu_warehouse_postal"
+                          value={euSettings.fedex_warehouse_address?.postalCode || ''}
+                          onChange={(e) => setEuSettings({
+                            ...euSettings,
+                            fedex_warehouse_address: {
+                              ...euSettings.fedex_warehouse_address!,
+                              postalCode: e.target.value
+                            }
+                          })}
+                          placeholder="10115"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_warehouse_country">Country Code *</Label>
+                      <Input
+                        id="eu_warehouse_country"
+                        value={euSettings.fedex_warehouse_address?.countryCode || 'DE'}
+                        onChange={(e) => setEuSettings({
+                          ...euSettings,
+                          fedex_warehouse_address: {
+                            ...euSettings.fedex_warehouse_address!,
+                            countryCode: e.target.value.toUpperCase()
+                          }
+                        })}
+                        placeholder="DE"
+                        maxLength={2}
                       />
                     </div>
                   </div>

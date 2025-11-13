@@ -25,11 +25,18 @@ export interface ShippingCalculation {
   };
 }
 
+export interface CartItem {
+  productId: number;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface CalculateShippingRequest {
   country: string;
   state?: string;
   orderTotal: number;
   packageSize: 'S' | 'M' | 'L';
+  cartItems?: CartItem[];
 }
 
 export class ShippingService {
@@ -112,10 +119,11 @@ export class ShippingService {
   private async calculateInternational(
     destinationAddress: FedExAddress,
     packageSize: 'S' | 'M' | 'L',
-    orderTotal: number
+    orderTotal: number,
+    cartItems?: CartItem[]
   ): Promise<ShippingCalculation[]> {
     try {
-      const fedExResult = await this.fedExService.getRates(destinationAddress, packageSize, orderTotal);
+      const fedExResult = await this.fedExService.getRates(destinationAddress, packageSize, orderTotal, cartItems);
 
       // Check for specific errors that mean we need a quote
       if (!fedExResult.success) {
@@ -264,7 +272,7 @@ export class ShippingService {
         countryCode: shippingAddress.country
       };
 
-      return await this.calculateInternational(destinationAddress, packageSize, orderTotal);
+      return await this.calculateInternational(destinationAddress, packageSize, orderTotal, request.cartItems);
     }
 
     // Fallback if address not provided
