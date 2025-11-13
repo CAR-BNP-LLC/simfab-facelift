@@ -31,10 +31,11 @@ export class OrderController {
     try {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
-      const region = req.region; // Get region from middleware
       const orderData: CreateOrderData = req.body;
 
-      const order = await this.orderService.createOrder(sessionId, userId, orderData, region);
+      // OrderService will get the cart and use cart.region as the source of truth
+      // We don't pass region here - let the service get the cart and use its region
+      const order = await this.orderService.createOrder(sessionId, userId, orderData);
 
       // Get customer name from billing address (handle JSONB parsing)
       let customerName = order.customer_email;

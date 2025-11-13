@@ -134,12 +134,16 @@ export class CouponService {
     per_user_limit?: number;
     start_date?: Date;
     end_date?: Date;
+    applicable_products?: number[];
+    applicable_categories?: number[];
+    excluded_products?: number[];
   }): Promise<any> {
     const sql = `
       INSERT INTO coupons (
         code, discount_type, discount_value, description, minimum_order_amount,
-        maximum_discount_amount, usage_limit, per_user_limit, valid_from, valid_until, is_active
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)
+        maximum_discount_amount, usage_limit, per_user_limit, valid_from, valid_until, 
+        applicable_products, applicable_categories, excluded_products, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb, $13::jsonb, true)
       RETURNING 
         id, code, description, 
         discount_type as type, 
@@ -147,6 +151,7 @@ export class CouponService {
         minimum_order_amount, maximum_discount_amount,
         usage_limit, usage_count, per_user_limit,
         valid_from as start_date, valid_until as end_date,
+        applicable_products, applicable_categories, excluded_products,
         is_active, created_at, updated_at
     `;
 
@@ -160,7 +165,10 @@ export class CouponService {
       data.usage_limit || null,
       data.per_user_limit || 1,
       data.start_date || null,
-      data.end_date || null
+      data.end_date || null,
+      data.applicable_products ? JSON.stringify(data.applicable_products) : JSON.stringify([]),
+      data.applicable_categories ? JSON.stringify(data.applicable_categories) : JSON.stringify([]),
+      data.excluded_products ? JSON.stringify(data.excluded_products) : JSON.stringify([])
     ]);
 
     return result.rows[0];

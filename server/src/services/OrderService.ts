@@ -32,16 +32,16 @@ export class OrderService {
   async createOrder(
     sessionId: string | undefined,
     userId: number | undefined,
-    orderData: CreateOrderData,
-    region?: 'us' | 'eu'
+    orderData: CreateOrderData
   ): Promise<OrderWithItems> {
     const client = await this.pool.connect();
 
     try {
       await client.query('BEGIN');
 
-      // Get cart with items, passing region if available
-      const cart = await this.cartService.getCartWithItems(sessionId, userId, region);
+      // Get cart with items - don't pass region, let it find the cart and use cart.region
+      // This ensures we use the cart's region as the source of truth, not the request's region
+      const cart = await this.cartService.getCartWithItems(sessionId, userId);
 
       if (!cart || cart.items.length === 0) {
         throw new ValidationError('Cannot create order with empty cart');
@@ -50,6 +50,9 @@ export class OrderService {
       if (!cart.region) {
         throw new ValidationError('Cart region is missing');
       }
+      
+      // Use cart's region as the source of truth
+      const region = cart.region as 'us' | 'eu';
       
       // Validate cart
       const validation = await this.cartService.validateCartForCheckout(cart.id);

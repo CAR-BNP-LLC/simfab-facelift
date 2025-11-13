@@ -27,41 +27,22 @@ export function detectRegion(req: Request): Region {
   const headerRegion = req.get('X-Region')?.toLowerCase();
   const queryRegion = (req.query.region as string)?.toLowerCase();
   
-  console.log('🔍 Region Detection Debug:', {
-    hostname,
-    headerRegion,
-    queryRegion,
-    DEFAULT_REGION: process.env.DEFAULT_REGION,
-    'req.query': req.query,
-    'req.headers': {
-      'x-region': req.get('X-Region'),
-      'host': req.get('host')
-    }
-  });
-  
   // Production: Check hostname for eu.simfab.com
   if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
-    console.log('✅ Detected EU from hostname:', hostname);
     return 'eu';
   }
   
   // Development/Testing: Check X-Region header
   if (headerRegion === 'eu' || headerRegion === 'us') {
-    console.log('✅ Detected region from X-Region header:', headerRegion);
-    console.log('📝 Note: Header overrides DEFAULT_REGION env var. If this is wrong, check VITE_DEFAULT_REGION in frontend .env and restart frontend dev server.');
     return headerRegion as Region;
   }
   
   // Development/Testing: Check query parameter
   if (queryRegion === 'eu' || queryRegion === 'us') {
-    console.log('✅ Detected region from query param:', queryRegion);
     return queryRegion as Region;
   }
   
-  // No region provided - client must specify region via header or query param
-  // This ensures the client is always in control of region selection
-  console.error('❌ No region detected! Client must provide region via X-Region header or ?region query parameter.');
-  // Return null instead of throwing - let controllers handle missing region
+  // No region provided - fallback to 'us'
   return null as any;
 }
 
@@ -71,17 +52,9 @@ export function detectRegion(req: Request): Region {
 export function regionDetection(req: Request, res: Response, next: NextFunction): void {
   try {
     const detectedRegion = detectRegion(req);
-    if (!detectedRegion) {
-      console.error('❌ regionDetection middleware: No region detected for', req.method, req.path);
-      req.region = 'us'; // Fallback to 'us' but log the error
-      console.warn('⚠️ Falling back to "us" region. Client should provide X-Region header or ?region query parameter.');
-    } else {
-      req.region = detectedRegion;
-      console.log('🌐 regionDetection middleware: Set req.region =', detectedRegion, 'for', req.method, req.path);
-    }
+    req.region = detectedRegion || 'us'; // Fallback to 'us' if no region detected
     next();
   } catch (error) {
-    console.error('❌ Error in regionDetection middleware:', error);
     req.region = 'us'; // Fallback to 'us' on error
     next();
   }

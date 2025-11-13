@@ -142,7 +142,10 @@ export class AdminCouponController {
         usage_limit,
         per_user_limit,
         start_date,
-        end_date
+        end_date,
+        applicable_products,
+        applicable_categories,
+        excluded_products
       } = req.body;
 
       // Validate required fields
@@ -169,7 +172,10 @@ export class AdminCouponController {
         usage_limit,
         per_user_limit: per_user_limit || 1,
         start_date: start_date ? new Date(start_date) : undefined,
-        end_date: end_date ? new Date(end_date) : undefined
+        end_date: end_date ? new Date(end_date) : undefined,
+        applicable_products: Array.isArray(applicable_products) ? applicable_products : undefined,
+        applicable_categories: Array.isArray(applicable_categories) ? applicable_categories : undefined,
+        excluded_products: Array.isArray(excluded_products) ? excluded_products : undefined
       });
 
       res.status(201).json(successResponse(coupon, 'Coupon created successfully'));
@@ -206,24 +212,51 @@ export class AdminCouponController {
         const values: any[] = [];
         let paramCounter = 1;
 
-        const fieldMapping: Record<string, string> = {
-          'code': 'code',
-          'type': 'discount_type',
-          'value': 'discount_value',
-          'description': 'description',
-          'minimum_order_amount': 'minimum_order_amount',
-          'maximum_discount_amount': 'maximum_discount_amount',
-          'usage_limit': 'usage_limit',
-          'per_user_limit': 'per_user_limit',
-          'start_date': 'valid_from',
-          'end_date': 'valid_until',
-          'is_active': 'is_active'
+        const fieldMapping: Record<string, { dbField: string; jsonField?: boolean }> = {
+          'code': { dbField: 'code' },
+          'type': { dbField: 'discount_type' },
+          'value': { dbField: 'discount_value' },
+          'description': { dbField: 'description' },
+          'minimum_order_amount': { dbField: 'minimum_order_amount' },
+          'maximum_discount_amount': { dbField: 'maximum_discount_amount' },
+          'usage_limit': { dbField: 'usage_limit' },
+          'per_user_limit': { dbField: 'per_user_limit' },
+          'start_date': { dbField: 'valid_from' },
+          'end_date': { dbField: 'valid_until' },
+          'is_active': { dbField: 'is_active' },
+          'applicable_products': { dbField: 'applicable_products', jsonField: true },
+          'applicable_categories': { dbField: 'applicable_categories', jsonField: true },
+          'excluded_products': { dbField: 'excluded_products', jsonField: true }
         };
 
-        for (const [apiField, dbField] of Object.entries(fieldMapping)) {
+        for (const [apiField, mapping] of Object.entries(fieldMapping)) {
           if (req.body[apiField] !== undefined) {
-            updates.push(`${dbField} = $${paramCounter}`);
-            values.push(req.body[apiField]);
+            // JSON stringify array fields, or set to empty array if null/undefined
+            if (mapping.jsonField) {
+              const value = req.body[apiField];
+              // Convert to array format that pg library can handle
+              let jsonValue: any;
+              if (value === null || value === undefined) {
+                jsonValue = [];
+              } else if (Array.isArray(value)) {
+                jsonValue = value;
+              } else if (typeof value === 'string') {
+                // If it's already a JSON string, parse it first
+                try {
+                  jsonValue = JSON.parse(value);
+                } catch {
+                  jsonValue = [];
+                }
+              } else {
+                jsonValue = [];
+              }
+              // Let pg library handle JSONB conversion - it will stringify arrays automatically
+              updates.push(`${mapping.dbField} = $${paramCounter}::jsonb`);
+              values.push(JSON.stringify(jsonValue));
+            } else {
+              updates.push(`${mapping.dbField} = $${paramCounter}`);
+              values.push(req.body[apiField]);
+            }
             paramCounter++;
           }
         }
@@ -234,13 +267,14 @@ export class AdminCouponController {
 
         updates.push(`updated_at = CURRENT_TIMESTAMP`);
 
+        // Add id parameter - paramCounter is already the next available number
         values.push(id);
-        paramCounter++;
+        const whereParamNumber = paramCounter;
 
         const sql = `
           UPDATE coupons
           SET ${updates.join(', ')}
-          WHERE id = $${paramCounter}
+          WHERE id = $${whereParamNumber}
           RETURNING 
             id, code, description, 
             discount_type as type, 
@@ -248,6 +282,7 @@ export class AdminCouponController {
             minimum_order_amount, maximum_discount_amount,
             usage_limit, usage_count, per_user_limit,
             valid_from as start_date, valid_until as end_date,
+            applicable_products, applicable_categories, excluded_products,
             is_active, created_at, updated_at
         `;
 

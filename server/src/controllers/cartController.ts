@@ -156,9 +156,10 @@ export class CartController {
       const { couponCode }: ApplyCouponData = req.body;
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
+      const region = req.region;
 
       // Get cart to get cartId
-      const cart = await this.cartService.getOrCreateCart(sessionId, userId);
+      const cart = await this.cartService.getOrCreateCart(sessionId, userId, region);
 
       if (!cart) {
         throw new ValidationError('Cart not found');
@@ -168,7 +169,7 @@ export class CartController {
       const appliedCoupon = await this.cartService.applyCoupon(cart.id, couponCode);
 
       // Get updated cart with new totals
-      const updatedCart = await this.cartService.getCartWithItems(sessionId, userId);
+      const updatedCart = await this.cartService.getCartWithItems(sessionId, userId, region);
 
       res.json(successResponse({
         coupon: appliedCoupon,
@@ -188,9 +189,10 @@ export class CartController {
     try {
       const sessionId = req.sessionID;
       const userId = req.session?.userId;
+      const region = req.region;
 
       // Get cart
-      const cart = await this.cartService.getOrCreateCart(sessionId, userId);
+      const cart = await this.cartService.getOrCreateCart(sessionId, userId, region);
 
       if (!cart) {
         throw new ValidationError('Cart not found');

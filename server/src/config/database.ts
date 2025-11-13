@@ -1,5 +1,4 @@
 import { Pool, PoolConfig } from 'pg';
-import os from 'os';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -37,8 +36,6 @@ function validateConnectionString(connString: string): void {
 }
 
 validateConnectionString(connectionString);
-const resolvedDatabaseName = getDatabaseName(connectionString) || '(unknown)';
-const hostIdentifier = process.env.HOSTNAME || os.hostname();
 
 // Export helper function to determine if database is local
 export function isLocalDatabase(connString: string): boolean {
@@ -68,28 +65,7 @@ const poolConfig: PoolConfig = {
   connectionTimeoutMillis: 30000, // Return an error after 30 seconds if connection could not be established (increased from 2s for resource-constrained environments)
 };
 
-console.info(
-  `[DB] Initializing connection pool for database '${resolvedDatabaseName}' (host: ${hostIdentifier})`
-);
-
 export const pool = new Pool(poolConfig);
-
-let initialConnectionLogged = false;
-
-pool.on('connect', () => {
-  if (!initialConnectionLogged) {
-    console.info(
-      `[DB] First client connected to '${resolvedDatabaseName}' at ${new Date().toISOString()}`
-    );
-    initialConnectionLogged = true;
-  }
-});
-
-pool.on('remove', () => {
-  console.info(
-    `[DB] Client connection to '${resolvedDatabaseName}' released at ${new Date().toISOString()}`
-  );
-});
 
 async function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

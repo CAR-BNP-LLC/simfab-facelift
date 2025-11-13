@@ -103,6 +103,9 @@ export interface Coupon {
   start_date: Date | null;
   end_date: Date | null;
   is_active: boolean;
+  applicable_products: number[] | null;
+  applicable_categories: number[] | null;
+  excluded_products: number[] | null;
   created_at: Date;
 }
 

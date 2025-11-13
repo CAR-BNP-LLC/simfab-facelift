@@ -1154,9 +1154,9 @@ export class CartService {
         throw new NotFoundError('Cart', { cartId });
       }
       
-      // Get cart items and calculate subtotal
+      // Get cart items with product_id for product filtering
       const itemsResult = await client.query(
-        `SELECT ci.quantity, ci.total_price 
+        `SELECT ci.product_id, ci.quantity, ci.total_price 
          FROM cart_items ci 
          WHERE ci.cart_id = $1`,
         [cartId]
@@ -1166,7 +1166,8 @@ export class CartService {
         throw new ValidationError('Cannot apply coupon to empty cart');
       }
       
-      const subtotal = itemsResult.rows.reduce((sum, item) => 
+      // Calculate total cart subtotal (for minimum order amount check)
+      const cartSubtotal = itemsResult.rows.reduce((sum, item) => 
         sum + parseFloat(item.total_price.toString()), 0
       );
       
@@ -1182,6 +1183,40 @@ export class CartService {
       
       const coupon = couponResult.rows[0];
       
+      // Parse product restrictions from JSONB
+      const applicableProducts: number[] = coupon.applicable_products 
+        ? (Array.isArray(coupon.applicable_products) ? coupon.applicable_products : JSON.parse(coupon.applicable_products))
+        : [];
+      const excludedProducts: number[] = coupon.excluded_products 
+        ? (Array.isArray(coupon.excluded_products) ? coupon.excluded_products : JSON.parse(coupon.excluded_products))
+        : [];
+      
+      // Filter eligible cart items based on product restrictions
+      const eligibleItems = itemsResult.rows.filter(item => {
+        const productId = item.product_id;
+        
+        // If applicable_products is set and not empty, product must be in the list
+        if (applicableProducts.length > 0 && !applicableProducts.includes(productId)) {
+          return false;
+        }
+        
+        // If excluded_products is set and not empty, product must not be in the list
+        if (excludedProducts.length > 0 && excludedProducts.includes(productId)) {
+          return false;
+        }
+        
+        return true;
+      });
+      
+      if (eligibleItems.length === 0) {
+        throw new ValidationError('This coupon cannot be applied to any products in your cart');
+      }
+      
+      // Calculate subtotal only from eligible products (for discount calculation)
+      const eligibleSubtotal = eligibleItems.reduce((sum, item) => 
+        sum + parseFloat(item.total_price.toString()), 0
+      );
+      
       // Validate coupon dates
       const now = new Date();
       if (coupon.valid_from && new Date(coupon.valid_from) > now) {
@@ -1192,8 +1227,9 @@ export class CartService {
         throw new ValidationError('Coupon has expired');
       }
       
-      // Check minimum order amount
-      if (coupon.minimum_order_amount && subtotal < coupon.minimum_order_amount) {
+      // Check minimum order amount against entire cart total, not just eligible products
+      // This ensures customers meet the minimum threshold for the whole order
+      if (coupon.minimum_order_amount && cartSubtotal < coupon.minimum_order_amount) {
         throw new ValidationError(`Minimum order amount of $${coupon.minimum_order_amount} required`);
       }
       
@@ -1218,10 +1254,10 @@ export class CartService {
         }
       }
       
-      // Calculate discount
+      // Calculate discount based on eligible products only
       let discount = 0;
       if (coupon.discount_type === 'percentage') {
-        discount = (subtotal * coupon.discount_value) / 100;
+        discount = (eligibleSubtotal * coupon.discount_value) / 100;
       } else if (coupon.discount_type === 'fixed') {
         discount = coupon.discount_value;
       }
@@ -1231,9 +1267,9 @@ export class CartService {
         discount = coupon.maximum_discount_amount;
       }
       
-      // Discount cannot exceed cart total
-      if (discount > subtotal) {
-        discount = subtotal;
+      // Discount cannot exceed eligible products subtotal
+      if (discount > eligibleSubtotal) {
+        discount = eligibleSubtotal;
       }
       
       discount = Math.round(discount * 100) / 100;

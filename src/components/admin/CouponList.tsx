@@ -43,9 +43,10 @@ interface CouponListProps {
   onCreateClick: () => void;
   onEditClick: (coupon: Coupon) => void;
   onDeleteClick: (coupon: Coupon) => void;
+  refreshTrigger?: number;
 }
 
-export default function CouponList({ onCreateClick, onEditClick, onDeleteClick }: CouponListProps) {
+export default function CouponList({ onCreateClick, onEditClick, onDeleteClick, refreshTrigger }: CouponListProps) {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -53,7 +54,7 @@ export default function CouponList({ onCreateClick, onEditClick, onDeleteClick }
 
   useEffect(() => {
     fetchCoupons();
-  }, [statusFilter]);
+  }, [statusFilter, refreshTrigger]);
 
   const fetchCoupons = async () => {
     setLoading(true);

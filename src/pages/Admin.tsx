@@ -151,6 +151,7 @@ const Admin = () => {
   // Coupon management state
   const [couponFormOpen, setCouponFormOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<any>(null);
+  const [couponRefreshTrigger, setCouponRefreshTrigger] = useState(0);
   
   // CSV import/export state
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
@@ -1058,6 +1059,7 @@ const Admin = () => {
           title: 'Success',
           description: 'Coupon deleted successfully',
         });
+        setCouponRefreshTrigger(prev => prev + 1);
       }
     } catch (error) {
       toast({
@@ -1069,9 +1071,9 @@ const Admin = () => {
   };
 
   const handleCouponSave = () => {
-    // The CouponList will re-fetch automatically
     setCouponFormOpen(false);
     setEditingCoupon(null);
+    setCouponRefreshTrigger(prev => prev + 1);
   };
 
   // Sorting and filtering functions
@@ -2262,6 +2264,7 @@ const Admin = () => {
                 onCreateClick={handleCreateCoupon}
                 onEditClick={handleEditCoupon}
                 onDeleteClick={handleDeleteCoupon}
+                refreshTrigger={couponRefreshTrigger}
               />
             </PermittedFor>
           </TabsContent>
