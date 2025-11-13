@@ -34,6 +34,13 @@ export interface CSVProductRow {
   length_in?: string;
   width_in?: string;
   height_in?: string;
+  package_weight?: string;
+  package_weight_unit?: string; // 'kg' or 'lbs'
+  package_length?: string;
+  package_width?: string;
+  package_height?: string;
+  package_dimension_unit?: string; // 'cm' or 'in'
+  tariff_code?: string;
   tax_class?: string;
   shipping_class?: string;
   categories?: string; // pipe-delimited

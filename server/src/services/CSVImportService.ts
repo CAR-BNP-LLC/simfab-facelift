@@ -353,6 +353,37 @@ export class CSVImportService {
       const parsed = parseFloat(row.height_in);
       if (!isNaN(parsed)) product.height_in = parsed;
     }
+    if (row.package_weight) {
+      const parsed = parseFloat(row.package_weight);
+      if (!isNaN(parsed)) product.package_weight = parsed;
+    }
+    if (row.package_weight_unit) {
+      const unit = row.package_weight_unit.trim().toLowerCase();
+      if (unit === 'kg' || unit === 'lbs') {
+        product.package_weight_unit = unit as 'kg' | 'lbs';
+      }
+    }
+    if (row.package_length) {
+      const parsed = parseFloat(row.package_length);
+      if (!isNaN(parsed)) product.package_length = parsed;
+    }
+    if (row.package_width) {
+      const parsed = parseFloat(row.package_width);
+      if (!isNaN(parsed)) product.package_width = parsed;
+    }
+    if (row.package_height) {
+      const parsed = parseFloat(row.package_height);
+      if (!isNaN(parsed)) product.package_height = parsed;
+    }
+    if (row.package_dimension_unit) {
+      const unit = row.package_dimension_unit.trim().toLowerCase();
+      if (unit === 'cm' || unit === 'in') {
+        product.package_dimension_unit = unit as 'cm' | 'in';
+      }
+    }
+    if (row.tariff_code) {
+      product.tariff_code = row.tariff_code.trim() || null;
+    }
     if (row.tax_class) product.tax_class = row.tax_class.trim();
     if (row.shipping_class) product.shipping_class = row.shipping_class.trim();
     // Product can only be in one category, store as single-item array

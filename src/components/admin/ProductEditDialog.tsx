@@ -102,7 +102,14 @@ const ProductEditDialog = ({
     categories: 'accessories',
     tags: '',
     note: '',
-    region: 'us' as 'us' | 'eu'
+    region: 'us' as 'us' | 'eu',
+    package_weight: '',
+    package_weight_unit: 'lbs' as 'kg' | 'lbs',
+    package_length: '',
+    package_width: '',
+    package_height: '',
+    package_dimension_unit: 'in' as 'cm' | 'in',
+    tariff_code: ''
   });
 
   // Utility function to generate slug from name
@@ -216,7 +223,14 @@ const ProductEditDialog = ({
           }
         })(),
         note: product.note || '',
-        region: (product.region === 'eu' ? 'eu' : 'us') as 'us' | 'eu'
+        region: (product.region === 'eu' ? 'eu' : 'us') as 'us' | 'eu',
+        package_weight: product.package_weight?.toString() || '',
+        package_weight_unit: (product.package_weight_unit || 'lbs') as 'kg' | 'lbs',
+        package_length: product.package_length?.toString() || '',
+        package_width: product.package_width?.toString() || '',
+        package_height: product.package_height?.toString() || '',
+        package_dimension_unit: (product.package_dimension_unit || 'in') as 'cm' | 'in',
+        tariff_code: product.tariff_code || ''
       });
       
       // Load FAQs and description components for this product
@@ -554,7 +568,14 @@ const ProductEditDialog = ({
           status: productForm.status,
           categories: [productForm.categories],
           tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [],
-          note: productForm.note || null
+          note: productForm.note || null,
+          package_weight: productForm.package_weight ? parseFloat(productForm.package_weight) : null,
+          package_weight_unit: productForm.package_weight_unit || null,
+          package_length: productForm.package_length ? parseFloat(productForm.package_length) : null,
+          package_width: productForm.package_width ? parseFloat(productForm.package_width) : null,
+          package_height: productForm.package_height ? parseFloat(productForm.package_height) : null,
+          package_dimension_unit: productForm.package_dimension_unit || null,
+          tariff_code: productForm.tariff_code || null
         };
         await onSave(sharedFieldsData);
       } else if (isStandalone) {
@@ -575,7 +596,14 @@ const ProductEditDialog = ({
           sale_start_date: saleStartDate || null,
           sale_end_date: saleEndDate || null,
           sale_label: productForm.sale_label || null,
-          stock_quantity: parseInt(productForm.stock_quantity) || 0
+          stock_quantity: parseInt(productForm.stock_quantity) || 0,
+          package_weight: productForm.package_weight ? parseFloat(productForm.package_weight) : null,
+          package_weight_unit: productForm.package_weight_unit || null,
+          package_length: productForm.package_length ? parseFloat(productForm.package_length) : null,
+          package_width: productForm.package_width ? parseFloat(productForm.package_width) : null,
+          package_height: productForm.package_height ? parseFloat(productForm.package_height) : null,
+          package_dimension_unit: productForm.package_dimension_unit || null,
+          tariff_code: productForm.tariff_code || null
         };
         await onSave(allFieldsData);
       } else {
@@ -1020,6 +1048,126 @@ const ProductEditDialog = ({
                       placeholder="best-seller, modular"
                     />
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+            )}
+
+            {/* Shipping & Package - Group mode or standalone */}
+            {(isGroupMode || isStandalone) && (
+              <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Shipping & Package</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Package Weight */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="package_weight">Package Weight</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="package_weight"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={productForm.package_weight}
+                        onChange={(e) => setProductForm({ ...productForm, package_weight: e.target.value })}
+                        placeholder="0.00"
+                      />
+                      <Select
+                        value={productForm.package_weight_unit}
+                        onValueChange={(value: 'kg' | 'lbs') => setProductForm({ ...productForm, package_weight_unit: value })}
+                      >
+                        <SelectTrigger className="w-24">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lbs">lbs</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Package Dimensions Unit Selector */}
+                  <div>
+                    <Label htmlFor="package_dimension_unit">Dimension Unit</Label>
+                    <Select
+                      value={productForm.package_dimension_unit}
+                      onValueChange={(value: 'cm' | 'in') => setProductForm({ ...productForm, package_dimension_unit: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="in">inches</SelectItem>
+                        <SelectItem value="cm">cm</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Package Dimensions */}
+                <div>
+                  <Label>Package Dimensions</Label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="package_length" className="text-sm text-muted-foreground">Length</Label>
+                      <Input
+                        id="package_length"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={productForm.package_length}
+                        onChange={(e) => setProductForm({ ...productForm, package_length: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="package_width" className="text-sm text-muted-foreground">Width</Label>
+                      <Input
+                        id="package_width"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={productForm.package_width}
+                        onChange={(e) => setProductForm({ ...productForm, package_width: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="package_height" className="text-sm text-muted-foreground">Height</Label>
+                      <Input
+                        id="package_height"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={productForm.package_height}
+                        onChange={(e) => setProductForm({ ...productForm, package_height: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tariff Code */}
+                <div>
+                  <Label htmlFor="tariff_code">Tariff Code</Label>
+                  <Select
+                    value={productForm.tariff_code || 'none'}
+                    onValueChange={(value) => setProductForm({ ...productForm, tariff_code: value === 'none' ? '' : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tariff code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">(None)</SelectItem>
+                      <SelectItem value="9401-71-0000">Cockpits & Seats: 9401-71-0000</SelectItem>
+                      <SelectItem value="7608-20-8907">Aluminum: 7608-20-8907</SelectItem>
+                      <SelectItem value="7315-90-0000">Steel: 7315-90-0000</SelectItem>
+                      <SelectItem value="9404-90-4000">Fabric: 9404-90-4000</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>

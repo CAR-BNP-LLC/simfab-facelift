@@ -40,6 +40,15 @@ export const createProductSchema = Joi.object({
   width_in: Joi.number().positive().optional(),
   height_in: Joi.number().positive().optional(),
 
+  // Package information
+  package_weight: Joi.number().positive().allow(null).optional(),
+  package_weight_unit: Joi.string().valid('kg', 'lbs').allow(null).optional(),
+  package_length: Joi.number().positive().allow(null).optional(),
+  package_width: Joi.number().positive().allow(null).optional(),
+  package_height: Joi.number().positive().allow(null).optional(),
+  package_dimension_unit: Joi.string().valid('cm', 'in').allow(null).optional(),
+  tariff_code: Joi.string().allow(null, '').optional(),
+
   // Inventory
   stock_quantity: Joi.number().integer().min(0).optional(),
   low_stock_threshold: Joi.number().integer().min(0).optional(),
@@ -93,6 +102,15 @@ export const updateProductSchema = Joi.object({
   length_in: Joi.number().positive().allow(null).optional(),
   width_in: Joi.number().positive().allow(null).optional(),
   height_in: Joi.number().positive().allow(null).optional(),
+
+  // Package information
+  package_weight: Joi.number().positive().allow(null).optional(),
+  package_weight_unit: Joi.string().valid('kg', 'lbs').allow(null).optional(),
+  package_length: Joi.number().positive().allow(null).optional(),
+  package_width: Joi.number().positive().allow(null).optional(),
+  package_height: Joi.number().positive().allow(null).optional(),
+  package_dimension_unit: Joi.string().valid('cm', 'in').allow(null).optional(),
+  tariff_code: Joi.string().allow(null, '').optional(),
 
   // Inventory
   stock_quantity: Joi.number().integer().min(0).optional(),

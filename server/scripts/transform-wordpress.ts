@@ -1107,6 +1107,13 @@ Use the exact attribute value names from the list above. If you cannot determine
                  ? 'true' : 'false',
       low_stock_amount: variableProduct['Low stock amount'] || '',
       region: 'us', // Default, can be adjusted
+      package_weight: variableProduct['Weight (lbs)'] || '',
+      package_weight_unit: variableProduct['Weight (lbs)'] ? 'lbs' : '',
+      package_length: variableProduct['Length (in)'] || '',
+      package_width: variableProduct['Width (in)'] || '',
+      package_height: variableProduct['Height (in)'] || '',
+      package_dimension_unit: (variableProduct['Length (in)'] || variableProduct['Width (in)'] || variableProduct['Height (in)']) ? 'in' : '',
+      tariff_code: '', // Left empty - to be set manually in admin
     };
 
     return row;
@@ -1849,6 +1856,13 @@ Return ONLY one word: "image", "boolean", or "dropdown"`;
                  ? 'true' : 'false',
       low_stock_amount: row['Low stock amount'] || '',
       region: 'us',
+      package_weight: row['Weight (lbs)'] || '',
+      package_weight_unit: row['Weight (lbs)'] ? 'lbs' : '',
+      package_length: row['Length (in)'] || '',
+      package_width: row['Width (in)'] || '',
+      package_height: row['Height (in)'] || '',
+      package_dimension_unit: (row['Length (in)'] || row['Width (in)'] || row['Height (in)']) ? 'in' : '',
+      tariff_code: '', // Left empty - to be set manually in admin
     };
   }
 

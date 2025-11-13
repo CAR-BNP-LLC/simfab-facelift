@@ -255,6 +255,8 @@ export class ProductService {
           sku, name, slug, description, short_description, type, status, featured,
           regular_price, sale_price,
           weight_lbs, length_in, width_in, height_in,
+          package_weight, package_weight_unit, package_length, package_width, package_height, package_dimension_unit,
+          tariff_code,
           stock, low_stock_amount, in_stock,
           tax_class, shipping_class,
           categories, tags, meta_data,
@@ -265,12 +267,14 @@ export class ProductService {
           $1, $2, $3, $4, $5, $6, $7, $8,
           $9, $10,
           $11, $12, $13, $14,
-          $15, $16, $17,
-          $18, $19,
-          $20, $21, $22,
-          $23, $24,
-          $25,
-          $26, $27
+          $15, $16, $17, $18, $19, $20,
+          $21,
+          $22, $23, $24,
+          $25, $26,
+          $27, $28, $29,
+          $30, $31,
+          $32,
+          $33, $34
         )
         RETURNING *
       `;
@@ -291,6 +295,13 @@ export class ProductService {
         data.length_in || null,
         data.width_in || null,
         data.height_in || null,
+        data.package_weight || null,
+        data.package_weight_unit || null,
+        data.package_length || null,
+        data.package_width || null,
+        data.package_height || null,
+        data.package_dimension_unit || null,
+        data.tariff_code || null,
         stockQty,
         data.low_stock_threshold || 5,
         stockQty > 0 ? '1' : '0',
@@ -360,6 +371,8 @@ export class ProductService {
       const sharedFields = [
         'name', 'slug', 'description', 'short_description', 'type', 'status', 'featured',
         'weight_lbs', 'length_in', 'width_in', 'height_in',
+        'package_weight', 'package_weight_unit', 'package_length', 'package_width', 'package_height', 'package_dimension_unit',
+        'tariff_code',
         'tax_class', 'shipping_class', 'categories', 'tags', 'meta_data',
         'seo_title', 'seo_description', 'note'
       ];
@@ -467,6 +480,36 @@ export class ProductService {
       if (data.height_in !== undefined) {
         addField('height_in', data.height_in);
         if (hasGroup) sharedFieldsToSync['height_in'] = data.height_in;
+      }
+      
+      // Package fields - synced to paired product
+      if (data.package_weight !== undefined) {
+        addField('package_weight', data.package_weight);
+        if (hasGroup) sharedFieldsToSync['package_weight'] = data.package_weight;
+      }
+      if (data.package_weight_unit !== undefined) {
+        addField('package_weight_unit', data.package_weight_unit);
+        if (hasGroup) sharedFieldsToSync['package_weight_unit'] = data.package_weight_unit;
+      }
+      if (data.package_length !== undefined) {
+        addField('package_length', data.package_length);
+        if (hasGroup) sharedFieldsToSync['package_length'] = data.package_length;
+      }
+      if (data.package_width !== undefined) {
+        addField('package_width', data.package_width);
+        if (hasGroup) sharedFieldsToSync['package_width'] = data.package_width;
+      }
+      if (data.package_height !== undefined) {
+        addField('package_height', data.package_height);
+        if (hasGroup) sharedFieldsToSync['package_height'] = data.package_height;
+      }
+      if (data.package_dimension_unit !== undefined) {
+        addField('package_dimension_unit', data.package_dimension_unit);
+        if (hasGroup) sharedFieldsToSync['package_dimension_unit'] = data.package_dimension_unit;
+      }
+      if (data.tariff_code !== undefined) {
+        forceAddField('tariff_code', data.tariff_code || null);
+        if (hasGroup) sharedFieldsToSync['tariff_code'] = data.tariff_code || null;
       }
       
       // Stock fields - NOT synced (region-specific)
@@ -630,6 +673,34 @@ export class ProductService {
         if ('height_in' in sharedFieldsToSync) {
           syncFields.push(`height_in = $${syncParamCounter++}`);
           syncValues.push(sharedFieldsToSync.height_in);
+        }
+        if ('package_weight' in sharedFieldsToSync) {
+          syncFields.push(`package_weight = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.package_weight);
+        }
+        if ('package_weight_unit' in sharedFieldsToSync) {
+          syncFields.push(`package_weight_unit = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.package_weight_unit);
+        }
+        if ('package_length' in sharedFieldsToSync) {
+          syncFields.push(`package_length = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.package_length);
+        }
+        if ('package_width' in sharedFieldsToSync) {
+          syncFields.push(`package_width = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.package_width);
+        }
+        if ('package_height' in sharedFieldsToSync) {
+          syncFields.push(`package_height = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.package_height);
+        }
+        if ('package_dimension_unit' in sharedFieldsToSync) {
+          syncFields.push(`package_dimension_unit = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.package_dimension_unit);
+        }
+        if ('tariff_code' in sharedFieldsToSync) {
+          syncFields.push(`tariff_code = $${syncParamCounter++}`);
+          syncValues.push(sharedFieldsToSync.tariff_code);
         }
         if ('tax_class' in sharedFieldsToSync) {
           syncFields.push(`tax_class = $${syncParamCounter++}`);

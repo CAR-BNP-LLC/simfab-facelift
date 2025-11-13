@@ -24,6 +24,13 @@ export interface Product {
   length_in?: number;
   width_in?: number;
   height_in?: number;
+  package_weight?: number;
+  package_weight_unit?: string;
+  package_length?: number;
+  package_width?: number;
+  package_height?: number;
+  package_dimension_unit?: string;
+  tariff_code?: string;
   allow_customer_reviews?: string;
   purchase_note?: string;
   note?: string;

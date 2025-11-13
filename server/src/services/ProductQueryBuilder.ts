@@ -50,6 +50,8 @@ export class ProductQueryBuilder {
         p.tax_status, p.tax_class, p.in_stock, p.stock,
         p.low_stock_amount, p.backorders_allowed, p.sold_individually,
         p.weight_lbs, p.length_in, p.width_in, p.height_in,
+        p.package_weight, p.package_weight_unit, p.package_length, p.package_width, p.package_height, p.package_dimension_unit,
+        p.tariff_code,
         p.allow_customer_reviews, p.purchase_note,
         p.sale_price, p.regular_price, p.categories, p.tags,
         p.shipping_class, p.brands, p.created_at, p.updated_at,

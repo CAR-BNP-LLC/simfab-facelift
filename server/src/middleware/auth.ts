@@ -186,12 +186,7 @@ export const loadUserAuthorities = (rbacModel: RBACModel) => {
  */
 export const requireAuthority = (authority: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // TEMPORARY BYPASS FOR TESTING - ALLOW ALL REQUESTS WITHOUT AUTHENTICATION
-    console.log(`Authority and authentication bypassed for testing - checking ${authority}`);
-    next();
-    return;
 
-    /* PRODUCTION CODE (commented out for testing):
     if (!req.session.authorities || !req.session.authorities.includes(authority)) {
       throw new AuthorizationError(
         `Authority '${authority}' required`,
@@ -200,7 +195,6 @@ export const requireAuthority = (authority: string) => {
     }
 
     next();
-    */
   };
 };
 

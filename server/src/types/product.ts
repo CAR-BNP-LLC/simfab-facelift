@@ -69,6 +69,15 @@ export interface Product {
   width_in: number | null;
   height_in: number | null;
   
+  // Package information
+  package_weight: number | null;
+  package_weight_unit: 'kg' | 'lbs' | null;
+  package_length: number | null;
+  package_width: number | null;
+  package_height: number | null;
+  package_dimension_unit: 'cm' | 'in' | null;
+  tariff_code: string | null;
+  
   // Inventory (using actual database column names)
   stock: number; // Database uses 'stock' not 'stock_quantity'
   low_stock_amount: number; // Database uses 'low_stock_amount'
@@ -311,6 +320,15 @@ export interface CreateProductDto {
   length_in?: number;
   width_in?: number;
   height_in?: number;
+  
+  // Package information
+  package_weight?: number;
+  package_weight_unit?: 'kg' | 'lbs';
+  package_length?: number;
+  package_width?: number;
+  package_height?: number;
+  package_dimension_unit?: 'cm' | 'in';
+  tariff_code?: string;
   
   // Inventory
   stock_quantity?: number;
