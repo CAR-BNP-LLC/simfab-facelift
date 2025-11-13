@@ -46,7 +46,6 @@ const Checkout = () => {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [shippingOptions, setShippingOptions] = useState<ShippingMethod[]>([]);
   const [loadingShipping, setLoadingShipping] = useState(false);
-  const [packageSize, setPackageSize] = useState<'S' | 'M' | 'L'>('M');
   const [quoteRequested, setQuoteRequested] = useState(false);
   const [requestingQuote, setRequestingQuote] = useState(false);
 
@@ -182,7 +181,6 @@ const Checkout = () => {
             postalCode: shippingAddress.postalCode,
             country: shippingAddress.country
           },
-          packageSize,
           orderTotal: totals.subtotal,
           cartItems: cartItems.length > 0 ? cartItems : undefined
         });
@@ -217,7 +215,6 @@ const Checkout = () => {
     shippingAddress.postalCode,
     shippingAddress.country,
     step,
-    packageSize,
     cartItemsSignature, // Recalculate when cart items change (including quantities)
     totals.subtotal // Recalculate when cart total changes
   ]);
@@ -401,9 +398,8 @@ const Checkout = () => {
         shippingMethodId: selectedShipping,
         paymentMethodId: 'pending',
         orderNotes: orderNotes || '',
-        packageSize: packageSize,
         shippingAmount: shippingAmount,
-        taxAmount: totals.tax,
+        taxAmount: floridaTax,
         shippingMethodData: selectedShippingMethod ? {
           fedexRateData: selectedShippingMethod.fedexRateData
         } : undefined
@@ -556,7 +552,6 @@ const Checkout = () => {
           country: shippingAddress.country,
           phone: shippingAddress.phone
         },
-        packageSize: packageSize,
         cartItems
       });
 
@@ -591,13 +586,30 @@ const Checkout = () => {
     }
   };
 
-  // Calculate shipping
-  const shippingCost = shippingOptions.find(opt => opt.id === selectedShipping)?.cost || 0;
+  // Calculate shipping (only on step 3+)
+  const shippingCost = step >= 3 
+    ? (shippingOptions.find(opt => opt.id === selectedShipping)?.cost || 0)
+    : 0;
   
-  // Calculate order total - ALWAYS use current shipping cost, not stale order data
-  // If order exists, we still need to recalculate because shipping may have changed
-  // Formula: subtotal - discount + current_shipping + tax
-  let orderTotal = Number((totals.subtotal - totals.discount + shippingCost + totals.tax) || 0);
+  // Calculate Florida tax (6%) - only for US orders shipping to Florida
+  // Tax is calculated on the final price: subtotal - discount + shipping
+  // Only calculate if we have a complete shipping address AND we're on step 3+
+  const hasCompleteAddress = shippingAddress.country && shippingAddress.state;
+  // Handle both "Florida" (full name) and "FL" (abbreviation)
+  const isFloridaState = shippingAddress.state === 'FL' || shippingAddress.state === 'Florida';
+  const isFloridaOrder = hasCompleteAddress && shippingAddress.country === 'US' && isFloridaState;
+  const priceBeforeTax = totals.subtotal - totals.discount + shippingCost;
+  // Only calculate tax on step 3+ (shipping step and beyond)
+  const floridaTax = (step >= 3 && isFloridaOrder) 
+    ? Math.round(priceBeforeTax * 0.06 * 100) / 100 
+    : 0;
+  
+  // Calculate order total
+  // On step 2 (address step): subtotal - discount only (no shipping, no tax)
+  // On step 3+: subtotal - discount + shipping + tax
+  let orderTotal = step >= 3
+    ? Number((totals.subtotal - totals.discount + shippingCost + floridaTax) || 0)
+    : Number((totals.subtotal - totals.discount) || 0);
   
   // Ensure we have a valid number
   if (isNaN(orderTotal) || orderTotal < 0) {
@@ -794,29 +806,6 @@ const Checkout = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {/* Package Size Selection (for international/US territories/Canada) */}
-                    {['CA', 'US'].includes(shippingAddress.country) || 
-                     (shippingAddress.country === 'US' && ['AK', 'HI'].includes(shippingAddress.state)) ? (
-                      <div className="mb-6">
-                        <Label htmlFor="packageSize">Package Size</Label>
-                        <RadioGroup value={packageSize} onValueChange={(value) => setPackageSize(value as 'S' | 'M' | 'L')}>
-                          <div className="flex gap-4 mt-2">
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="S" id="package-s" />
-                              <Label htmlFor="package-s" className="cursor-pointer">Small (S)</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="M" id="package-m" />
-                              <Label htmlFor="package-m" className="cursor-pointer">Medium (M)</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="L" id="package-l" />
-                              <Label htmlFor="package-l" className="cursor-pointer">Large (L)</Label>
-                            </div>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                    ) : null}
 
                     {loadingShipping ? (
                       <div className="flex items-center justify-center py-8">
@@ -1213,24 +1202,27 @@ const Checkout = () => {
                     )}
 
                     {step >= 3 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Shipping:</span>
-                        <span className="font-medium">
-                          {!selectedShipping ? (
-                            <span className="text-muted-foreground">Calculating...</span>
-                          ) : shippingCost === 0 ? (
-                            'FREE'
-                          ) : (
-                            `${currency}${shippingCost.toFixed(2)}`
-                          )}
-                        </span>
-                      </div>
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Shipping:</span>
+                          <span className="font-medium">
+                            {!selectedShipping ? (
+                              <span className="text-muted-foreground">Calculating...</span>
+                            ) : shippingCost === 0 ? (
+                              'FREE'
+                            ) : (
+                              `${currency}${shippingCost.toFixed(2)}`
+                            )}
+                          </span>
+                        </div>
+                        {floridaTax > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Tax (FL 6%):</span>
+                            <span className="font-medium">{currency}{floridaTax.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
-
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Tax:</span>
-                      <span className="font-medium">{currency}{totals.tax.toFixed(2)}</span>
-                    </div>
 
                     <div className="border-t border-border pt-3">
                       <div className="flex justify-between items-center">

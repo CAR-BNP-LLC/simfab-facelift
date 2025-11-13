@@ -12,7 +12,8 @@ import {
   CartTotals,
   AddToCartData,
   UpdateCartItemData,
-  AppliedCoupon
+  AppliedCoupon,
+  Address
 } from '../types/cart';
 import { PriceCalculatorService } from './PriceCalculatorService';
 import { StockReservationService } from './StockReservationService';
@@ -934,8 +935,16 @@ export class CartService {
   /**
    * Calculate cart totals
    * @param cartRegion - Cart region for determining currency
+   * @param shippingAddress - Optional shipping address for tax calculation
+   * @param shippingAmount - Optional shipping amount for tax calculation
    */
-  private async calculateTotals(cartId: number, items: CartItemWithProduct[], cartRegion?: 'us' | 'eu'): Promise<CartTotals> {
+  private async calculateTotals(
+    cartId: number, 
+    items: CartItemWithProduct[], 
+    cartRegion?: 'us' | 'eu',
+    shippingAddress?: Address,
+    shippingAmount: number = 0
+  ): Promise<CartTotals> {
     // Calculate subtotal from items
     const subtotal = items.reduce((sum, item) => sum + parseFloat(item.total_price.toString()), 0);
 
@@ -956,8 +965,20 @@ export class CartService {
     const couponDiscount = await this.getCouponDiscounts(cartId);
 
     const totalDiscount = productDiscount + couponDiscount;
-    const shipping = 0; // TODO: Calculate based on shipping method
-    const tax = 0; // TODO: Calculate based on address
+    const shipping = shippingAmount;
+    
+    // Calculate Florida tax (6%) if shipping address is provided and is Florida
+    let tax = 0;
+    if (shippingAddress) {
+      const isFloridaState = shippingAddress.state === 'FL' || shippingAddress.state === 'Florida';
+      const isFloridaOrder = shippingAddress.country === 'US' && isFloridaState;
+      if (isFloridaOrder) {
+        // Tax is calculated on: subtotal - discount + shipping
+        const priceBeforeTax = subtotal - totalDiscount + shipping;
+        tax = Math.round(priceBeforeTax * 0.06 * 100) / 100;
+      }
+    }
+    
     const total = subtotal - totalDiscount + shipping + tax;
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 

@@ -74,6 +74,13 @@ export class OrderService {
         shipping = cart.totals.shipping || 0;
       }
 
+      // Calculate Florida tax (6%) on backend for validation
+      // Tax is calculated on: subtotal - discount + shipping
+      const calculatedTax = this.calculateFloridaTax(
+        subtotal - discount + shipping,
+        orderData.shippingAddress
+      );
+
       // CRITICAL: Parse tax amount (may come as string or number from validation/JSON)
       let tax: number;
       if (orderData.taxAmount !== undefined && orderData.taxAmount !== null) {
@@ -81,7 +88,19 @@ export class OrderService {
           ? parseFloat(orderData.taxAmount)
           : Number(orderData.taxAmount) || 0;
       } else {
-        tax = cart.totals.tax || 0;
+        tax = calculatedTax; // Use backend-calculated tax if not provided
+      }
+
+      // Validate tax amount matches backend calculation (allow small rounding differences)
+      const taxDifference = Math.abs(tax - calculatedTax);
+      if (taxDifference > 0.01) {
+        console.warn('Tax amount mismatch:', {
+          frontendTax: tax,
+          backendTax: calculatedTax,
+          difference: taxDifference,
+          message: 'Using backend calculation as source of truth'
+        });
+        tax = calculatedTax; // Use backend calculation as source of truth
       }
 
       const total = subtotal - discount + shipping + tax;
@@ -528,6 +547,24 @@ export class OrderService {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Calculate Florida tax (6%) for US orders shipping to Florida
+   * Tax is calculated on the final price: subtotal - discount + shipping
+   */
+  private calculateFloridaTax(priceBeforeTax: number, shippingAddress: Address): number {
+    // Check if shipping address is in Florida
+    // Handle both "Florida" (full name) and "FL" (abbreviation)
+    const isFloridaState = shippingAddress.state === 'FL' || shippingAddress.state === 'Florida';
+    const isFloridaOrder = shippingAddress.country === 'US' && isFloridaState;
+    
+    if (isFloridaOrder) {
+      // Calculate 6% tax, rounded to 2 decimal places
+      return Math.round(priceBeforeTax * 0.06 * 100) / 100;
+    }
+    
+    return 0;
   }
 }
 

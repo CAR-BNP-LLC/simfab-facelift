@@ -35,7 +35,7 @@ export interface CalculateShippingRequest {
   country: string;
   state?: string;
   orderTotal: number;
-  packageSize: 'S' | 'M' | 'L';
+  packageSize?: 'S' | 'M' | 'L'; // Optional - will be auto-determined if not provided
   cartItems?: CartItem[];
 }
 
@@ -224,6 +224,99 @@ export class ShippingService {
   }
 
   /**
+   * Determine package size from cart items based on product dimensions
+   * Returns 'S', 'M', or 'L' based on largest dimension or total volume
+   */
+  async determinePackageSize(cartItems?: CartItem[]): Promise<'S' | 'M' | 'L'> {
+    // Default to Medium if no cart items
+    if (!cartItems || cartItems.length === 0) {
+      return 'M';
+    }
+
+    const client = await this.pool.connect();
+    try {
+      const productIds = cartItems.map(item => item.productId);
+      
+      // Query product package dimensions
+      const result = await client.query(
+        `SELECT id, package_length, package_width, package_height, package_dimension_unit,
+                package_weight, package_weight_unit
+         FROM products 
+         WHERE id = ANY($1::int[])`,
+        [productIds]
+      );
+
+      const productsMap = new Map(
+        result.rows.map(row => [row.id, row])
+      );
+
+      let maxLength = 0;
+      let maxWidth = 0;
+      let maxHeight = 0;
+      let totalWeight = 0;
+
+      // Calculate aggregate dimensions and weight from all items
+      for (const item of cartItems) {
+        const product = productsMap.get(item.productId);
+        
+        if (product && product.package_length && product.package_width && product.package_height) {
+          // Convert dimensions to inches
+          let lengthIn = product.package_length;
+          let widthIn = product.package_width;
+          let heightIn = product.package_height;
+          
+          if (product.package_dimension_unit === 'cm') {
+            lengthIn = product.package_length / 2.54;
+            widthIn = product.package_width / 2.54;
+            heightIn = product.package_height / 2.54;
+          }
+
+          // Multiply by quantity for this item
+          for (let i = 0; i < item.quantity; i++) {
+            maxLength = Math.max(maxLength, lengthIn);
+            maxWidth = Math.max(maxWidth, widthIn);
+            maxHeight = Math.max(maxHeight, heightIn);
+          }
+
+          // Calculate weight
+          if (product.package_weight) {
+            let weightLbs = product.package_weight;
+            if (product.package_weight_unit === 'kg') {
+              weightLbs = product.package_weight * 2.20462;
+            }
+            totalWeight += weightLbs * item.quantity;
+          }
+        }
+      }
+
+      // If no dimensions found, default to Medium
+      if (maxLength === 0 && maxWidth === 0 && maxHeight === 0) {
+        return 'M';
+      }
+
+      // Determine package size based on largest dimension
+      // Small: max dimension < 12 inches
+      // Medium: max dimension 12-24 inches
+      // Large: max dimension > 24 inches
+      const maxDimension = Math.max(maxLength, maxWidth, maxHeight);
+      
+      if (maxDimension < 12) {
+        return 'S';
+      } else if (maxDimension <= 24) {
+        return 'M';
+      } else {
+        return 'L';
+      }
+    } catch (error) {
+      console.error('Error determining package size:', error);
+      // Default to Medium on error
+      return 'M';
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
    * Calculate shipping based on destination
    */
   async calculateShipping(request: CalculateShippingRequest & {
@@ -236,7 +329,13 @@ export class ShippingService {
       country: string;
     };
   }): Promise<ShippingCalculation[]> {
-    const { country, state, orderTotal, packageSize, shippingAddress } = request;
+    const { country, state, orderTotal, packageSize: providedPackageSize, shippingAddress, cartItems } = request;
+    
+    // Auto-determine package size if not provided
+    let packageSize: 'S' | 'M' | 'L' = providedPackageSize || 'M';
+    if (!providedPackageSize && cartItems && cartItems.length > 0) {
+      packageSize = await this.determinePackageSize(cartItems);
+    }
 
     // US Domestic (excluding Alaska & Hawaii)
     if (country === 'US' && state && !['AK', 'HI'].includes(state)) {

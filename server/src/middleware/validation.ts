@@ -228,7 +228,7 @@ export const cartValidation = {
       postalCode: commonSchemas.postalCode.required(),
       country: Joi.string().length(2).uppercase().default('US')
     }).required(),
-    packageSize: Joi.string().valid('S', 'M', 'L').default('M'),
+    packageSize: Joi.string().valid('S', 'M', 'L').optional(), // Optional - will be auto-determined if not provided
     orderTotal: Joi.number().min(0).default(0),
     cartItems: Joi.array().items(
       Joi.object({

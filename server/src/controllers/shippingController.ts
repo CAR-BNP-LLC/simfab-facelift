@@ -40,14 +40,14 @@ export class ShippingController {
         });
       }
 
-      const { shippingAddress, packageSize = 'M', orderTotal = 0, cartItems } = value;
+      const { shippingAddress, packageSize, orderTotal = 0, cartItems } = value;
 
-      // Calculate shipping
+      // Calculate shipping (package size will be auto-determined if not provided)
       const calculations = await this.shippingService.calculateShipping({
         country: shippingAddress.country,
         state: shippingAddress.state,
         orderTotal: parseFloat(orderTotal.toString()) || 0,
-        packageSize: packageSize as 'S' | 'M' | 'L',
+        packageSize: packageSize ? (packageSize as 'S' | 'M' | 'L') : undefined,
         shippingAddress: {
           addressLine1: shippingAddress.addressLine1,
           addressLine2: shippingAddress.addressLine2 || undefined,
