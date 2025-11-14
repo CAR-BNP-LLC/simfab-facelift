@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { authAPI, User } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { linkSessionToUser } from '@/utils/analytics';
@@ -23,12 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Check if user is logged in on mount
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const response = await authAPI.getProfile();
       setUser(response.data.user);
@@ -40,9 +35,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const login = async (email: string, password: string, rememberMe = false) => {
+  // Check if user is logged in on mount
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
+  const login = useCallback(async (email: string, password: string, rememberMe = false) => {
     try {
       console.log('Attempting login...');
       const response = await authAPI.login({ email, password, rememberMe });
@@ -70,9 +70,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       throw error;
     }
-  };
+  }, [toast]);
 
-  const register = async (data: any) => {
+  const register = useCallback(async (data: any) => {
     try {
       const response = await authAPI.register(data);
       setUser(response.data.user);
@@ -97,9 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       throw error;
     }
-  };
+  }, [toast]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authAPI.logout();
       setUser(null);
@@ -110,47 +110,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, [toast]);
 
-  const refreshUser = async () => {
+  const refreshUser = useCallback(async () => {
     try {
       const response = await authAPI.getProfile();
       setUser(response.data.user);
     } catch (error) {
       setUser(null);
     }
-  };
+  }, []);
 
   // Authority checking methods
-  const hasAuthority = (authority: string): boolean => {
+  const hasAuthority = useCallback((authority: string): boolean => {
     return user?.authorities?.includes(authority) || false;
-  };
+  }, [user]);
 
-  const hasAnyAuthority = (...authorities: string[]): boolean => {
+  const hasAnyAuthority = useCallback((...authorities: string[]): boolean => {
     if (!user?.authorities || authorities.length === 0) return false;
     return authorities.some(authority => user.authorities.includes(authority));
-  };
+  }, [user]);
 
-  const hasAllAuthorities = (...authorities: string[]): boolean => {
+  const hasAllAuthorities = useCallback((...authorities: string[]): boolean => {
     if (!user?.authorities || authorities.length === 0) return false;
     return authorities.every(authority => user.authorities.includes(authority));
-  };
+  }, [user]);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    user,
+    loading,
+    isAuthenticated: !!user,
+    hasAuthority,
+    hasAnyAuthority,
+    hasAllAuthorities,
+    login,
+    register,
+    logout,
+    refreshUser,
+  }), [user, loading, hasAuthority, hasAnyAuthority, hasAllAuthorities, login, register, logout, refreshUser]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        isAuthenticated: !!user,
-        hasAuthority,
-        hasAnyAuthority,
-        hasAllAuthorities,
-        login,
-        register,
-        logout,
-        refreshUser,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

@@ -3,7 +3,7 @@
  * Global wishlist state management
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { wishlistAPI, WishlistItem } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
@@ -55,7 +55,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
   /**
    * Fetch wishlist from API
    */
-  const fetchWishlist = async () => {
+  const fetchWishlist = useCallback(async () => {
     if (!isAuthenticated) {
       setWishlist([]);
       setWishlistIds(new Set());
@@ -79,12 +79,12 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]); // Memoize with isAuthenticated dependency
 
   /**
    * Refresh wishlist count
    */
-  const refreshCount = async () => {
+  const refreshCount = useCallback(async () => {
     if (!isAuthenticated) return;
 
     try {
@@ -93,12 +93,12 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch (error) {
       console.error('Failed to refresh wishlist count:', error);
     }
-  };
+  }, [isAuthenticated]);
 
   /**
    * Add product to wishlist
    */
-  const addToWishlist = async (
+  const addToWishlist = useCallback(async (
     productId: number,
     preferences?: { notifyOnSale?: boolean; notifyOnStock?: boolean }
   ): Promise<void> => {
@@ -120,7 +120,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       setWishlistIds(newIds);
       
       // Refresh full wishlist
-      await refreshWishlist();
+      await fetchWishlist();
       
       toast({
         title: 'Added to wishlist!',
@@ -134,12 +134,12 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       throw error;
     }
-  };
+  }, [isAuthenticated, wishlistIds, toast, fetchWishlist]);
 
   /**
    * Remove product from wishlist
    */
-  const removeFromWishlist = async (productId: number): Promise<void> => {
+  const removeFromWishlist = useCallback(async (productId: number): Promise<void> => {
     if (!isAuthenticated) return;
 
     try {
@@ -151,7 +151,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       setWishlistIds(newIds);
       
       // Refresh full wishlist
-      await refreshWishlist();
+      await fetchWishlist();
       
       toast({
         title: 'Removed from wishlist',
@@ -165,40 +165,41 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       throw error;
     }
-  };
+  }, [isAuthenticated, wishlistIds, toast, fetchWishlist]);
 
   /**
    * Check if product is in wishlist
    */
-  const isInWishlist = (productId: number): boolean => {
+  const isInWishlist = useCallback((productId: number): boolean => {
     return wishlistIds.has(productId);
-  };
+  }, [wishlistIds]);
 
   /**
    * Refresh wishlist
    */
-  const refreshWishlist = async (): Promise<void> => {
+  const refreshWishlist = useCallback(async (): Promise<void> => {
     await fetchWishlist();
-  };
+  }, [fetchWishlist]);
 
   // Fetch wishlist on mount and when auth state changes
   useEffect(() => {
     fetchWishlist();
-  }, [isAuthenticated]);
+  }, [fetchWishlist]);
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    wishlist,
+    wishlistIds,
+    loading,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist,
+    refreshWishlist,
+    wishlistCount,
+  }), [wishlist, wishlistIds, loading, addToWishlist, removeFromWishlist, isInWishlist, refreshWishlist, wishlistCount]);
 
   return (
-    <WishlistContext.Provider
-      value={{
-        wishlist,
-        wishlistIds,
-        loading,
-        addToWishlist,
-        removeFromWishlist,
-        isInWishlist,
-        refreshWishlist,
-        wishlistCount,
-      }}
-    >
+    <WishlistContext.Provider value={contextValue}>
       {children}
     </WishlistContext.Provider>
   );

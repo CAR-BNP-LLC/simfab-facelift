@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 
 export interface Address {
   firstName: string;
@@ -129,7 +129,7 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     }
   }, [checkoutState]);
 
-  const updateCheckoutState = (updates: Partial<CheckoutState>) => {
+  const updateCheckoutState = useCallback((updates: Partial<CheckoutState>) => {
     console.log('Updating checkout state with:', updates);
     setCheckoutState(prev => {
       const newState = { ...prev, ...updates };
@@ -143,27 +143,28 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
       console.log('New checkout state:', newState);
       return newState;
     });
-  };
+  }, []);
 
-  const resetCheckoutState = () => {
+  const resetCheckoutState = useCallback(() => {
     console.log('Resetting checkout state');
     setCheckoutState(defaultCheckoutState);
     localStorage.removeItem('checkout-state');
-  };
+  }, []);
 
-  const clearStorage = () => {
+  const clearStorage = useCallback(() => {
     console.log('Clearing localStorage');
     localStorage.removeItem('checkout-state');
-  };
+  }, []);
 
-  const value: CheckoutContextType = {
+  // Memoize context value to prevent unnecessary re-renders
+  const value = useMemo<CheckoutContextType>(() => ({
     checkoutState,
     updateCheckoutState,
     resetCheckoutState,
     clearStorage,
     saveToStorage,
     loadFromStorage
-  };
+  }), [checkoutState, updateCheckoutState, resetCheckoutState, clearStorage, saveToStorage, loadFromStorage]);
 
   return (
     <CheckoutContext.Provider value={value}>

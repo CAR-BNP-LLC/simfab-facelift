@@ -3,7 +3,7 @@
  * Global shopping cart state management
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useRegion } from '@/contexts/RegionContext';
 import { CheckoutContext } from '@/contexts/CheckoutContext';
@@ -126,7 +126,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   /**
    * Add item to cart
    */
-  const addToCart = async (productId: number, configuration: any, quantity: number = 1) => {
+  const addToCart = useCallback(async (productId: number, configuration: any, quantity: number = 1) => {
     try {
       setLoading(true);
 
@@ -229,12 +229,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [region, refreshCart, checkoutContext, toast]);
 
   /**
    * Update item quantity
    */
-  const updateQuantity = async (itemId: number, quantity: number) => {
+  const updateQuantity = useCallback(async (itemId: number, quantity: number) => {
     try {
       setLoading(true);
 
@@ -269,12 +269,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [region, refreshCart, checkoutContext, toast]);
 
   /**
    * Remove item from cart
    */
-  const removeItem = async (itemId: number) => {
+  const removeItem = useCallback(async (itemId: number) => {
     try {
       setLoading(true);
 
@@ -310,12 +310,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [region, refreshCart, checkoutContext, toast]);
 
   /**
    * Clear entire cart
    */
-  const clearCart = async () => {
+  const clearCart = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -350,12 +350,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [region, checkoutContext, toast]);
 
   /**
    * Apply coupon code
    */
-  const applyCoupon = async (code: string) => {
+  const applyCoupon = useCallback(async (code: string) => {
     try {
       setLoading(true);
 
@@ -396,12 +396,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [region, toast]);
 
   // Calculate item count
   const itemCount = cart?.totals?.itemCount || 0;
 
-  const value: CartContextType = {
+  // Memoize context value to prevent unnecessary re-renders
+  const value = useMemo<CartContextType>(() => ({
     cart,
     loading,
     itemCount,
@@ -411,7 +412,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clearCart,
     applyCoupon,
     refreshCart
-  };
+  }), [cart, loading, itemCount, addToCart, updateQuantity, removeItem, clearCart, applyCoupon, refreshCart]);
 
   return (
     <CartContext.Provider value={value}>
