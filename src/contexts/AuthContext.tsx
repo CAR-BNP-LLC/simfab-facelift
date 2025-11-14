@@ -18,30 +18,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-let authProviderRenderCount = 0;
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  authProviderRenderCount++;
-  if (authProviderRenderCount > 50) {
-    console.error('[AuthProvider] INFINITE LOOP! Render count:', authProviderRenderCount);
-    throw new Error('AuthProvider infinite loop');
-  }
-  console.log('[AuthProvider] RENDER #' + authProviderRenderCount);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
 
   const checkAuth = useCallback(async () => {
-    console.log('[AuthProvider] checkAuth CALLED');
     try {
       setLoading(true);
-      console.log('[AuthProvider] FETCHING PROFILE...');
       const response = await authAPI.getProfile();
-      console.log('[AuthProvider] PROFILE FETCHED');
       setUser(response.data.user);
     } catch (error) {
       // User is not logged in
-      console.log('Auth check failed:', error);
-      console.log('🍪 Cookies after failure:', document.cookie);
       setUser(null);
     } finally {
       setLoading(false);
@@ -50,14 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check if user is logged in after initial render (defer to allow UI to render first)
   useEffect(() => {
-    console.log('[AuthProvider] useEffect RUN - checkAuth changed');
     // Use setTimeout to defer auth check until after initial render
     const timer = setTimeout(() => {
-      console.log('[AuthProvider] setTimeout CALLBACK - calling checkAuth');
       checkAuth();
     }, 0);
     return () => {
-      console.log('[AuthProvider] useEffect CLEANUP');
       clearTimeout(timer);
     };
   }, [checkAuth]);
@@ -158,7 +143,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => {
-    console.log('[AuthProvider] useMemo RUN');
     return {
       user,
       loading,
@@ -173,7 +157,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [user, loading, hasAuthority, hasAnyAuthority, hasAllAuthorities, login, register, logout, refreshUser]);
 
-  console.log('[AuthProvider] RETURNING PROVIDER');
   return (
     <AuthContext.Provider value={contextValue}>
       {children}

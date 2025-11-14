@@ -75,19 +75,11 @@ export const useCart = () => {
 // PROVIDER
 // ============================================================================
 
-let cartProviderRenderCount = 0;
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  cartProviderRenderCount++;
-  if (cartProviderRenderCount > 50) {
-    console.error('[CartProvider] INFINITE LOOP! Render count:', cartProviderRenderCount);
-    throw new Error('CartProvider infinite loop');
-  }
-  console.log('[CartProvider] RENDER #' + cartProviderRenderCount);
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
   const { region } = useRegion();
-  console.log('[CartProvider] region from useRegion:', region);
   // Don't use useContext here - it causes re-renders when CheckoutContext changes
   // Instead, we'll use a custom event or pass the function differently
   // For now, we'll remove the dependency on CheckoutContext to prevent re-render loops
@@ -96,17 +88,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    * Refresh cart from API
    */
   const refreshCart = useCallback(async () => {
-    console.log('[CartProvider] refreshCart CALLED - region:', region);
     try {
       setLoading(true);
-      console.log('[CartProvider] FETCHING CART...');
       const response = await fetch(`${API_URL}/api/cart?region=${region}`, {
         credentials: 'include',
         headers: { 'X-Region': region }
       });
 
       const data = await response.json();
-      console.log('[CartProvider] CART FETCHED');
 
       if (data.success && data.data) {
         // Check if cart is actually empty (no items)
@@ -131,14 +120,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Load cart after initial render (defer to allow UI to render first)
   useEffect(() => {
-    console.log('[CartProvider] useEffect RUN - refreshCart changed');
     // Use setTimeout to defer cart load until after initial render
     const timer = setTimeout(() => {
-      console.log('[CartProvider] setTimeout CALLBACK - calling refreshCart');
       refreshCart();
     }, 0);
     return () => {
-      console.log('[CartProvider] useEffect CLEANUP');
       clearTimeout(timer);
     };
   }, [refreshCart]); // Include refreshCart in dependencies
@@ -423,7 +409,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Memoize context value to prevent unnecessary re-renders
   const value = useMemo<CartContextType>(() => {
-    console.log('[CartProvider] useMemo RUN');
     return {
       cart,
       loading,
@@ -437,7 +422,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [cart, loading, itemCount, addToCart, updateQuantity, removeItem, clearCart, applyCoupon, refreshCart]);
 
-  console.log('[CartProvider] RETURNING PROVIDER');
   return (
     <CartContext.Provider value={value}>
       {children}

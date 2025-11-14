@@ -5,26 +5,15 @@ interface PayPalProviderProps {
   children: React.ReactNode;
 }
 
-let paypalProviderRenderCount = 0;
 export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
-  paypalProviderRenderCount++;
-  if (paypalProviderRenderCount > 50) {
-    console.error('[PayPalProvider] INFINITE LOOP! Render count:', paypalProviderRenderCount);
-    throw new Error('PayPalProvider infinite loop');
-  }
-  console.log('[PayPalProvider] RENDER #' + paypalProviderRenderCount);
-  
   // Defer PayPal script loading to avoid blocking initial render
   const [shouldLoadPayPal, setShouldLoadPayPal] = useState(false);
   
   useEffect(() => {
-    console.log('[PayPalProvider] useEffect RUN - deferring PayPal load');
     const timer = setTimeout(() => {
-      console.log('[PayPalProvider] setTimeout CALLBACK - loading PayPal');
       setShouldLoadPayPal(true);
     }, 100); // Small delay to allow initial render
     return () => {
-      console.log('[PayPalProvider] useEffect CLEANUP');
       clearTimeout(timer);
     };
   }, []);
@@ -83,7 +72,6 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
 
   // Memoize region detection to avoid recalculating on every render
   const region = useMemo(() => {
-    console.log('[PayPalProvider] useMemo RUN - detecting region');
     // Detect region from hostname/query params (same logic as api.ts)
     const hostname = window.location.hostname;
     const urlParams = new URLSearchParams(window.location.search);
@@ -104,13 +92,11 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
       detectedRegion = import.meta.env.VITE_DEFAULT_REGION;
     }
     
-    console.log('[PayPalProvider] detected region:', detectedRegion);
     return detectedRegion;
   }, []); // Empty deps - only calculate once
 
   // Memoize PayPal options to avoid recreating on every render
   const paypalOptions = useMemo(() => {
-    console.log('[PayPalProvider] useMemo RUN - creating PayPal options');
     const currency = region === 'eu' ? 'EUR' : 'USD';
 
     // Check if wallet payments are enabled via environment variable
@@ -142,16 +128,12 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
       dataClientToken: import.meta.env.VITE_PAYPAL_CLIENT_TOKEN || undefined
     };
   }, [region]);
-
-  console.log('[PayPalProvider] shouldLoadPayPal:', shouldLoadPayPal);
   
   // Don't load PayPal script until after initial render
   if (!shouldLoadPayPal) {
-    console.log('[PayPalProvider] RETURNING CHILDREN WITHOUT PAYPAL');
     return <>{children}</>;
   }
 
-  console.log('[PayPalProvider] RETURNING PAYPAL PROVIDER');
   return (
     <PayPalScriptProvider options={paypalOptions}>
       {children}

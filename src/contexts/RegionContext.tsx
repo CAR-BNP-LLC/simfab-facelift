@@ -18,17 +18,9 @@ const RegionContext = createContext<RegionContextType | undefined>(undefined);
 
 const REGION_STORAGE_KEY = 'simfab_region';
 
-let regionProviderRenderCount = 0;
 export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  regionProviderRenderCount++;
-  if (regionProviderRenderCount > 50) {
-    console.error('[RegionProvider] INFINITE LOOP! Render count:', regionProviderRenderCount);
-    throw new Error('RegionProvider infinite loop');
-  }
-  console.log('[RegionProvider] RENDER #' + regionProviderRenderCount);
   // Initialize region from localStorage, hostname, or default to 'us'
   const [region, setRegionState] = useState<Region>(() => {
-    console.log('[RegionProvider] INITIAL STATE');
     // 1. Check localStorage first
     const stored = localStorage.getItem(REGION_STORAGE_KEY);
     if (stored === 'us' || stored === 'eu') {
@@ -60,7 +52,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // This ensures API requests made during initial render use the correct region
   // useLayoutEffect runs synchronously before browser paint, before any child effects
   useLayoutEffect(() => {
-    console.log('[RegionProvider] useLayoutEffect RUN');
     regionRef.current = region;
     setApiRegionGetter(() => regionRef.current);
     localStorage.setItem(REGION_STORAGE_KEY, region);
@@ -69,7 +60,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Save to localStorage and register with api.ts whenever region changes
   const hasInitialized = useRef(false);
   useEffect(() => {
-    console.log('[RegionProvider] useEffect RUN - region:', region);
     // Update ref FIRST (synchronously, before any other effects run)
     regionRef.current = region;
     
@@ -93,7 +83,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [region]);
 
   const setRegion = useCallback((newRegion: Region) => {
-    console.log('[RegionProvider] setRegion CALLED - newRegion:', newRegion);
     // Update ref synchronously BEFORE state update
     regionRef.current = newRegion;
     setApiRegionGetter(() => regionRef.current);
@@ -101,7 +90,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, []);
 
   const toggleRegion = useCallback(() => {
-    console.log('[RegionProvider] toggleRegion CALLED');
     setRegionState(current => {
       const newRegion = current === 'us' ? 'eu' : 'us';
       // Update ref synchronously BEFORE state update
@@ -114,15 +102,13 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => {
-    console.log('[RegionProvider] useMemo RUN - region:', region);
     return {
       region,
       setRegion,
       toggleRegion
     };
-  }, [region]);
+  }, [region, setRegion, toggleRegion]);
 
-  console.log('[RegionProvider] RETURNING PROVIDER');
   return (
     <RegionContext.Provider value={contextValue}>
       {children}

@@ -56,17 +56,7 @@ const LoadingFallback = () => (
 
 const queryClient = new QueryClient();
 
-// Track render count to detect infinite loops
-let renderCount = 0;
-const MAX_RENDERS = 50;
-
 const App = () => {
-  renderCount++;
-  if (renderCount > MAX_RENDERS) {
-    console.error('[App] INFINITE LOOP DETECTED! Render count:', renderCount);
-    throw new Error('Infinite render loop detected');
-  }
-  console.log('[App] RENDER #' + renderCount);
   return (
   <QueryClientProvider client={queryClient}>
     <RegionProvider>
