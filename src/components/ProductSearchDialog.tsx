@@ -15,6 +15,7 @@ import { Product, productsAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { useRegion } from '@/contexts/RegionContext';
+import { trackSearch } from '@/utils/facebookPixel';
 
 interface ProductSearchDialogProps {
   open: boolean;
@@ -76,8 +77,19 @@ const ProductSearchDialog = ({ open, onOpenChange }: ProductSearchDialogProps) =
           return;
         }
 
-        setResults(response.data.products || []);
+        const products = response.data.products || [];
+        setResults(products);
         setHasSearched(true);
+
+        // Track Facebook Pixel Search event
+        if (query.trim().length >= MIN_QUERY_LENGTH) {
+          const contentIds = products.map(p => p.id.toString());
+          trackSearch({
+            search_string: query.trim(),
+            content_type: 'product',
+            content_ids: contentIds.length > 0 ? contentIds : undefined,
+          });
+        }
       } catch (err) {
         if (latestRequestRef.current !== requestId) {
           return;

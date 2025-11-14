@@ -20,6 +20,7 @@ import { useRegion } from "@/contexts/RegionContext";
 import { calculateTotalPrice } from "@/utils/priceCalculator";
 import { Badge } from "@/components/ui/badge";
 import { getCurrencySymbol } from "@/utils/currency";
+import { trackViewContent } from "@/utils/facebookPixel";
 
 const ProductDetail = () => {
   const params = useParams();
@@ -457,6 +458,30 @@ const ProductDetail = () => {
       }
     }
   }, [product]);
+
+  // Track Facebook Pixel ViewContent when product loads
+  useEffect(() => {
+    if (product && !loading) {
+      // Get product price (use calculated price if available, otherwise use regular/sale price)
+      const productPrice = calculatedPrice !== null 
+        ? calculatedPrice 
+        : (product.sale_price && product.is_on_sale ? product.sale_price : product.regular_price) || 0;
+      
+      // Get product category (first category if available)
+      const category = product.categories && product.categories.length > 0 
+        ? product.categories[0] 
+        : undefined;
+
+      trackViewContent({
+        content_name: product.name,
+        content_ids: [product.id.toString()],
+        content_type: 'product',
+        value: productPrice,
+        currency: region === 'eu' ? 'EUR' : 'USD',
+        content_category: category,
+      });
+    }
+  }, [product, loading, calculatedPrice, region]);
 
   const fetchProduct = async (productSlug: string) => {
     try {

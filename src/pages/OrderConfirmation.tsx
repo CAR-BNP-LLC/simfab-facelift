@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, Package, CreditCard, Truck, Calendar } from 'lucide-react';
 import { orderAPI } from '../services/api';
+import { trackPurchase } from '../utils/facebookPixel';
+import { useAuth } from '../contexts/AuthContext';
 
 interface OrderItem {
   id: number;
@@ -34,9 +36,11 @@ interface Order {
 export default function OrderConfirmation() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasTrackedPurchase = useRef(false);
 
   useEffect(() => {
     if (orderNumber) {
@@ -46,6 +50,52 @@ export default function OrderConfirmation() {
       setError('No order number provided');
     }
   }, [orderNumber]);
+
+  // Track Facebook Pixel Purchase event when order is loaded (only once)
+  useEffect(() => {
+    if (order && !loading && !hasTrackedPurchase.current) {
+      const contentIds = order.items.map(item => item.product_id.toString());
+      const contents = order.items.map(item => ({
+        id: item.product_id.toString(),
+        quantity: item.quantity,
+        item_price: item.unit_price,
+      }));
+
+      // Extract address data from shipping address (preferred) or billing address
+      const address = order.shipping_address || order.billing_address || {};
+      
+      // Get user data from auth context or order address
+      const email = user?.email || address.email;
+      const phone = user?.phone || address.phone;
+      const firstName = user?.firstName || address.firstName || (address.name ? address.name.split(' ')[0] : undefined);
+      const lastName = user?.lastName || address.lastName || (address.name && address.name.split(' ').length > 1 ? address.name.split(' ').slice(1).join(' ') : undefined);
+      const city = address.city;
+      const state = address.state || address.stateOrProvinceCode;
+      const zip = address.postal_code || address.postalCode || address.zip;
+      const country = address.country || address.countryCode;
+
+      trackPurchase({
+        value: order.total_amount,
+        currency: order.currency || 'USD',
+        content_ids: contentIds,
+        content_type: 'product',
+        contents: contents,
+        order_id: order.order_number,
+        // Advanced matching data
+        email: email,
+        phone: phone,
+        firstName: firstName,
+        lastName: lastName,
+        city: city,
+        state: state,
+        zip: zip,
+        country: country,
+        externalId: user?.id?.toString(),
+      });
+
+      hasTrackedPurchase.current = true;
+    }
+  }, [order, loading, user]);
 
   const fetchOrderDetails = async () => {
     try {

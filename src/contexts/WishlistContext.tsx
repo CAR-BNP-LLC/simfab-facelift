@@ -7,6 +7,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from './AuthContext';
 import { wishlistAPI, WishlistItem } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { trackAddToWishlist } from '@/utils/facebookPixel';
+import { useRegion } from './RegionContext';
 
 // ============================================================================
 // TYPES
@@ -51,6 +53,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [wishlistCount, setWishlistCount] = useState(0);
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { region } = useRegion();
 
   /**
    * Fetch wishlist from API
@@ -114,6 +117,13 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       await wishlistAPI.addToWishlist(productId, preferences);
       
+      // Track Facebook Pixel AddToWishlist event
+      trackAddToWishlist({
+        content_ids: [productId.toString()],
+        content_type: 'product',
+        currency: region === 'eu' ? 'EUR' : 'USD',
+      });
+      
       // Optimistic update
       const newIds = new Set(wishlistIds);
       newIds.add(productId);
@@ -134,7 +144,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       throw error;
     }
-  }, [isAuthenticated, wishlistIds, toast, fetchWishlist]);
+  }, [isAuthenticated, wishlistIds, toast, fetchWishlist, region]);
 
   /**
    * Remove product from wishlist

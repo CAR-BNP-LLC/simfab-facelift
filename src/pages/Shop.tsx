@@ -10,6 +10,7 @@ import { productsAPI, Product } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { WishlistButton } from '@/components/WishlistButton';
 import { useRegion } from '@/contexts/RegionContext';
+import { trackSearch, trackViewCategory } from '@/utils/facebookPixel';
 
 const Shop = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -33,6 +34,20 @@ const Shop = () => {
   useEffect(() => {
     fetchCategories();
   }, [region]);
+
+  // Track Facebook Pixel ViewCategory when category is selected (including initial load)
+  useEffect(() => {
+    if (selectedCategory && categories.length > 0) {
+      const category = categories.find(cat => cat.id === selectedCategory);
+      if (category) {
+        trackViewCategory({
+          content_name: category.name,
+          content_category: category.name,
+          content_type: 'product',
+        });
+      }
+    }
+  }, [selectedCategory, categories]);
 
   const fetchProducts = async () => {
     try {
@@ -86,11 +101,29 @@ const Shop = () => {
   const handleSearch = () => {
     setPage(1); // Reset to first page
     fetchProducts();
+    
+    // Track Facebook Pixel Search event
+    if (searchQuery.trim().length > 0) {
+      trackSearch({
+        search_string: searchQuery.trim(),
+        content_type: 'product',
+      });
+    }
   };
 
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setPage(1); // Reset to first page
+    
+    // Track Facebook Pixel ViewCategory event
+    if (categoryId) {
+      const category = categories.find(cat => cat.id === categoryId);
+      trackViewCategory({
+        content_name: category?.name || categoryId,
+        content_category: category?.name || categoryId,
+        content_type: 'product',
+      });
+    }
   };
 
   // Check if sale is currently active

@@ -34,6 +34,7 @@ import PayPalProvider from '@/components/PayPalProvider';
 import { AddressForm } from '@/components/checkout/AddressForm';
 import PaymentStep from '@/components/checkout/PaymentStep';
 import { isEuropeanCountry } from '@/utils/europeanCountries';
+import { trackInitiateCheckout, trackAddPaymentInfo } from '@/utils/facebookPixel';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -101,6 +102,33 @@ const Checkout = () => {
   
   // Get currency symbol from cart totals
   const currency = totals.currency === 'EUR' ? '€' : '$';
+
+  // Track Facebook Pixel InitiateCheckout when user reaches checkout (step 1)
+  useEffect(() => {
+    if (step === 1 && cart && cart.items.length > 0) {
+      const contentIds = cart.items.map(item => item.product_id.toString());
+      trackInitiateCheckout({
+        value: totals.total,
+        currency: totals.currency || 'USD',
+        num_items: totals.itemCount || cart.items.length,
+        content_ids: contentIds,
+        content_type: 'product',
+      });
+    }
+  }, [step, cart, totals]);
+
+  // Track Facebook Pixel AddPaymentInfo when user reaches payment step (step 4)
+  useEffect(() => {
+    if (step === 4 && cart && cart.items.length > 0) {
+      const contentIds = cart.items.map(item => item.product_id.toString());
+      trackAddPaymentInfo({
+        value: totals.total,
+        currency: totals.currency || 'USD',
+        content_type: 'product',
+        content_ids: contentIds,
+      });
+    }
+  }, [step, cart, totals]);
 
   // Auto-fill from user data when available (only if fields are empty, never overwrite user input)
   const [hasAutoFilled, setHasAutoFilled] = useState(false);

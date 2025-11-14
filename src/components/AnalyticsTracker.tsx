@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { trackPageView } from '../utils/analytics';
+import { trackPageView as trackFacebookPageView } from '../utils/facebookPixel';
 
 /**
  * Analytics Tracker Component
@@ -17,6 +18,8 @@ export const AnalyticsTracker = () => {
     const handleLoad = () => {
       const loadTime = Math.round(performance.now() - startTime);
       trackPageView(location.pathname, document.title, loadTime);
+      // Track Facebook Pixel PageView
+      trackFacebookPageView();
     };
 
     // If page is already loaded, track immediately

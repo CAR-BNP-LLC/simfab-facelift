@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useRegion } from '@/contexts/RegionContext';
+import { trackAddToCart } from '@/utils/facebookPixel';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -217,6 +218,19 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toast({
           title: 'Added to cart!',
           description: `${quantity} item(s) added to your cart`,
+        });
+      }
+
+      // Track Facebook Pixel AddToCart event
+      const cartItem = data.data?.cartItem;
+      if (cartItem) {
+        trackAddToCart({
+          content_name: cartItem.product_name,
+          content_ids: [cartItem.product_id?.toString() || productId.toString()],
+          content_type: 'product',
+          value: cartItem.unit_price || 0,
+          currency: region === 'eu' ? 'EUR' : 'USD',
+          quantity: quantity,
         });
       }
 
