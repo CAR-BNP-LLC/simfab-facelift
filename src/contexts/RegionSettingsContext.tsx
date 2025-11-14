@@ -3,7 +3,7 @@
  * Provides region-specific settings to all components
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useRegion } from './RegionContext';
 import { regionSettingsAPI } from '@/services/api';
 
@@ -34,7 +34,7 @@ export const RegionSettingsProvider: React.FC<{ children: ReactNode }> = ({ chil
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -67,22 +67,23 @@ export const RegionSettingsProvider: React.FC<{ children: ReactNode }> = ({ chil
     } finally {
       setLoading(false);
     }
-  };
+  }, [region]); // Memoize with region dependency
 
   useEffect(() => {
     fetchSettings();
-  }, [region]);
+  }, [fetchSettings]); // Include fetchSettings in dependencies
+
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    settings,
+    contactInfo,
+    loading,
+    error,
+    refresh: fetchSettings
+  }), [settings, contactInfo, loading, error, fetchSettings]);
 
   return (
-    <RegionSettingsContext.Provider
-      value={{
-        settings,
-        contactInfo,
-        loading,
-        error,
-        refresh: fetchSettings
-      }}
-    >
+    <RegionSettingsContext.Provider value={contextValue}>
       {children}
     </RegionSettingsContext.Provider>
   );
