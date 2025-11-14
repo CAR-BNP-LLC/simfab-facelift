@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 
 export interface Address {
   firstName: string;
@@ -83,15 +83,24 @@ interface CheckoutProviderProps {
 
 export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) => {
   const [checkoutState, setCheckoutState] = useState<CheckoutState>(defaultCheckoutState);
+  
+  // Use ref to track latest state to prevent infinite loops in useEffect
+  const checkoutStateRef = useRef<CheckoutState>(checkoutState);
+  
+  // Update ref whenever state changes
+  useEffect(() => {
+    checkoutStateRef.current = checkoutState;
+  }, [checkoutState]);
 
-  // Wrap saveToStorage in useCallback to prevent recreation on every render
+  // Wrap saveToStorage in useCallback without dependency on checkoutState to prevent infinite loops
+  // Use ref to access latest state value
   const saveToStorage = useCallback(() => {
     try {
-      localStorage.setItem('checkout-state', JSON.stringify(checkoutState));
+      localStorage.setItem('checkout-state', JSON.stringify(checkoutStateRef.current));
     } catch (error) {
       console.error('Failed to save checkout state to localStorage:', error);
     }
-  }, [checkoutState]);
+  }, []); // No dependencies - uses ref to access latest state
 
   // Load from localStorage on mount
   const loadFromStorage = useCallback(() => {
@@ -111,10 +120,14 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     loadFromStorage();
   }, [loadFromStorage]);
 
-  // Save to localStorage whenever state changes
+  // Save to localStorage whenever state changes (using ref to avoid circular dependency)
   useEffect(() => {
-    saveToStorage();
-  }, [saveToStorage]);
+    try {
+      localStorage.setItem('checkout-state', JSON.stringify(checkoutState));
+    } catch (error) {
+      console.error('Failed to save checkout state to localStorage:', error);
+    }
+  }, [checkoutState]);
 
   const updateCheckoutState = (updates: Partial<CheckoutState>) => {
     console.log('Updating checkout state with:', updates);

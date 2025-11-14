@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Heart, ShoppingCart, Truck, Shield, Clock, Headphones, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -224,6 +224,33 @@ const ProductDetail = () => {
     return errors;
   };
 
+  // Memoized stringified dependencies to prevent infinite loops on iOS Safari
+  // React uses reference equality for object dependencies, so we stringify them
+  const selectedDropdownVariationsStr = useMemo(
+    () => JSON.stringify(selectedDropdownVariations),
+    [selectedDropdownVariations]
+  );
+  const selectedImageValuesStr = useMemo(
+    () => JSON.stringify(selectedImageValues),
+    [selectedImageValues]
+  );
+  const selectedBooleanValuesStr = useMemo(
+    () => JSON.stringify(selectedBooleanValues),
+    [selectedBooleanValues]
+  );
+  const bundleConfigurationsStr = useMemo(
+    () => JSON.stringify(bundleConfigurations),
+    [bundleConfigurations]
+  );
+  const selectedOptionalItemsStr = useMemo(
+    () => JSON.stringify(Array.from(selectedOptionalItems).sort()),
+    [selectedOptionalItems]
+  );
+  const selectedTextValuesStr = useMemo(
+    () => JSON.stringify(selectedTextValues),
+    [selectedTextValues]
+  );
+
   // Re-validate when configuration changes
   useEffect(() => {
     if (product) {
@@ -232,12 +259,12 @@ const ProductDetail = () => {
   }, [
     product,
     selectedModelVariation,
-    selectedDropdownVariations,
-    selectedImageValues,
-    selectedBooleanValues,
+    selectedDropdownVariationsStr,
+    selectedImageValuesStr,
+    selectedBooleanValuesStr,
     bundleItems,
-    bundleConfigurations,
-    selectedOptionalItems
+    bundleConfigurationsStr,
+    selectedOptionalItemsStr
   ]);
 
   // Load shared configuration if on /share/:code route
@@ -384,7 +411,7 @@ const ProductDetail = () => {
       checkVariationStock();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModelVariation, selectedDropdownVariations, selectedTextValues, selectedImageValues, selectedBooleanValues, selectedOptionalItems, bundleConfigurations]);
+  }, [selectedModelVariation, selectedDropdownVariationsStr, selectedTextValuesStr, selectedImageValuesStr, selectedBooleanValuesStr, selectedOptionalItemsStr, bundleConfigurationsStr]);
 
   // Check bundle item stock when configuration changes
   useEffect(() => {
@@ -392,7 +419,7 @@ const ProductDetail = () => {
       checkBundleItemStock(product.id, bundleItems);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedOptionalItems, bundleConfigurations]);
+  }, [selectedOptionalItemsStr, bundleConfigurationsStr]);
 
   // Set default selections when product loads
   useEffect(() => {
