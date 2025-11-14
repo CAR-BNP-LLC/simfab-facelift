@@ -3,7 +3,7 @@
  * Global region state management (US vs EU)
  */
 
-import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, useMemo, ReactNode } from 'react';
 import { setRegionGetter as setApiRegionGetter } from '@/services/api';
 
 type Region = 'us' | 'eu';
@@ -91,8 +91,15 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     });
   };
 
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    region,
+    setRegion,
+    toggleRegion
+  }), [region]);
+
   return (
-    <RegionContext.Provider value={{ region, setRegion, toggleRegion }}>
+    <RegionContext.Provider value={contextValue}>
       {children}
     </RegionContext.Provider>
   );

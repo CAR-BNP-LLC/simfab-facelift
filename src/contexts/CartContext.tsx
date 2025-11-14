@@ -3,7 +3,7 @@
  * Global shopping cart state management
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useRegion } from '@/contexts/RegionContext';
 import { CheckoutContext } from '@/contexts/CheckoutContext';
@@ -84,15 +84,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Safely access checkout context (may not be available if CheckoutProvider is not a parent)
   const checkoutContext = useContext(CheckoutContext);
 
-  // Load cart on mount
-  useEffect(() => {
-    refreshCart();
-  }, [region]); // Refresh cart when region changes
-
   /**
    * Refresh cart from API
    */
-  const refreshCart = async () => {
+  const refreshCart = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/api/cart?region=${region}`, {
@@ -121,7 +116,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  };
+  }, [region]); // Memoize with region dependency
+
+  // Load cart on mount and when region changes
+  useEffect(() => {
+    refreshCart();
+  }, [refreshCart]); // Include refreshCart in dependencies
 
   /**
    * Add item to cart
