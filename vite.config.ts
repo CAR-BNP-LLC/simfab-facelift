@@ -23,4 +23,38 @@ export default defineConfig(({ mode }) => ({
       "@": "/src",
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor chunks to reduce initial bundle size
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-tooltip',
+          ],
+          'query-vendor': ['@tanstack/react-query'],
+          'paypal-vendor': ['@paypal/react-paypal-js'],
+        },
+      },
+    },
+    // Increase chunk size warning limit for better code splitting
+    chunkSizeWarningLimit: 1000,
+  },
+  optimizeDeps: {
+    // Pre-bundle dependencies to reduce initial load
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+    ],
+    // Exclude heavy dependencies from pre-bundling (load on demand)
+    exclude: [
+      '@paypal/react-paypal-js', // Load PayPal only when needed
+    ],
+  },
 }));

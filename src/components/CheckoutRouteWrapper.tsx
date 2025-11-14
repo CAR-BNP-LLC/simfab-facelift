@@ -1,4 +1,3 @@
-import { useLocation } from 'react-router-dom';
 import { useState, useEffect, ReactNode } from 'react';
 import { CheckoutProvider } from '@/contexts/CheckoutContext';
 
@@ -11,16 +10,17 @@ interface CheckoutRouteWrapperProps {
  * This prevents loading checkout context on pages that don't need it
  */
 export const CheckoutRouteWrapper: React.FC<CheckoutRouteWrapperProps> = ({ children }) => {
-  const location = useLocation();
   const [shouldLoad, setShouldLoad] = useState(false);
 
-  // Check if we're on a checkout-related route
-  const isCheckoutRoute = location.pathname.startsWith('/checkout') || 
-                          location.pathname.startsWith('/order-confirmation') ||
-                          location.pathname.startsWith('/orders/');
-
   useEffect(() => {
-    console.log('[CheckoutRouteWrapper] useEffect RUN - isCheckoutRoute:', isCheckoutRoute);
+    // Use window.location.pathname since we're outside BrowserRouter
+    const pathname = window.location.pathname;
+    const isCheckoutRoute = pathname.startsWith('/checkout') || 
+                           pathname.startsWith('/order-confirmation') ||
+                           pathname.startsWith('/orders/');
+    
+    console.log('[CheckoutRouteWrapper] useEffect RUN - pathname:', pathname, 'isCheckoutRoute:', isCheckoutRoute);
+    
     if (isCheckoutRoute) {
       // Load immediately for checkout routes
       console.log('[CheckoutRouteWrapper] Loading CheckoutProvider for checkout route');
@@ -36,9 +36,9 @@ export const CheckoutRouteWrapper: React.FC<CheckoutRouteWrapperProps> = ({ chil
         clearTimeout(timer);
       };
     }
-  }, [isCheckoutRoute]);
+  }, []); // Only run once on mount
 
-  console.log('[CheckoutRouteWrapper] RENDER - shouldLoad:', shouldLoad, 'isCheckoutRoute:', isCheckoutRoute);
+  console.log('[CheckoutRouteWrapper] RENDER - shouldLoad:', shouldLoad);
 
   if (!shouldLoad) {
     console.log('[CheckoutRouteWrapper] RETURNING CHILDREN WITHOUT CHECKOUT PROVIDER');
