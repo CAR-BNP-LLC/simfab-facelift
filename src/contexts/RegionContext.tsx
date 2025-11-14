@@ -19,8 +19,10 @@ const RegionContext = createContext<RegionContextType | undefined>(undefined);
 const REGION_STORAGE_KEY = 'simfab_region';
 
 export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  console.log('[RegionProvider] RENDER');
   // Initialize region from localStorage, hostname, or default to 'us'
   const [region, setRegionState] = useState<Region>(() => {
+    console.log('[RegionProvider] INITIAL STATE');
     // 1. Check localStorage first
     const stored = localStorage.getItem(REGION_STORAGE_KEY);
     if (stored === 'us' || stored === 'eu') {
@@ -52,13 +54,16 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // This ensures API requests made during initial render use the correct region
   // useLayoutEffect runs synchronously before browser paint, before any child effects
   useLayoutEffect(() => {
+    console.log('[RegionProvider] useLayoutEffect RUN');
     regionRef.current = region;
     setApiRegionGetter(() => regionRef.current);
     localStorage.setItem(REGION_STORAGE_KEY, region);
   }, []); // Run only once on mount
 
   // Save to localStorage and register with api.ts whenever region changes
+  const hasInitialized = useRef(false);
   useEffect(() => {
+    console.log('[RegionProvider] useEffect RUN - region:', region);
     // Update ref FIRST (synchronously, before any other effects run)
     regionRef.current = region;
     
@@ -67,10 +72,18 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     
     localStorage.setItem(REGION_STORAGE_KEY, region);
     
-    // Update query param (optional, for URL clarity)
-    const url = new URL(window.location.href);
-    url.searchParams.set('region', region);
-    window.history.replaceState({}, '', url.toString());
+    // Only update URL if region actually changed (not on initial mount)
+    if (hasInitialized.current) {
+      // Update query param (optional, for URL clarity)
+      const url = new URL(window.location.href);
+      const currentRegion = url.searchParams.get('region');
+      if (currentRegion !== region) {
+        url.searchParams.set('region', region);
+        window.history.replaceState({}, '', url.toString());
+      }
+    } else {
+      hasInitialized.current = true;
+    }
   }, [region]);
 
   const setRegion = (newRegion: Region) => {
@@ -92,12 +105,16 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    region,
-    setRegion,
-    toggleRegion
-  }), [region]);
+  const contextValue = useMemo(() => {
+    console.log('[RegionProvider] useMemo RUN - region:', region);
+    return {
+      region,
+      setRegion,
+      toggleRegion
+    };
+  }, [region]);
 
+  console.log('[RegionProvider] RETURNING PROVIDER');
   return (
     <RegionContext.Provider value={contextValue}>
       {children}

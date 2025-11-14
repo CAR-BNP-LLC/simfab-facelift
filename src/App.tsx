@@ -43,7 +43,9 @@ import { AnalyticsTracker } from "./components/AnalyticsTracker";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+const App = () => {
+  console.log('[App] RENDER');
+  return (
   <QueryClientProvider client={queryClient}>
     <RegionProvider>
       <RegionSettingsProvider>
@@ -101,6 +103,7 @@ const App = () => (
       </RegionSettingsProvider>
     </RegionProvider>
   </QueryClientProvider>
-);
+  );
+};
 
 export default App;

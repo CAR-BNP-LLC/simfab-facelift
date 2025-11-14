@@ -82,6 +82,7 @@ interface CheckoutProviderProps {
 }
 
 export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) => {
+  console.log('[CheckoutProvider] RENDER');
   const [checkoutState, setCheckoutState] = useState<CheckoutState>(defaultCheckoutState);
   
   // Use ref to track latest state to prevent infinite loops in useEffect
@@ -89,6 +90,7 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
   
   // Update ref whenever state changes
   useEffect(() => {
+    console.log('[CheckoutProvider] useEffect RUN - checkoutState changed');
     checkoutStateRef.current = checkoutState;
   }, [checkoutState]);
 
@@ -115,13 +117,39 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     }
   }, []);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount (only once, don't save back immediately)
+  const hasLoadedFromStorage = useRef(false);
   useEffect(() => {
-    loadFromStorage();
-  }, [loadFromStorage]);
+    if (hasLoadedFromStorage.current) {
+      console.log('[CheckoutProvider] SKIPPING - already loaded from storage');
+      return;
+    }
+    console.log('[CheckoutProvider] useEffect RUN - loadFromStorage');
+    hasLoadedFromStorage.current = true;
+    const saved = localStorage.getItem('checkout-state');
+    if (saved) {
+      try {
+        const parsedState = JSON.parse(saved);
+        console.log('[CheckoutProvider] LOADED FROM STORAGE');
+        // Use setTimeout to defer state update and break potential loops
+        setTimeout(() => {
+          setCheckoutState(parsedState);
+        }, 0);
+      } catch (error) {
+        console.error('Failed to load checkout state from localStorage:', error);
+      }
+    }
+  }, []); // Only run once on mount
 
-  // Save to localStorage whenever state changes (using ref to avoid circular dependency)
+  // Save to localStorage whenever state changes (but skip initial load)
+  const isInitialMount = useRef(true);
   useEffect(() => {
+    if (isInitialMount.current) {
+      console.log('[CheckoutProvider] SKIPPING INITIAL SAVE');
+      isInitialMount.current = false;
+      return;
+    }
+    console.log('[CheckoutProvider] useEffect RUN - saving checkoutState to localStorage');
     try {
       localStorage.setItem('checkout-state', JSON.stringify(checkoutState));
     } catch (error) {
@@ -145,6 +173,20 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
     });
   }, []);
 
+  // Listen for cart updates to clear shipping selection (avoid re-render loops)
+  useEffect(() => {
+    console.log('[CheckoutProvider] useEffect RUN - setting up cartUpdated listener');
+    const handleCartUpdated = () => {
+      console.log('[CheckoutProvider] cartUpdated EVENT - clearing shipping');
+      updateCheckoutState({ selectedShipping: '' });
+    };
+    window.addEventListener('cartUpdated', handleCartUpdated);
+    return () => {
+      console.log('[CheckoutProvider] useEffect CLEANUP - removing cartUpdated listener');
+      window.removeEventListener('cartUpdated', handleCartUpdated);
+    };
+  }, [updateCheckoutState]);
+
   const resetCheckoutState = useCallback(() => {
     console.log('Resetting checkout state');
     setCheckoutState(defaultCheckoutState);
@@ -157,15 +199,19 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
   }, []);
 
   // Memoize context value to prevent unnecessary re-renders
-  const value = useMemo<CheckoutContextType>(() => ({
-    checkoutState,
-    updateCheckoutState,
-    resetCheckoutState,
-    clearStorage,
-    saveToStorage,
-    loadFromStorage
-  }), [checkoutState, updateCheckoutState, resetCheckoutState, clearStorage, saveToStorage, loadFromStorage]);
+  const value = useMemo<CheckoutContextType>(() => {
+    console.log('[CheckoutProvider] useMemo RUN');
+    return {
+      checkoutState,
+      updateCheckoutState,
+      resetCheckoutState,
+      clearStorage,
+      saveToStorage,
+      loadFromStorage
+    };
+  }, [checkoutState, updateCheckoutState, resetCheckoutState, clearStorage, saveToStorage, loadFromStorage]);
 
+  console.log('[CheckoutProvider] RETURNING PROVIDER');
   return (
     <CheckoutContext.Provider value={value}>
       {children}

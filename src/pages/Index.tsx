@@ -11,6 +11,7 @@ import Footer from '@/components/Footer';
 import SiteNotice from '@/components/SiteNotice';
 
 const Index = () => {
+  console.log('[Index] RENDER');
   return (
     <div className="min-h-screen bg-background">
       <Header />

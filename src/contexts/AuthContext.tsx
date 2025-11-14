@@ -19,14 +19,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  console.log('[AuthProvider] RENDER');
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
 
   const checkAuth = useCallback(async () => {
+    console.log('[AuthProvider] checkAuth CALLED');
     try {
       setLoading(true);
+      console.log('[AuthProvider] FETCHING PROFILE...');
       const response = await authAPI.getProfile();
+      console.log('[AuthProvider] PROFILE FETCHED');
       setUser(response.data.user);
     } catch (error) {
       // User is not logged in
@@ -40,11 +44,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Check if user is logged in after initial render (defer to allow UI to render first)
   useEffect(() => {
+    console.log('[AuthProvider] useEffect RUN - checkAuth changed');
     // Use setTimeout to defer auth check until after initial render
     const timer = setTimeout(() => {
+      console.log('[AuthProvider] setTimeout CALLBACK - calling checkAuth');
       checkAuth();
     }, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      console.log('[AuthProvider] useEffect CLEANUP');
+      clearTimeout(timer);
+    };
   }, [checkAuth]);
 
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
@@ -142,19 +151,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    user,
-    loading,
-    isAuthenticated: !!user,
-    hasAuthority,
-    hasAnyAuthority,
-    hasAllAuthorities,
-    login,
-    register,
-    logout,
-    refreshUser,
-  }), [user, loading, hasAuthority, hasAnyAuthority, hasAllAuthorities, login, register, logout, refreshUser]);
+  const contextValue = useMemo(() => {
+    console.log('[AuthProvider] useMemo RUN');
+    return {
+      user,
+      loading,
+      isAuthenticated: !!user,
+      hasAuthority,
+      hasAnyAuthority,
+      hasAllAuthorities,
+      login,
+      register,
+      logout,
+      refreshUser,
+    };
+  }, [user, loading, hasAuthority, hasAnyAuthority, hasAllAuthorities, login, register, logout, refreshUser]);
 
+  console.log('[AuthProvider] RETURNING PROVIDER');
   return (
     <AuthContext.Provider value={contextValue}>
       {children}

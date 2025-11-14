@@ -45,17 +45,20 @@ export const useWishlist = () => {
 // ============================================================================
 
 export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  console.log('[WishlistProvider] RENDER');
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistIds, setWishlistIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const [wishlistCount, setWishlistCount] = useState(0);
   const { isAuthenticated } = useAuth();
+  console.log('[WishlistProvider] isAuthenticated:', isAuthenticated);
   const { toast } = useToast();
 
   /**
    * Fetch wishlist from API
    */
   const fetchWishlist = useCallback(async () => {
+    console.log('[WishlistProvider] fetchWishlist CALLED - isAuthenticated:', isAuthenticated);
     if (!isAuthenticated) {
       setWishlist([]);
       setWishlistIds(new Set());
@@ -66,7 +69,9 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     try {
       setLoading(true);
+      console.log('[WishlistProvider] FETCHING WISHLIST...');
       const response = await wishlistAPI.getWishlist();
+      console.log('[WishlistProvider] WISHLIST FETCHED');
       const items = response.data.items || [];
       setWishlist(items);
       setWishlistIds(new Set(items.map((item: WishlistItem) => item.product_id)));
@@ -183,24 +188,34 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // Fetch wishlist after initial render (defer to allow UI to render first)
   useEffect(() => {
+    console.log('[WishlistProvider] useEffect RUN - fetchWishlist changed');
     // Use setTimeout to defer wishlist fetch until after initial render
     const timer = setTimeout(() => {
+      console.log('[WishlistProvider] setTimeout CALLBACK - calling fetchWishlist');
       fetchWishlist();
     }, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      console.log('[WishlistProvider] useEffect CLEANUP');
+      clearTimeout(timer);
+    };
   }, [fetchWishlist]);
 
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({
-    wishlist,
-    wishlistIds,
-    loading,
-    addToWishlist,
-    removeFromWishlist,
-    isInWishlist,
-    refreshWishlist,
-    wishlistCount,
-  }), [wishlist, wishlistIds, loading, addToWishlist, removeFromWishlist, isInWishlist, refreshWishlist, wishlistCount]);
+  const contextValue = useMemo(() => {
+    console.log('[WishlistProvider] useMemo RUN');
+    return {
+      wishlist,
+      wishlistIds,
+      loading,
+      addToWishlist,
+      removeFromWishlist,
+      isInWishlist,
+      refreshWishlist,
+      wishlistCount,
+    };
+  }, [wishlist, wishlistIds, loading, addToWishlist, removeFromWishlist, isInWishlist, refreshWishlist, wishlistCount]);
+
+  console.log('[WishlistProvider] RETURNING PROVIDER');
 
   return (
     <WishlistContext.Provider value={contextValue}>

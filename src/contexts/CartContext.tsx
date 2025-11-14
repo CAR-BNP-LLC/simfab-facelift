@@ -6,7 +6,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useRegion } from '@/contexts/RegionContext';
-import { CheckoutContext } from '@/contexts/CheckoutContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -77,25 +76,31 @@ export const useCart = () => {
 // ============================================================================
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  console.log('[CartProvider] RENDER');
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
   const { region } = useRegion();
-  // Safely access checkout context (may not be available if CheckoutProvider is not a parent)
-  const checkoutContext = useContext(CheckoutContext);
+  console.log('[CartProvider] region from useRegion:', region);
+  // Don't use useContext here - it causes re-renders when CheckoutContext changes
+  // Instead, we'll use a custom event or pass the function differently
+  // For now, we'll remove the dependency on CheckoutContext to prevent re-render loops
 
   /**
    * Refresh cart from API
    */
   const refreshCart = useCallback(async () => {
+    console.log('[CartProvider] refreshCart CALLED - region:', region);
     try {
       setLoading(true);
+      console.log('[CartProvider] FETCHING CART...');
       const response = await fetch(`${API_URL}/api/cart?region=${region}`, {
         credentials: 'include',
         headers: { 'X-Region': region }
       });
 
       const data = await response.json();
+      console.log('[CartProvider] CART FETCHED');
 
       if (data.success && data.data) {
         // Check if cart is actually empty (no items)
@@ -120,11 +125,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Load cart after initial render (defer to allow UI to render first)
   useEffect(() => {
+    console.log('[CartProvider] useEffect RUN - refreshCart changed');
     // Use setTimeout to defer cart load until after initial render
     const timer = setTimeout(() => {
+      console.log('[CartProvider] setTimeout CALLBACK - calling refreshCart');
       refreshCart();
     }, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      console.log('[CartProvider] useEffect CLEANUP');
+      clearTimeout(timer);
+    };
   }, [refreshCart]); // Include refreshCart in dependencies
 
   /**
@@ -221,8 +231,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Refresh cart
       await refreshCart();
       
-      // Clear shipping selection when cart items change (if checkout context is available)
-      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
+      // Clear shipping selection when cart items change (use event to avoid re-render loops)
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
     } catch (error) {
       toast({
         title: 'Error',
@@ -233,7 +243,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [region, refreshCart, checkoutContext, toast]);
+  }, [region, refreshCart, toast]);
 
   /**
    * Update item quantity
@@ -261,8 +271,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Refresh cart
       await refreshCart();
       
-      // Clear shipping selection when cart items change (if checkout context is available)
-      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
+      // Clear shipping selection when cart items change (use event to avoid re-render loops)
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
     } catch (error) {
       toast({
         title: 'Error',
@@ -273,7 +283,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [region, refreshCart, checkoutContext, toast]);
+  }, [region, refreshCart, toast]);
 
   /**
    * Remove item from cart
@@ -302,8 +312,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Refresh cart
       await refreshCart();
       
-      // Clear shipping selection when cart items change (if checkout context is available)
-      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
+      // Clear shipping selection when cart items change (use event to avoid re-render loops)
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
     } catch (error) {
       toast({
         title: 'Error',
@@ -314,7 +324,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [region, refreshCart, checkoutContext, toast]);
+  }, [region, refreshCart, toast]);
 
   /**
    * Clear entire cart
@@ -337,8 +347,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       setCart(null);
 
-      // Clear shipping selection when cart is cleared (if checkout context is available)
-      checkoutContext?.updateCheckoutState({ selectedShipping: '' });
+      // Clear shipping selection when cart is cleared (use event to avoid re-render loops)
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
 
       toast({
         title: 'Cart cleared',
@@ -354,7 +364,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [region, checkoutContext, toast]);
+  }, [region, toast]);
 
   /**
    * Apply coupon code
@@ -406,18 +416,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const itemCount = cart?.totals?.itemCount || 0;
 
   // Memoize context value to prevent unnecessary re-renders
-  const value = useMemo<CartContextType>(() => ({
-    cart,
-    loading,
-    itemCount,
-    addToCart,
-    updateQuantity,
-    removeItem,
-    clearCart,
-    applyCoupon,
-    refreshCart
-  }), [cart, loading, itemCount, addToCart, updateQuantity, removeItem, clearCart, applyCoupon, refreshCart]);
+  const value = useMemo<CartContextType>(() => {
+    console.log('[CartProvider] useMemo RUN');
+    return {
+      cart,
+      loading,
+      itemCount,
+      addToCart,
+      updateQuantity,
+      removeItem,
+      clearCart,
+      applyCoupon,
+      refreshCart
+    };
+  }, [cart, loading, itemCount, addToCart, updateQuantity, removeItem, clearCart, applyCoupon, refreshCart]);
 
+  console.log('[CartProvider] RETURNING PROVIDER');
   return (
     <CartContext.Provider value={value}>
       {children}
