@@ -27,11 +27,13 @@ import Footer from '@/components/Footer';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCheckout } from '@/contexts/CheckoutContext';
+import { useRegion } from '@/contexts/RegionContext';
 import { orderAPI, shippingAPI, ShippingMethod } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import PayPalProvider from '@/components/PayPalProvider';
 import { AddressForm } from '@/components/checkout/AddressForm';
 import PaymentStep from '@/components/checkout/PaymentStep';
+import { isEuropeanCountry } from '@/utils/europeanCountries';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ const Checkout = () => {
   const { cart, loading: cartLoading, applyCoupon, refreshCart, clearCart } = useCart();
   const { user } = useAuth();
   const { checkoutState, updateCheckoutState, clearStorage } = useCheckout();
+  const { region } = useRegion();
   const { toast } = useToast();
 
   const [submitting, setSubmitting] = useState(false);
@@ -163,6 +166,11 @@ const Checkout = () => {
         return;
       }
 
+      // Don't fetch shipping rates for non-European addresses on EU site
+      if (region === 'eu' && shippingAddress.country && !isEuropeanCountry(shippingAddress.country)) {
+        return;
+      }
+
       setLoadingShipping(true);
       try {
         // Build cartItems array from cart items
@@ -215,6 +223,7 @@ const Checkout = () => {
     shippingAddress.postalCode,
     shippingAddress.country,
     step,
+    region, // Recalculate when region changes
     cartItemsSignature, // Recalculate when cart items change (including quantities)
     totals.subtotal // Recalculate when cart total changes
   ]);
@@ -310,6 +319,15 @@ const Checkout = () => {
 
   const handleNext = () => {
     if (step === 2 && !validateAddress()) {
+      return;
+    }
+    // Check if EU site and non-European address
+    if (step === 2 && region === 'eu' && shippingAddress.country && !isEuropeanCountry(shippingAddress.country)) {
+      toast({
+        title: 'Shipping not available',
+        description: 'We can only ship to addresses in Europe. Please visit our US site to place an order for addresses outside of Europe.',
+        variant: 'destructive'
+      });
       return;
     }
     // Validate shipping method selection before moving to review
@@ -807,7 +825,27 @@ const Checkout = () => {
                   </CardHeader>
                   <CardContent>
 
-                    {loadingShipping ? (
+                    {/* Check if EU site and non-European address */}
+                    {region === 'eu' && shippingAddress.country && !isEuropeanCountry(shippingAddress.country) ? (
+                      <div className="space-y-6">
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            <div className="space-y-2">
+                              <p className="font-semibold">We can only ship to addresses in Europe</p>
+                              <p>
+                                The address you entered is outside of Europe. Please visit our US site to place an order for addresses outside of Europe.
+                              </p>
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                        <div className="flex justify-between">
+                          <Button variant="outline" onClick={handleBack}>
+                            ← Back to Address
+                          </Button>
+                        </div>
+                      </div>
+                    ) : loadingShipping ? (
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
                         <span className="text-muted-foreground">Calculating shipping rates...</span>

@@ -3,7 +3,7 @@
  * Global region state management (US vs EU)
  */
 
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, ReactNode } from 'react';
 import { setRegionGetter as setApiRegionGetter } from '@/services/api';
 
 type Region = 'us' | 'eu';
@@ -47,6 +47,16 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Use ref to always have the latest region value for the getter function
   // Initialize ref with initial region value
   const regionRef = useRef(region);
+
+  // Register getter IMMEDIATELY (synchronously) before first paint
+  // This ensures API requests made during initial render use the correct region
+  // useLayoutEffect runs synchronously before browser paint, before any child effects
+  useLayoutEffect(() => {
+    regionRef.current = region;
+    setApiRegionGetter(() => regionRef.current);
+    localStorage.setItem(REGION_STORAGE_KEY, region);
+    console.log('📍 RegionContext: Initialized region to', region, 'and registered with api.ts');
+  }, []); // Run only once on mount
 
   // Save to localStorage and register with api.ts whenever region changes
   useEffect(() => {
