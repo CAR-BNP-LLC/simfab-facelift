@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { paypalClient } from '../config/paypal';
+import { getPayPalClientForRegion } from '../config/paypal';
 import * as paypal from '@paypal/checkout-server-sdk';
 import { OrderService } from './OrderService';
 import { EmailService } from './EmailService';
@@ -30,6 +30,25 @@ export class WebhookService {
     webhookId: string
   ): Promise<boolean> {
     try {
+      const event = JSON.parse(body);
+      
+      // Try to determine region from webhook event
+      // Check if we can get order ID from the event resource
+      let region: 'us' | 'eu' = 'us'; // Default to US
+      
+      if (event.resource?.custom_id) {
+        // Get order region from database
+        const orderResult = await this.pool.query(
+          'SELECT region FROM orders WHERE id = $1',
+          [event.resource.custom_id]
+        );
+        if (orderResult.rows.length > 0) {
+          region = (orderResult.rows[0].region || 'us') as 'us' | 'eu';
+        }
+      }
+      
+      const paypalClient = await getPayPalClientForRegion(this.pool, region);
+      
       const request = new (paypal as any).notifications.WebhooksVerifySignatureRequest();
       request.requestBody({
         auth_algo: headers['paypal-auth-algo'],
@@ -38,7 +57,7 @@ export class WebhookService {
         transmission_sig: headers['paypal-transmission-sig'],
         transmission_time: headers['paypal-transmission-time'],
         webhook_id: webhookId,
-        webhook_event: JSON.parse(body)
+        webhook_event: event
       });
 
       const response = await paypalClient.execute(request);

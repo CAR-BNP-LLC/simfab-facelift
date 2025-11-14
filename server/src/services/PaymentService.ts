@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { paypalClient, paypalConfig } from '../config/paypal';
+import { getPayPalClientForRegion } from '../config/paypal';
 import * as paypal from '@paypal/checkout-server-sdk';
 import { PaymentError } from '../utils/errors';
 import { OrderService } from './OrderService';
@@ -102,7 +102,7 @@ export class PaymentService {
 
       // CRITICAL: Validate order exists and is in correct state
       const orderCheck = await client.query(
-        `SELECT id, payment_status, status, total_amount, shipping_amount, subtotal, discount_amount, tax_amount, payment_expires_at 
+        `SELECT id, payment_status, status, total_amount, shipping_amount, subtotal, discount_amount, tax_amount, payment_expires_at, region 
          FROM orders 
          WHERE id = $1`,
         [data.orderId]
@@ -114,6 +114,7 @@ export class PaymentService {
       }
 
       const order = orderCheck.rows[0];
+      const orderRegion = (order.region || 'us') as 'us' | 'eu';
 
       // Check if order is expired
       if (order.payment_expires_at && new Date(order.payment_expires_at) < new Date()) {
@@ -293,9 +294,13 @@ export class PaymentService {
         }
       });
 
+      // Get region-specific PayPal client
+      const paypalClient = await getPayPalClientForRegion(this.pool, orderRegion);
+      
       // Execute PayPal request
       console.log('🚀 Executing PayPal API request:', {
         orderId: data.orderId,
+        region: orderRegion,
         amount: data.amount.toString(),
         currency: data.currency,
         purchaseUnitAmount: purchaseUnit.amount.value,
@@ -410,14 +415,22 @@ export class PaymentService {
         });
       }
 
-      // CRITICAL: Check if order is expired
+      // CRITICAL: Check if order is expired and get region
       const orderCheck = await client.query(
-        `SELECT payment_expires_at FROM orders WHERE id = $1`,
+        `SELECT payment_expires_at, region FROM orders WHERE id = $1`,
         [orderId]
       );
 
-      if (orderCheck.rows.length > 0 && orderCheck.rows[0].payment_expires_at) {
-        const expiresAt = new Date(orderCheck.rows[0].payment_expires_at);
+      if (orderCheck.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new PaymentError('Order not found', 'ORDER_NOT_FOUND');
+      }
+
+      const orderData = orderCheck.rows[0];
+      const orderRegion = (orderData.region || 'us') as 'us' | 'eu';
+
+      if (orderData.payment_expires_at) {
+        const expiresAt = new Date(orderData.payment_expires_at);
         if (expiresAt < new Date()) {
           await client.query('ROLLBACK');
           throw new PaymentError('Order has expired', 'ORDER_EXPIRED', { 
@@ -432,6 +445,9 @@ export class PaymentService {
          WHERE transaction_id = $1`,
         [paymentId]
       );
+
+      // Get region-specific PayPal client
+      const paypalClient = await getPayPalClientForRegion(this.pool, orderRegion);
 
       // Execute PayPal payment capture
       const request = new paypal.orders.OrdersCaptureRequest(paymentId);

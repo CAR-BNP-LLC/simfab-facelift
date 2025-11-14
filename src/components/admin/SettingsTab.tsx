@@ -32,6 +32,8 @@ interface SettingsForm {
   free_shipping_threshold: string;
   site_name: string;
   fedex_warehouse_address?: WarehouseAddress;
+  paypal_client_id?: string;
+  paypal_client_secret?: string;
 }
 
 export default function SettingsTab() {
@@ -53,6 +55,8 @@ export default function SettingsTab() {
       postalCode: '',
       countryCode: 'US',
     },
+    paypal_client_id: '',
+    paypal_client_secret: '',
   });
   const [euSettings, setEuSettings] = useState<SettingsForm>({
     admin_email: '',
@@ -71,6 +75,8 @@ export default function SettingsTab() {
       postalCode: '',
       countryCode: 'US',
     },
+    paypal_client_id: '',
+    paypal_client_secret: '',
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -105,6 +111,8 @@ export default function SettingsTab() {
             postalCode: '',
             countryCode: region === 'eu' ? 'DE' : 'US',
           },
+          paypal_client_id: settings.paypal_client_id || '',
+          paypal_client_secret: settings.paypal_client_secret || '',
         };
 
         if (region === 'us') {
@@ -140,6 +148,13 @@ export default function SettingsTab() {
           } else if (key === 'fedex_warehouse_address') {
             // Keep warehouse address as object for JSON type
             settingsToUpdate[key] = value;
+          } else if (key === 'paypal_client_secret' || key === 'paypal_client_id') {
+            // Only update PayPal credentials if they're not masked values (don't end with xxxxx)
+            // If they end with xxxxx, it means they're the masked version from the server
+            // and we should skip updating them unless the user entered a new value
+            if (typeof value === 'string' && !value.endsWith('xxxxx')) {
+              settingsToUpdate[key] = value;
+            }
           } else {
             settingsToUpdate[key] = value;
           }
@@ -356,6 +371,45 @@ export default function SettingsTab() {
                   </div>
                 </div>
 
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">PayPal Configuration</h3>
+                  <CardDescription className="mb-4">
+                    Configure PayPal payment credentials for the US region. Secrets are masked for security.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="us_paypal_client_id">PayPal Client ID</Label>
+                      <Input
+                        id="us_paypal_client_id"
+                        type="text"
+                        value={usSettings.paypal_client_id || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, paypal_client_id: e.target.value })}
+                        placeholder={usSettings.paypal_client_id?.endsWith('xxxxx') ? 'Enter new client ID to update' : 'Enter PayPal Client ID'}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {usSettings.paypal_client_id?.endsWith('xxxxx') 
+                          ? 'Client ID is masked. Enter a new value to update it.'
+                          : 'This value will be masked after saving.'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="us_paypal_client_secret">PayPal Client Secret</Label>
+                      <Input
+                        id="us_paypal_client_secret"
+                        type="text"
+                        value={usSettings.paypal_client_secret || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, paypal_client_secret: e.target.value })}
+                        placeholder={usSettings.paypal_client_secret?.endsWith('xxxxx') ? 'Enter new secret to update' : 'Enter PayPal Client Secret'}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {usSettings.paypal_client_secret?.endsWith('xxxxx') 
+                          ? 'Secret is masked. Enter a new value to update it.'
+                          : 'This value will be masked after saving.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex justify-end pt-4">
                   <Button onClick={() => handleSave('us')} disabled={saving}>
                     {saving ? (
@@ -530,6 +584,45 @@ export default function SettingsTab() {
                         placeholder="DE"
                         maxLength={2}
                       />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">PayPal Configuration</h3>
+                  <CardDescription className="mb-4">
+                    Configure PayPal payment credentials for the EU region. Secrets are masked for security.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div>
+                      <Label htmlFor="eu_paypal_client_id">PayPal Client ID</Label>
+                      <Input
+                        id="eu_paypal_client_id"
+                        type="text"
+                        value={euSettings.paypal_client_id || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, paypal_client_id: e.target.value })}
+                        placeholder={euSettings.paypal_client_id?.endsWith('xxxxx') ? 'Enter new client ID to update' : 'Enter PayPal Client ID'}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {euSettings.paypal_client_id?.endsWith('xxxxx') 
+                          ? 'Client ID is masked. Enter a new value to update it.'
+                          : 'This value will be masked after saving.'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_paypal_client_secret">PayPal Client Secret</Label>
+                      <Input
+                        id="eu_paypal_client_secret"
+                        type="text"
+                        value={euSettings.paypal_client_secret || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, paypal_client_secret: e.target.value })}
+                        placeholder={euSettings.paypal_client_secret?.endsWith('xxxxx') ? 'Enter new secret to update' : 'Enter PayPal Client Secret'}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {euSettings.paypal_client_secret?.endsWith('xxxxx') 
+                          ? 'Secret is masked. Enter a new value to update it.'
+                          : 'This value will be masked after saving.'}
+                      </p>
                     </div>
                   </div>
                 </div>

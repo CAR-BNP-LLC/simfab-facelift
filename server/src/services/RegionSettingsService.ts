@@ -25,10 +25,36 @@ export class RegionSettingsService {
   constructor(private pool: Pool) {}
 
   /**
+   * Mask sensitive values (show first few chars + xxxxx)
+   */
+  private maskSensitiveValue(value: string | null, maskLength: number = 4): string | null {
+    if (!value || value.length === 0) return value;
+    if (value.length <= maskLength) return 'xxxxx';
+    return value.substring(0, maskLength) + 'xxxxx';
+  }
+
+  /**
+   * Check if a setting key is sensitive (should be masked)
+   */
+  private isSensitiveKey(key: string): boolean {
+    const sensitiveKeys = [
+      'paypal_client_secret', 
+      'paypal_client_id', 
+      'client_secret', 
+      'client_id',
+      'secret', 
+      'password', 
+      'api_key', 
+      'api_secret'
+    ];
+    return sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive.toLowerCase()));
+  }
+
+  /**
    * Get all settings for a region
    */
-  async getSettings(region: 'us' | 'eu', publicOnly: boolean = false): Promise<Record<string, any>> {
-    const cacheKey = `${region}_${publicOnly ? 'public' : 'all'}`;
+  async getSettings(region: 'us' | 'eu', publicOnly: boolean = false, maskSecrets: boolean = true): Promise<Record<string, any>> {
+    const cacheKey = `${region}_${publicOnly ? 'public' : 'all'}_${maskSecrets ? 'masked' : 'unmasked'}`;
     const cached = this.cache.get(cacheKey);
     
     if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
@@ -51,7 +77,13 @@ export class RegionSettingsService {
     const settings: Record<string, any> = {};
     
     for (const row of result.rows) {
-      const value = this.parseSettingValue(row.setting_value, row.setting_type);
+      let value = this.parseSettingValue(row.setting_value, row.setting_type);
+      
+      // Mask sensitive values if requested
+      if (maskSecrets && this.isSensitiveKey(row.setting_key) && typeof value === 'string') {
+        value = this.maskSensitiveValue(value);
+      }
+      
       settings[row.setting_key] = value;
     }
 
@@ -64,7 +96,7 @@ export class RegionSettingsService {
   /**
    * Get a single setting by key
    */
-  async getSetting(region: 'us' | 'eu', key: string): Promise<any> {
+  async getSetting(region: 'us' | 'eu', key: string, maskSecret: boolean = false): Promise<any> {
     const result = await this.pool.query(
       `SELECT setting_value, setting_type 
        FROM region_settings 
@@ -77,7 +109,14 @@ export class RegionSettingsService {
     }
 
     const row = result.rows[0];
-    return this.parseSettingValue(row.setting_value, row.setting_type);
+    let value = this.parseSettingValue(row.setting_value, row.setting_type);
+    
+    // Mask sensitive values if requested
+    if (maskSecret && this.isSensitiveKey(key) && typeof value === 'string') {
+      value = this.maskSensitiveValue(value);
+    }
+    
+    return value;
   }
 
   /**

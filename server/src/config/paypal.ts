@@ -1,50 +1,74 @@
 import * as paypal from '@paypal/checkout-server-sdk';
+import { Pool } from 'pg';
+import { RegionSettingsService } from '../services/RegionSettingsService';
 
-// PayPal configuration
-const getPayPalConfig = () => {
+// Get PayPal configuration for a specific region from database
+// NOTE: PayPal credentials are now stored in the database (region_settings table)
+// Environment variables are deprecated and no longer used
+export const getPayPalConfigForRegion = async (
+  pool: Pool,
+  region: 'us' | 'eu'
+): Promise<{
+  clientId: string;
+  clientSecret: string;
+  mode: string;
+  environment: string;
+}> => {
+  const regionSettingsService = new RegionSettingsService(pool);
+  
+  // Get PayPal settings from database
+  const paypalClientId = await regionSettingsService.getSetting(region, 'paypal_client_id');
+  const paypalClientSecret = await regionSettingsService.getSetting(region, 'paypal_client_secret');
+  
+  if (!paypalClientId || !paypalClientSecret) {
+    throw new Error(`PayPal credentials not configured for region: ${region}. Please configure them in the admin dashboard.`);
+  }
+  
+  // Determine environment based on NODE_ENV
   const isProduction = process.env.NODE_ENV === 'production';
   
   return {
-    clientId: isProduction 
-      ? process.env.PAYPAL_CLIENT_ID_PROD 
-      : process.env.PAYPAL_CLIENT_ID,
-    clientSecret: isProduction 
-      ? process.env.PAYPAL_CLIENT_SECRET_PROD 
-      : process.env.PAYPAL_CLIENT_SECRET,
+    clientId: paypalClientId,
+    clientSecret: paypalClientSecret,
     mode: isProduction ? 'live' : 'sandbox',
     environment: isProduction ? 'production' : 'sandbox'
   };
 };
 
-// Initialize PayPal API client
-const config = getPayPalConfig();
-console.log('PayPal Config:', {
-  environment: config.environment,
-  clientId: config.clientId ? `${config.clientId.substring(0, 10)}...` : 'NOT SET',
-  clientSecret: config.clientSecret ? 'SET' : 'NOT SET'
-});
-
-// Create PayPal environment
-const getEnvironment = () => {
+// Create PayPal client for a specific region
+export const getPayPalClientForRegion = async (
+  pool: Pool,
+  region: 'us' | 'eu'
+): Promise<paypal.core.PayPalHttpClient> => {
+  const config = await getPayPalConfigForRegion(pool, region);
+  
+  if (!config.clientId || !config.clientSecret) {
+    throw new Error(`PayPal credentials not configured for region: ${region}`);
+  }
+  
+  let environment: paypal.core.LiveEnvironment | paypal.core.SandboxEnvironment;
   if (config.environment === 'production') {
-    return new paypal.core.LiveEnvironment(
-      config.clientId!,
-      config.clientSecret!
+    environment = new paypal.core.LiveEnvironment(
+      config.clientId,
+      config.clientSecret
     );
   } else {
-    return new paypal.core.SandboxEnvironment(
-      config.clientId!,
-      config.clientSecret!
+    environment = new paypal.core.SandboxEnvironment(
+      config.clientId,
+      config.clientSecret
     );
   }
+  
+  return new paypal.core.PayPalHttpClient(environment);
 };
 
-export const paypalClient = new paypal.core.PayPalHttpClient(getEnvironment());
-
-export const paypalConfig = getPayPalConfig();
+// NOTE: Legacy paypalClient and paypalConfig exports have been removed.
+// All PayPal operations must now use getPayPalClientForRegion() with a region parameter.
+// PayPal credentials are stored in the database (region_settings table) and can be
+// configured through the admin dashboard.
 
 // Export configuration for use in other files
 export default {
-  paypalClient,
-  paypalConfig
+  getPayPalClientForRegion,
+  getPayPalConfigForRegion
 };
