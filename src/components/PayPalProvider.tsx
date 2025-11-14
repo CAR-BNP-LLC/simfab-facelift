@@ -1,11 +1,34 @@
 import { PayPalScriptProvider } from '@paypal/react-paypal-js';
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 interface PayPalProviderProps {
   children: React.ReactNode;
 }
 
+let paypalProviderRenderCount = 0;
 export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
+  paypalProviderRenderCount++;
+  if (paypalProviderRenderCount > 50) {
+    console.error('[PayPalProvider] INFINITE LOOP! Render count:', paypalProviderRenderCount);
+    throw new Error('PayPalProvider infinite loop');
+  }
+  console.log('[PayPalProvider] RENDER #' + paypalProviderRenderCount);
+  
+  // Defer PayPal script loading to avoid blocking initial render
+  const [shouldLoadPayPal, setShouldLoadPayPal] = useState(false);
+  
+  useEffect(() => {
+    console.log('[PayPalProvider] useEffect RUN - deferring PayPal load');
+    const timer = setTimeout(() => {
+      console.log('[PayPalProvider] setTimeout CALLBACK - loading PayPal');
+      setShouldLoadPayPal(true);
+    }, 100); // Small delay to allow initial render
+    return () => {
+      console.log('[PayPalProvider] useEffect CLEANUP');
+      clearTimeout(timer);
+    };
+  }, []);
+  
   // Suppress verbose PayPal SDK console logs (can be disabled by setting VITE_PAYPAL_DEBUG=true)
   useEffect(() => {
     const enablePayPalDebug = import.meta.env.VITE_PAYPAL_DEBUG === 'true';
@@ -58,57 +81,77 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Detect region from hostname/query params (same logic as api.ts)
-  const hostname = window.location.hostname;
-  const urlParams = new URLSearchParams(window.location.search);
-  const queryRegion = urlParams.get('region');
+  // Memoize region detection to avoid recalculating on every render
+  const region = useMemo(() => {
+    console.log('[PayPalProvider] useMemo RUN - detecting region');
+    // Detect region from hostname/query params (same logic as api.ts)
+    const hostname = window.location.hostname;
+    const urlParams = new URLSearchParams(window.location.search);
+    const queryRegion = urlParams.get('region');
+    
+    let detectedRegion: string = 'us';
+    
+    // 1. Check hostname (production: eu.simfab.com -> 'eu')
+    if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
+      detectedRegion = 'eu';
+    }
+    // 2. Check query parameter
+    else if (queryRegion === 'eu' || queryRegion === 'us') {
+      detectedRegion = queryRegion;
+    }
+    // 3. Check env var (development)
+    else if (import.meta.env.VITE_DEFAULT_REGION) {
+      detectedRegion = import.meta.env.VITE_DEFAULT_REGION;
+    }
+    
+    console.log('[PayPalProvider] detected region:', detectedRegion);
+    return detectedRegion;
+  }, []); // Empty deps - only calculate once
+
+  // Memoize PayPal options to avoid recreating on every render
+  const paypalOptions = useMemo(() => {
+    console.log('[PayPalProvider] useMemo RUN - creating PayPal options');
+    const currency = region === 'eu' ? 'EUR' : 'USD';
+
+    // Check if wallet payments are enabled via environment variable
+    // Set VITE_ENABLE_WALLET_PAYMENTS=true after enabling Apple Pay/Google Pay in PayPal account
+    const enableWalletPayments = import.meta.env.VITE_ENABLE_WALLET_PAYMENTS === 'true';
+
+    // Build components string conditionally
+    // Note: PayPal SDK automatically handles device/browser detection:
+    // - Apple Pay: Only shows on Safari (macOS/iOS) with Apple Pay configured
+    // - Google Pay: Only shows on Chrome/Android with Google Pay configured
+    // No custom detection needed - PayPal SDK handles this natively
+    const baseComponents = 'buttons,marks,messages';
+    const walletComponents = enableWalletPayments ? ',applepay,googlepay' : '';
+    const components = baseComponents + walletComponents;
+
+    // Build enableFunding string conditionally
+    const baseFunding = 'paylater,card,credit';
+    const walletFunding = enableWalletPayments ? ',applepay,googlepay' : '';
+    const enableFunding = baseFunding + walletFunding;
+
+    return {
+      clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
+      currency,
+      intent: 'capture',
+      components, // Conditionally include wallet payment components
+      enableFunding, // Conditionally enable wallet payments
+      disableFunding: '', // Don't disable any funding sources
+      merchantId: import.meta.env.VITE_PAYPAL_MERCHANT_ID || undefined,
+      dataClientToken: import.meta.env.VITE_PAYPAL_CLIENT_TOKEN || undefined
+    };
+  }, [region]);
+
+  console.log('[PayPalProvider] shouldLoadPayPal:', shouldLoadPayPal);
   
-  let region: string = 'us';
-  
-  // 1. Check hostname (production: eu.simfab.com -> 'eu')
-  if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
-    region = 'eu';
-  }
-  // 2. Check query parameter
-  else if (queryRegion === 'eu' || queryRegion === 'us') {
-    region = queryRegion;
-  }
-  // 3. Check env var (development)
-  else if (import.meta.env.VITE_DEFAULT_REGION) {
-    region = import.meta.env.VITE_DEFAULT_REGION;
+  // Don't load PayPal script until after initial render
+  if (!shouldLoadPayPal) {
+    console.log('[PayPalProvider] RETURNING CHILDREN WITHOUT PAYPAL');
+    return <>{children}</>;
   }
 
-  const currency = region === 'eu' ? 'EUR' : 'USD';
-
-  // Check if wallet payments are enabled via environment variable
-  // Set VITE_ENABLE_WALLET_PAYMENTS=true after enabling Apple Pay/Google Pay in PayPal account
-  const enableWalletPayments = import.meta.env.VITE_ENABLE_WALLET_PAYMENTS === 'true';
-
-  // Build components string conditionally
-  // Note: PayPal SDK automatically handles device/browser detection:
-  // - Apple Pay: Only shows on Safari (macOS/iOS) with Apple Pay configured
-  // - Google Pay: Only shows on Chrome/Android with Google Pay configured
-  // No custom detection needed - PayPal SDK handles this natively
-  const baseComponents = 'buttons,marks,messages';
-  const walletComponents = enableWalletPayments ? ',applepay,googlepay' : '';
-  const components = baseComponents + walletComponents;
-
-  // Build enableFunding string conditionally
-  const baseFunding = 'paylater,card,credit';
-  const walletFunding = enableWalletPayments ? ',applepay,googlepay' : '';
-  const enableFunding = baseFunding + walletFunding;
-
-  const paypalOptions = {
-    clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
-    currency,
-    intent: 'capture',
-    components, // Conditionally include wallet payment components
-    enableFunding, // Conditionally enable wallet payments
-    disableFunding: '', // Don't disable any funding sources
-    merchantId: import.meta.env.VITE_PAYPAL_MERCHANT_ID || undefined,
-    dataClientToken: import.meta.env.VITE_PAYPAL_CLIENT_TOKEN || undefined
-  };
-
+  console.log('[PayPalProvider] RETURNING PAYPAL PROVIDER');
   return (
     <PayPalScriptProvider options={paypalOptions}>
       {children}

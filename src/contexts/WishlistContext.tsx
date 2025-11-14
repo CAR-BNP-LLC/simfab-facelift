@@ -44,8 +44,14 @@ export const useWishlist = () => {
 // PROVIDER
 // ============================================================================
 
+let wishlistProviderRenderCount = 0;
 export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  console.log('[WishlistProvider] RENDER');
+  wishlistProviderRenderCount++;
+  if (wishlistProviderRenderCount > 50) {
+    console.error('[WishlistProvider] INFINITE LOOP! Render count:', wishlistProviderRenderCount);
+    throw new Error('WishlistProvider infinite loop');
+  }
+  console.log('[WishlistProvider] RENDER #' + wishlistProviderRenderCount);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistIds, setWishlistIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render

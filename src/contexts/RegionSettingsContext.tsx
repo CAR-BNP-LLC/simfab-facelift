@@ -23,8 +23,14 @@ interface RegionSettingsContextType {
 
 const RegionSettingsContext = createContext<RegionSettingsContextType | undefined>(undefined);
 
+let regionSettingsProviderRenderCount = 0;
 export const RegionSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  console.log('[RegionSettingsProvider] RENDER');
+  regionSettingsProviderRenderCount++;
+  if (regionSettingsProviderRenderCount > 50) {
+    console.error('[RegionSettingsProvider] INFINITE LOOP! Render count:', regionSettingsProviderRenderCount);
+    throw new Error('RegionSettingsProvider infinite loop');
+  }
+  console.log('[RegionSettingsProvider] RENDER #' + regionSettingsProviderRenderCount);
   const { region } = useRegion();
   console.log('[RegionSettingsProvider] region from useRegion:', region);
   const [settings, setSettings] = useState<Record<string, any>>({});

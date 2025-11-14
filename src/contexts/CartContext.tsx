@@ -75,8 +75,14 @@ export const useCart = () => {
 // PROVIDER
 // ============================================================================
 
+let cartProviderRenderCount = 0;
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  console.log('[CartProvider] RENDER');
+  cartProviderRenderCount++;
+  if (cartProviderRenderCount > 50) {
+    console.error('[CartProvider] INFINITE LOOP! Render count:', cartProviderRenderCount);
+    throw new Error('CartProvider infinite loop');
+  }
+  console.log('[CartProvider] RENDER #' + cartProviderRenderCount);
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();

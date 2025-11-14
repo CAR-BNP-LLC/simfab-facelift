@@ -18,8 +18,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+let authProviderRenderCount = 0;
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  console.log('[AuthProvider] RENDER');
+  authProviderRenderCount++;
+  if (authProviderRenderCount > 50) {
+    console.error('[AuthProvider] INFINITE LOOP! Render count:', authProviderRenderCount);
+    throw new Error('AuthProvider infinite loop');
+  }
+  console.log('[AuthProvider] RENDER #' + authProviderRenderCount);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();

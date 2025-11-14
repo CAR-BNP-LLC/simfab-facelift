@@ -81,8 +81,14 @@ interface CheckoutProviderProps {
   children: ReactNode;
 }
 
+let checkoutProviderRenderCount = 0;
 export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) => {
-  console.log('[CheckoutProvider] RENDER');
+  checkoutProviderRenderCount++;
+  if (checkoutProviderRenderCount > 50) {
+    console.error('[CheckoutProvider] INFINITE LOOP! Render count:', checkoutProviderRenderCount);
+    throw new Error('CheckoutProvider infinite loop');
+  }
+  console.log('[CheckoutProvider] RENDER #' + checkoutProviderRenderCount);
   const [checkoutState, setCheckoutState] = useState<CheckoutState>(defaultCheckoutState);
   
   // Use ref to track latest state to prevent infinite loops in useEffect

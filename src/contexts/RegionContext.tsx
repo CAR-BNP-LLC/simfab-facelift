@@ -3,7 +3,7 @@
  * Global region state management (US vs EU)
  */
 
-import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, ReactNode } from 'react';
 import { setRegionGetter as setApiRegionGetter } from '@/services/api';
 
 type Region = 'us' | 'eu';
@@ -18,8 +18,14 @@ const RegionContext = createContext<RegionContextType | undefined>(undefined);
 
 const REGION_STORAGE_KEY = 'simfab_region';
 
+let regionProviderRenderCount = 0;
 export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  console.log('[RegionProvider] RENDER');
+  regionProviderRenderCount++;
+  if (regionProviderRenderCount > 50) {
+    console.error('[RegionProvider] INFINITE LOOP! Render count:', regionProviderRenderCount);
+    throw new Error('RegionProvider infinite loop');
+  }
+  console.log('[RegionProvider] RENDER #' + regionProviderRenderCount);
   // Initialize region from localStorage, hostname, or default to 'us'
   const [region, setRegionState] = useState<Region>(() => {
     console.log('[RegionProvider] INITIAL STATE');
@@ -86,14 +92,16 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, [region]);
 
-  const setRegion = (newRegion: Region) => {
+  const setRegion = useCallback((newRegion: Region) => {
+    console.log('[RegionProvider] setRegion CALLED - newRegion:', newRegion);
     // Update ref synchronously BEFORE state update
     regionRef.current = newRegion;
     setApiRegionGetter(() => regionRef.current);
     setRegionState(newRegion);
-  };
+  }, []);
 
-  const toggleRegion = () => {
+  const toggleRegion = useCallback(() => {
+    console.log('[RegionProvider] toggleRegion CALLED');
     setRegionState(current => {
       const newRegion = current === 'us' ? 'eu' : 'us';
       // Update ref synchronously BEFORE state update
@@ -102,7 +110,7 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       
       return newRegion;
     });
-  };
+  }, []);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => {
