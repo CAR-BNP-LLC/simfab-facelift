@@ -99,9 +99,6 @@ export const CheckoutProvider: React.FC<CheckoutProviderProps> = ({ children }) 
       const saved = localStorage.getItem('checkout-state');
       if (saved) {
         const parsedState = JSON.parse(saved);
-        console.log('Loading checkout state from localStorage:', parsedState);
-        console.log('Shipping state from localStorage:', parsedState.shippingAddress?.state);
-        console.log('Billing state from localStorage:', parsedState.billingAddress?.state);
         setCheckoutState(parsedState);
       }
     } catch (error) {

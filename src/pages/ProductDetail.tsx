@@ -7,12 +7,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { WishlistButton } from "@/components/WishlistButton";
+import { ShareProductButton } from "@/components/ShareProductButton";
 import ProductImageGallery from "@/components/ProductImageGallery";
 import ProductVariations from "@/components/ProductVariations";
 import ProductAdditionalInfo from "@/components/ProductAdditionalInfo";
 import ProductFAQs from "@/components/ProductFAQs";
 import ProductDescriptionBuilder from "@/components/ProductDescriptionBuilder";
-import { productsAPI, ProductWithDetails, ProductConfiguration } from "@/services/api";
+import { productsAPI, ProductWithDetails, ProductConfiguration, sharedConfigsAPI } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/contexts/CartContext";
 import { useRegion } from "@/contexts/RegionContext";
@@ -23,6 +24,7 @@ import { getCurrencySymbol } from "@/utils/currency";
 const ProductDetail = () => {
   const params = useParams();
   const productSlug = params.id || params.slug; // Route is defined as :id but we use it as slug
+  const shareCode = params.code; // For /share/:code route
   const [product, setProduct] = useState<ProductWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -238,15 +240,135 @@ const ProductDetail = () => {
     selectedOptionalItems
   ]);
 
-  // Fetch product on mount and when region changes
+  // Load shared configuration if on /share/:code route
   useEffect(() => {
+    const loadSharedConfig = async () => {
+      if (!shareCode) return;
+
+      try {
+        setLoading(true);
+        const response = await sharedConfigsAPI.getSharedConfig(shareCode);
+        
+        if (response.success && response.data) {
+          const { productId, configuration } = response.data;
+          
+          // Load the product
+          const productResponse = await productsAPI.getById(productId);
+          if (productResponse.data) {
+            setProduct(productResponse.data);
+            
+            // Restore configuration
+            if (configuration.modelVariationId) {
+              setSelectedModelVariation(configuration.modelVariationId);
+            }
+            
+            if (configuration.variations) {
+              // Separate variations by type based on product structure
+              const dropdownVariations: Record<number, number> = {};
+              const imageVariations: Record<string, string> = {};
+              const textVariations: Record<string, string> = {};
+              const booleanVariations: Record<string, boolean> = {};
+              
+              // Check product variations to determine types
+              const productVariations = productResponse.data.variations || {};
+              
+              Object.entries(configuration.variations).forEach(([variationId, optionId]) => {
+                const vid = parseInt(variationId);
+                
+                // Check variation type from product data
+                let variationType: string | null = null;
+                let variation: any = null;
+                
+                // Check in each variation type array
+                if (productVariations.dropdown) {
+                  variation = productVariations.dropdown.find((v: any) => v.id === vid);
+                  if (variation) variationType = 'dropdown';
+                }
+                if (!variation && productVariations.image) {
+                  variation = productVariations.image.find((v: any) => v.id === vid);
+                  if (variation) variationType = 'image';
+                }
+                if (!variation && productVariations.text) {
+                  variation = productVariations.text.find((v: any) => v.id === vid);
+                  if (variation) variationType = 'text';
+                }
+                if (!variation && productVariations.boolean) {
+                  variation = productVariations.boolean.find((v: any) => v.id === vid);
+                  if (variation) variationType = 'boolean';
+                }
+                
+                // Store based on type
+                if (variationType === 'dropdown' || variationType === 'image') {
+                  const oid = typeof optionId === 'number' ? optionId : parseInt(String(optionId));
+                  if (variationType === 'image') {
+                    imageVariations[variationId] = String(oid);
+                  } else {
+                    dropdownVariations[vid] = oid;
+                  }
+                } else if (variationType === 'text') {
+                  textVariations[variationId] = String(optionId);
+                } else if (variationType === 'boolean') {
+                  // For boolean, find the option and determine true/false
+                  if (variation?.options) {
+                    const yesOption = variation.options.find((opt: any) => opt.option_name === 'Yes' || opt.id === optionId);
+                    const noOption = variation.options.find((opt: any) => opt.option_name === 'No');
+                    const isYes = yesOption && (typeof optionId === 'number' ? optionId === yesOption.id : String(optionId) === String(yesOption.id));
+                    booleanVariations[variationId] = isYes;
+                  } else {
+                    booleanVariations[variationId] = Boolean(optionId);
+                  }
+                } else {
+                  // Fallback: assume dropdown
+                  const oid = typeof optionId === 'number' ? optionId : parseInt(String(optionId));
+                  dropdownVariations[vid] = oid;
+                }
+              });
+              
+              setSelectedDropdownVariations(dropdownVariations);
+              setSelectedImageValues(imageVariations);
+              setSelectedTextValues(textVariations);
+              setSelectedBooleanValues(booleanVariations);
+            }
+            
+            if (configuration.bundleItems) {
+              if (configuration.bundleItems.selectedOptional) {
+                setSelectedOptionalItems(new Set(configuration.bundleItems.selectedOptional));
+              }
+              if (configuration.bundleItems.configurations) {
+                setBundleConfigurations(configuration.bundleItems.configurations);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading shared config:', error);
+        toast({
+          title: 'Error',
+          description: error instanceof Error ? error.message : 'Failed to load shared configuration',
+          variant: 'destructive',
+        });
+        setError('Failed to load shared configuration');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (shareCode) {
+      loadSharedConfig();
+    }
+  }, [shareCode, toast]);
+
+  // Fetch product on mount and when region changes (only if not loading from shared config)
+  useEffect(() => {
+    if (shareCode) return; // Skip if loading from shared config
+    
     if (productSlug) {
       fetchProduct(productSlug);
     } else {
       setError('No product identifier provided');
       setLoading(false);
     }
-  }, [productSlug, region]); // Refetch when region changes
+  }, [productSlug, region, shareCode]); // Refetch when region changes
 
   // Fetch bundle items if product is a bundle
   useEffect(() => {
@@ -618,6 +740,41 @@ const ProductDetail = () => {
   };
 
   /**
+   * Build current product configuration
+   */
+  const buildConfiguration = (): ProductConfiguration => {
+    return {
+      modelVariationId: selectedModelVariation,
+      variations: {
+        ...selectedDropdownVariations,
+        ...Object.fromEntries(
+          Object.entries(selectedImageValues).map(([variationId, optionId]) => [
+            parseInt(variationId), 
+            parseInt(optionId)
+          ])
+        ),
+        ...Object.fromEntries(
+          Object.entries(selectedBooleanValues).map(([variationId, value]) => {
+            if (!product) return [parseInt(variationId), value ? 1 : 0];
+            const booleanVariation = product.variations?.boolean?.find((v: any) => v.id.toString() === variationId);
+            if (booleanVariation?.options) {
+              const yesOption = booleanVariation.options.find((opt: any) => opt.option_name === 'Yes');
+              const noOption = booleanVariation.options.find((opt: any) => opt.option_name === 'No');
+              const optionId = value ? (yesOption?.id || 1) : (noOption?.id || 0);
+              return [parseInt(variationId), optionId];
+            }
+            return [parseInt(variationId), value ? 1 : 0];
+          })
+        )
+      },
+      bundleItems: {
+        selectedOptional: Array.from(selectedOptionalItems),
+        configurations: bundleConfigurations
+      }
+    };
+  };
+
+  /**
    * Handle Add to Cart
    */
   const handleAddToCart = async () => {
@@ -626,39 +783,7 @@ const ProductDetail = () => {
     try {
       setAddingToCart(true);
 
-      // Build configuration
-      
-      
-      const configuration: ProductConfiguration = {
-        modelVariationId: selectedModelVariation,
-        variations: {
-          ...selectedDropdownVariations,
-          ...Object.fromEntries(
-            Object.entries(selectedImageValues).map(([variationId, optionId]) => [
-              parseInt(variationId), 
-              parseInt(optionId)
-            ])
-          ),
-          ...Object.fromEntries(
-            Object.entries(selectedBooleanValues).map(([variationId, value]) => {
-              const booleanVariation = product.variations?.boolean?.find((v: any) => v.id.toString() === variationId);
-              if (booleanVariation?.options) {
-                const yesOption = booleanVariation.options.find((opt: any) => opt.option_name === 'Yes');
-                const noOption = booleanVariation.options.find((opt: any) => opt.option_name === 'No');
-                const optionId = value ? (yesOption?.id || 1) : (noOption?.id || 0);
-                return [parseInt(variationId), optionId];
-              }
-              return [parseInt(variationId), value ? 1 : 0];
-            })
-          )
-        },
-        bundleItems: {
-          selectedOptional: Array.from(selectedOptionalItems),
-          configurations: bundleConfigurations
-        }
-      };
-
-
+      const configuration = buildConfiguration();
       await addToCart(product.id, configuration, 1);
       
       // Log what was stored in cart
@@ -1420,7 +1545,7 @@ const ProductDetail = () => {
               </div>
             )}
 
-            {/* Add to Cart */}
+            {/* Add to Cart and Share */}
             <div className="space-y-4">
               <Button 
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 text-lg"
@@ -1452,6 +1577,17 @@ const ProductDetail = () => {
                   </>
                 )}
               </Button>
+              
+              {/* Share Button */}
+              {product && (
+                <ShareProductButton
+                  productId={product.id}
+                  configuration={buildConfiguration()}
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                />
+              )}
               
               {/* Show validation errors */}
               {validationErrors.length > 0 && (

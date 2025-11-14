@@ -361,7 +361,7 @@ export class PaymentService {
     }
   }
 
-  async executePayment(paymentId: string, payerId: string, orderId: number): Promise<PaymentResult> {
+  async executePayment(paymentId: string, payerId: string | undefined, orderId: number): Promise<PaymentResult> {
     const client = await this.pool.connect();
     
     try {

@@ -30,11 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAuth = async () => {
     try {
-      console.log('🔍 Checking authentication...');
-      console.log('📍 Current URL:', window.location.href);
-      console.log('🍪 Document cookies:', document.cookie);
       const response = await authAPI.getProfile();
-      console.log('Auth check successful:', response.data.user);
       setUser(response.data.user);
     } catch (error) {
       // User is not logged in

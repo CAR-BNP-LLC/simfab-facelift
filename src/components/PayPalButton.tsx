@@ -110,9 +110,11 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
 
   const onApprove = async (data: any) => {
     try {
+      // Note: payerID may be undefined for wallet payments (Apple Pay, Google Pay)
+      // PayPal's Orders API handles wallet payments without requiring payerID
       const response = await paymentAPI.executePayment({
         paymentId: data.orderID,
-        payerId: data.payerID,
+        payerId: data.payerID || '', // Provide empty string if undefined (backend handles this)
         orderId
       });
 

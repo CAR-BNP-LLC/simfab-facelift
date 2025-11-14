@@ -10,9 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 let getCurrentRegion: (() => 'us' | 'eu') | null = null;
 
 export function setRegionGetter(getter: () => 'us' | 'eu') {
-  getCurrentRegion = getter;
-  console.log('✅ api.ts: Region getter registered. Current region:', getter());
-}
+  getCurrentRegion = getter;}
 
 // Generic API request handler with timeout
 export async function apiRequest<T>(
@@ -23,12 +21,6 @@ export async function apiRequest<T>(
   
   // Get region from global state (RegionContext) - call getter to get latest value
   const region = getCurrentRegion ? getCurrentRegion() : 'us';
-  
-  if (!getCurrentRegion) {
-    console.warn('⚠️ apiRequest: Region getter not set yet! Defaulting to "us". This might cause wrong products to load.');
-  }
-  
-  console.log('📤 apiRequest: Using region', region, 'for endpoint', endpoint);
   
   // Add region to query string
   const separator = endpoint.includes('?') ? '&' : '?';
@@ -43,13 +35,6 @@ export async function apiRequest<T>(
     },
     credentials: 'include', // Important for cookies/sessions
   };
-
-  console.log('📤 Making request:', {
-    finalUrl,
-    headers: config.headers,
-    'region being sent': region
-  });
-
   try {
     // Add 10-second timeout
     const controller = new AbortController();
@@ -2259,6 +2244,45 @@ export const siteNoticeAPI = {
     }>(`/api/admin/site-notices/${id}`, {
       method: 'DELETE',
       credentials: 'include',
+    });
+  },
+};
+
+// ============================================================================
+// SHARED CONFIG API
+// ============================================================================
+
+export const sharedConfigsAPI = {
+  /**
+   * Create a shared product configuration
+   */
+  async createSharedConfig(productId: number, configuration: ProductConfiguration) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        shortCode: string;
+        url: string;
+      };
+      message: string;
+    }>('/api/shared-configs', {
+      method: 'POST',
+      body: JSON.stringify({ productId, configuration }),
+    });
+  },
+
+  /**
+   * Get shared configuration by short code
+   */
+  async getSharedConfig(shortCode: string) {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        productId: number;
+        configuration: ProductConfiguration;
+      };
+      message: string;
+    }>(`/api/shared-configs/${shortCode}`, {
+      method: 'GET',
     });
   },
 };

@@ -162,7 +162,16 @@ const Checkout = () => {
         shippingAddress.postalCode &&
         shippingAddress.country;
 
-      if (!hasCompleteAddress || step !== 3) {
+      // Fetch shipping rates on step 3+ (shipping, review, payment steps)
+      // Also fetch if we're on review/payment step and don't have shipping options loaded yet (page reload scenario)
+      const needsShippingOptions = step >= 4 && selectedShipping && 
+        !shippingOptions.find(opt => opt.id === selectedShipping);
+      const shouldFetch = hasCompleteAddress && (
+        step === 3 || 
+        needsShippingOptions
+      );
+
+      if (!shouldFetch) {
         return;
       }
 
@@ -223,6 +232,7 @@ const Checkout = () => {
     shippingAddress.postalCode,
     shippingAddress.country,
     step,
+    selectedShipping, // Re-fetch if selectedShipping is restored but shippingOptions are missing (page reload)
     region, // Recalculate when region changes
     cartItemsSignature, // Recalculate when cart items change (including quantities)
     totals.subtotal // Recalculate when cart total changes
@@ -1116,14 +1126,6 @@ const Checkout = () => {
                     </CardContent>
                   </Card>
 
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>Payment Integration Coming Soon</strong> - Orders will be created as "Pending Payment". 
-                      Phase 4 will add PayPal payment processing.
-                    </AlertDescription>
-                  </Alert>
-
                   <div className="flex justify-between pt-4">
                     <Button variant="outline" onClick={handleBack}>
                       ← Back to Shipping
@@ -1244,8 +1246,11 @@ const Checkout = () => {
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground">Shipping:</span>
                           <span className="font-medium">
-                            {!selectedShipping ? (
-                              <span className="text-muted-foreground">Calculating...</span>
+                            {loadingShipping || (!selectedShipping && !shippingOptions.length) ? (
+                              <span className="flex items-center gap-1 text-muted-foreground">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Calculating...
+                              </span>
                             ) : shippingCost === 0 ? (
                               'FREE'
                             ) : (
@@ -1253,12 +1258,21 @@ const Checkout = () => {
                             )}
                           </span>
                         </div>
-                        {floridaTax > 0 && (
+                        {(loadingShipping && isFloridaOrder) || floridaTax > 0 ? (
                           <div className="flex justify-between text-sm">
                             <span className="text-muted-foreground">Tax (FL 6%):</span>
-                            <span className="font-medium">{currency}{floridaTax.toFixed(2)}</span>
+                            <span className="font-medium">
+                              {loadingShipping ? (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Calculating...
+                                </span>
+                              ) : (
+                                `${currency}${floridaTax.toFixed(2)}`
+                              )}
+                            </span>
                           </div>
-                        )}
+                        ) : null}
                       </>
                     )}
 
@@ -1266,7 +1280,14 @@ const Checkout = () => {
                       <div className="flex justify-between items-center">
                         <span className="font-bold">Total:</span>
                         <span className="text-xl font-bold text-primary">
-                          {currency}{orderTotal.toFixed(2)}
+                          {loadingShipping && step >= 3 ? (
+                            <span className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span className="text-muted-foreground">Calculating...</span>
+                            </span>
+                          ) : (
+                            `${currency}${orderTotal.toFixed(2)}`
+                          )}
                         </span>
                       </div>
                     </div>

@@ -80,12 +80,30 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
 
   const currency = region === 'eu' ? 'EUR' : 'USD';
 
+  // Check if wallet payments are enabled via environment variable
+  // Set VITE_ENABLE_WALLET_PAYMENTS=true after enabling Apple Pay/Google Pay in PayPal account
+  const enableWalletPayments = import.meta.env.VITE_ENABLE_WALLET_PAYMENTS === 'true';
+
+  // Build components string conditionally
+  // Note: PayPal SDK automatically handles device/browser detection:
+  // - Apple Pay: Only shows on Safari (macOS/iOS) with Apple Pay configured
+  // - Google Pay: Only shows on Chrome/Android with Google Pay configured
+  // No custom detection needed - PayPal SDK handles this natively
+  const baseComponents = 'buttons,marks,messages';
+  const walletComponents = enableWalletPayments ? ',applepay,googlepay' : '';
+  const components = baseComponents + walletComponents;
+
+  // Build enableFunding string conditionally
+  const baseFunding = 'paylater,card,credit';
+  const walletFunding = enableWalletPayments ? ',applepay,googlepay' : '';
+  const enableFunding = baseFunding + walletFunding;
+
   const paypalOptions = {
     clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
     currency,
     intent: 'capture',
-    components: 'buttons,marks,messages', // Include more components for better UX
-    enableFunding: 'paylater,card,credit', // Enable PayPal Pay Later, card, and credit payments
+    components, // Conditionally include wallet payment components
+    enableFunding, // Conditionally enable wallet payments
     disableFunding: '', // Don't disable any funding sources
     merchantId: import.meta.env.VITE_PAYPAL_MERCHANT_ID || undefined,
     dataClientToken: import.meta.env.VITE_PAYPAL_CLIENT_TOKEN || undefined

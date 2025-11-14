@@ -55,7 +55,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     regionRef.current = region;
     setApiRegionGetter(() => regionRef.current);
     localStorage.setItem(REGION_STORAGE_KEY, region);
-    console.log('📍 RegionContext: Initialized region to', region, 'and registered with api.ts');
   }, []); // Run only once on mount
 
   // Save to localStorage and register with api.ts whenever region changes
@@ -67,8 +66,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setApiRegionGetter(() => regionRef.current);
     
     localStorage.setItem(REGION_STORAGE_KEY, region);
-    
-    console.log('📍 RegionContext: Updated region to', region, 'ref=', regionRef.current, 'and registered with api.ts');
     
     // Update query param (optional, for URL clarity)
     const url = new URL(window.location.href);
@@ -86,8 +83,6 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const toggleRegion = () => {
     setRegionState(current => {
       const newRegion = current === 'us' ? 'eu' : 'us';
-      console.log('🌐 RegionContext: Toggling from', current, 'to', newRegion);
-      
       // Update ref synchronously BEFORE state update
       regionRef.current = newRegion;
       setApiRegionGetter(() => regionRef.current);

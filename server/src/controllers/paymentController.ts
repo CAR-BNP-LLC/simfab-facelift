@@ -68,8 +68,9 @@ export class PaymentController {
       const { paymentId, payerId, orderId } = req.body;
 
       // CRITICAL: Comprehensive input validation
-      if (!paymentId || !payerId || !orderId) {
-        throw new ValidationError('Missing required payment execution data: paymentId, payerId, and orderId are required');
+      // Note: payerId is optional for wallet payments (Apple Pay, Google Pay) but recommended for PayPal account payments
+      if (!paymentId || !orderId) {
+        throw new ValidationError('Missing required payment execution data: paymentId and orderId are required');
       }
 
       // Validate paymentId format (PayPal order IDs are typically 17-19 characters)
@@ -77,8 +78,8 @@ export class PaymentController {
         throw new ValidationError('Invalid paymentId: must be a valid PayPal payment ID');
       }
 
-      // Validate payerId format
-      if (typeof payerId !== 'string' || payerId.length < 5 || payerId.length > 50) {
+      // Validate payerId format if provided (optional for wallet payments)
+      if (payerId && (typeof payerId !== 'string' || payerId.length < 5 || payerId.length > 50)) {
         throw new ValidationError('Invalid payerId: must be a valid PayPal payer ID');
       }
 
@@ -87,7 +88,7 @@ export class PaymentController {
         throw new ValidationError('Invalid orderId: must be a positive integer');
       }
 
-      const result = await this.paymentService.executePayment(paymentId, payerId, Number(orderId));
+      const result = await this.paymentService.executePayment(paymentId, payerId || '', Number(orderId));
 
       res.json(successResponse({
         payment: result,

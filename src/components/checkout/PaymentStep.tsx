@@ -101,7 +101,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
           <Alert>
             <Shield className="h-4 w-4" />
             <AlertDescription>
-              Your payment information is secure and encrypted. We use PayPal's secure payment processing.
+              Your payment information is secure and encrypted. We use PayPal's secure payment processing 
+              for all payment methods including PayPal, Apple Pay, and Google Pay.
             </AlertDescription>
           </Alert>
 
@@ -110,7 +111,8 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             <div className="mb-4">
               <h3 className="text-lg font-medium mb-2">Complete your payment</h3>
               <p className="text-sm text-muted-foreground">
-                Pay securely with PayPal or enter your card details
+                Pay securely with PayPal, Apple Pay, Google Pay, or enter your card details. 
+                Wallet payment options will appear automatically if available on your device.
               </p>
             </div>
             
