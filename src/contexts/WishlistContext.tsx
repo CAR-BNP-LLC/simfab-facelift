@@ -47,7 +47,7 @@ export const useWishlist = () => {
 export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistIds, setWishlistIds] = useState<Set<number>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const [wishlistCount, setWishlistCount] = useState(0);
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -181,9 +181,13 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     await fetchWishlist();
   }, [fetchWishlist]);
 
-  // Fetch wishlist on mount and when auth state changes
+  // Fetch wishlist after initial render (defer to allow UI to render first)
   useEffect(() => {
-    fetchWishlist();
+    // Use setTimeout to defer wishlist fetch until after initial render
+    const timer = setTimeout(() => {
+      fetchWishlist();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchWishlist]);
 
   // Memoize context value to prevent unnecessary re-renders

@@ -78,7 +78,7 @@ export const useCart = () => {
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<Cart | null>(null);
-  const [loading, setLoading] = useState(true); // Start as true since we load cart on mount
+  const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
   const { region } = useRegion();
   // Safely access checkout context (may not be available if CheckoutProvider is not a parent)
@@ -118,9 +118,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [region]); // Memoize with region dependency
 
-  // Load cart on mount and when region changes
+  // Load cart after initial render (defer to allow UI to render first)
   useEffect(() => {
-    refreshCart();
+    // Use setTimeout to defer cart load until after initial render
+    const timer = setTimeout(() => {
+      refreshCart();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [refreshCart]); // Include refreshCart in dependencies
 
   /**

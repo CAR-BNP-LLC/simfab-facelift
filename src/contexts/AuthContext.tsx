@@ -20,11 +20,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
 
   const checkAuth = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await authAPI.getProfile();
       setUser(response.data.user);
     } catch (error) {
@@ -37,9 +38,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Check if user is logged in on mount
+  // Check if user is logged in after initial render (defer to allow UI to render first)
   useEffect(() => {
-    checkAuth();
+    // Use setTimeout to defer auth check until after initial render
+    const timer = setTimeout(() => {
+      checkAuth();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [checkAuth]);
 
   const login = useCallback(async (email: string, password: string, rememberMe = false) => {
