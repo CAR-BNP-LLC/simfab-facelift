@@ -57,6 +57,8 @@ services:
       WATCHPACK_POLLING: true
       # Region Configuration
       VITE_DEFAULT_REGION: ${VITE_DEFAULT_REGION:-us}
+      # Facebook Pixel Configuration
+      VITE_FACEBOOK_PIXEL_ID: ${VITE_FACEBOOK_PIXEL_ID:-}
     ports:
       - "5173:5173"
     volumes:

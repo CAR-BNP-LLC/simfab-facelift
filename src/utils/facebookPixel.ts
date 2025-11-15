@@ -7,14 +7,14 @@ declare global {
   interface Window {
     fbq: (
       action: string,
-      eventName: string,
+      eventNameOrData?: string | Record<string, any>,
       params?: Record<string, any>
     ) => void;
     _fbq: any;
   }
 }
 
-const PIXEL_ID = import.meta.env.VITE_FACEBOOK_PIXEL_ID;
+const PIXEL_ID = import.meta.env.VITE_FACEBOOK_PIXEL_ID?.trim() || '';
 let isInitialized = false;
 
 /**
@@ -45,9 +45,12 @@ async function hashSHA256(value: string): Promise<string> {
 export function initFacebookPixel(): void {
   // Only initialize if Pixel ID is provided
   if (!PIXEL_ID || PIXEL_ID === 'your_pixel_id_here') {
-    if (import.meta.env.DEV) {
-      console.warn('Facebook Pixel ID not configured. Set VITE_FACEBOOK_PIXEL_ID in .env');
-    }
+    return;
+  }
+
+  // Validate Pixel ID format (should be numeric, typically 15-16 digits)
+  const pixelIdPattern = /^\d{15,16}$/;
+  if (!pixelIdPattern.test(PIXEL_ID.trim())) {
     return;
   }
 
@@ -56,10 +59,6 @@ export function initFacebookPixel(): void {
     try {
       window.fbq('init', PIXEL_ID);
       isInitialized = true;
-      
-      if (import.meta.env.DEV) {
-        console.log('Facebook Pixel initialized with ID:', PIXEL_ID);
-      }
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Error initializing Facebook Pixel:', error);
@@ -141,10 +140,6 @@ export async function setUserData(userData: {
     // Only set user data if we have at least one field
     if (Object.keys(hashedData).length > 0) {
       window.fbq('setUserData', hashedData);
-      
-      if (import.meta.env.DEV) {
-        console.log('Facebook Pixel user data set:', Object.keys(hashedData));
-      }
     }
   } catch (error) {
     if (import.meta.env.DEV) {

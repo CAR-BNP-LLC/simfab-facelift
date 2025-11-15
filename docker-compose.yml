@@ -100,6 +100,8 @@ services:
       # PayPal Frontend Configuration
       VITE_PAYPAL_CLIENT_ID: ${VITE_PAYPAL_CLIENT_ID:-your_sandbox_client_id_here}
       VITE_PAYPAL_CLIENT_ID_PROD: ${VITE_PAYPAL_CLIENT_ID_PROD:-}
+      # Facebook Pixel Configuration
+      VITE_FACEBOOK_PIXEL_ID: ${VITE_FACEBOOK_PIXEL_ID:-}
     ports:
       - "5173:5173"
     volumes:
