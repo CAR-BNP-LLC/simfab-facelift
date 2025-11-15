@@ -35,6 +35,7 @@ import { AddressForm } from '@/components/checkout/AddressForm';
 import PaymentStep from '@/components/checkout/PaymentStep';
 import { isEuropeanCountry } from '@/utils/europeanCountries';
 import { trackInitiateCheckout, trackAddPaymentInfo } from '@/utils/facebookPixel';
+import { trackBeginCheckout, trackAddPaymentInfo as trackGTMAddPaymentInfo } from '@/utils/googleTagManager';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -107,28 +108,63 @@ const Checkout = () => {
   useEffect(() => {
     if (step === 1 && cart && cart.items.length > 0) {
       const contentIds = cart.items.map(item => item.product_id.toString());
+      const currency = totals.currency || 'USD';
+      
+      // Track Facebook Pixel
       trackInitiateCheckout({
         value: totals.total,
-        currency: totals.currency || 'USD',
+        currency: currency,
         num_items: totals.itemCount || cart.items.length,
         content_ids: contentIds,
         content_type: 'product',
       });
+
+      // Track GTM begin_checkout
+      const cartItems = cart.items.map(item => ({
+        id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        category: undefined,
+        brand: 'SimFab',
+        sku: item.product_sku,
+        quantity: item.quantity
+      }));
+
+      trackBeginCheckout(cartItems, currency, totals.total);
     }
   }, [step, cart, totals]);
 
-  // Track Facebook Pixel AddPaymentInfo when user reaches payment step (step 4)
+  // Track Facebook Pixel AddPaymentInfo and GTM add_payment_info when user reaches payment step (step 4)
   useEffect(() => {
     if (step === 4 && cart && cart.items.length > 0) {
       const contentIds = cart.items.map(item => item.product_id.toString());
+      const currency = totals.currency || 'USD';
+      
+      // Track Facebook Pixel
       trackAddPaymentInfo({
         value: totals.total,
-        currency: totals.currency || 'USD',
+        currency: currency,
         content_type: 'product',
         content_ids: contentIds,
       });
+
+      // Track GTM add_payment_info
+      const cartItems = cart.items.map(item => ({
+        id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        category: undefined,
+        brand: 'SimFab',
+        sku: item.product_sku,
+        quantity: item.quantity
+      }));
+
+      // Determine payment type (will be set when payment method is selected)
+      const paymentType = checkoutState.paymentMethod || 'paypal'; // Default to PayPal
+      
+      trackGTMAddPaymentInfo(paymentType, cartItems, currency, totals.total);
     }
-  }, [step, cart, totals]);
+  }, [step, cart, totals, checkoutState.paymentMethod]);
 
   // Auto-fill from user data when available (only if fields are empty, never overwrite user input)
   const [hasAutoFilled, setHasAutoFilled] = useState(false);

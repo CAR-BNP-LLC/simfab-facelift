@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useToast } from '@/hooks/use-toast';
 import { useRegion } from '@/contexts/RegionContext';
 import { trackAddToCart } from '@/utils/facebookPixel';
+import { trackAddToCart as trackGTMAddToCart, trackRemoveFromCart, trackViewCart } from '@/utils/googleTagManager';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
@@ -224,13 +225,27 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Track Facebook Pixel AddToCart event
       const cartItem = data.data?.cartItem;
       if (cartItem) {
+        const currency = region === 'eu' ? 'EUR' : 'USD';
+        
         trackAddToCart({
           content_name: cartItem.product_name,
           content_ids: [cartItem.product_id?.toString() || productId.toString()],
           content_type: 'product',
           value: cartItem.unit_price || 0,
-          currency: region === 'eu' ? 'EUR' : 'USD',
+          currency: currency,
           quantity: quantity,
+        });
+
+        // Track GTM add_to_cart event
+        trackGTMAddToCart({
+          id: cartItem.product_id || productId,
+          name: cartItem.product_name,
+          price: cartItem.unit_price || 0,
+          category: cartItem.product_category || undefined,
+          brand: 'SimFab',
+          sku: cartItem.product_sku,
+          quantity: quantity,
+          currency: currency
         });
       }
 
@@ -308,6 +323,21 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (!response.ok || !data.success) {
         throw new Error(data.error?.message || 'Failed to remove item');
+      }
+
+      // Track GTM remove_from_cart event
+      const removedItem = cart?.items.find(item => item.id === itemId);
+      if (removedItem) {
+        trackRemoveFromCart({
+          id: removedItem.product_id,
+          name: removedItem.product_name,
+          price: removedItem.unit_price,
+          category: undefined, // Cart items don't have category in this structure
+          brand: 'SimFab',
+          sku: removedItem.product_sku,
+          quantity: removedItem.quantity,
+          currency: region === 'eu' ? 'EUR' : 'USD'
+        });
       }
 
       toast({

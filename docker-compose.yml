@@ -104,6 +104,8 @@ services:
       VITE_PAYPAL_CLIENT_ID_PROD: ${VITE_PAYPAL_CLIENT_ID_PROD:-}
       # Facebook Pixel Configuration
       VITE_FACEBOOK_PIXEL_ID: ${VITE_FACEBOOK_PIXEL_ID:-}
+      # Google Tag Manager Configuration
+      VITE_GTM_CONTAINER_ID: ${VITE_GTM_CONTAINER_ID:-}
     ports:
       - "5173:5173"
     volumes:

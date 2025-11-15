@@ -60,8 +60,9 @@ const SimRacing = () => {
   ];
 
   const seoElement = useSEO({
-    title: 'Sim Racing Cockpits & Wheel Mounts | Complete Racing Setup | SimFab',
-    description: 'Complete sim racing cockpit systems and wheel mounting solutions. Gen3 and DD modular cockpits with conversion kits for flight sim. Compatible with Logitech G29/G920/G923, Thrustmaster T300/T248/TMX, Moza Racing R5/R9/R12, Simagic Alpha, Fanatec, Hori, and all major racing wheel brands. Works with PC, PlayStation 4/5, and Xbox One/Series X. Modular, adjustable designs.',
+    // Optimized for high-volume queries: "sim racing accessories" (1,787 impressions, position 9.61 - big opportunity!)
+    title: 'Sim Racing Cockpits & Accessories | Complete Racing Rig Setup | SimFab',
+    description: 'Complete sim racing cockpit systems, wheel mounts, and accessories. Gen3 and DD modular cockpits with conversion kits. Compatible with Logitech, Thrustmaster, Moza, Simagic, Fanatec, and all major racing wheel brands. Works with PC, PlayStation, and Xbox. Modular, adjustable designs.',
     canonical: getCanonicalUrl('/sim-racing'),
     ogType: 'website'
   });

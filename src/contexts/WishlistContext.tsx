@@ -8,6 +8,7 @@ import { useAuth } from './AuthContext';
 import { wishlistAPI, WishlistItem } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { trackAddToWishlist } from '@/utils/facebookPixel';
+import { trackAddToWishlist as trackGTMAddToWishlist, trackRemoveFromWishlist as trackGTMRemoveFromWishlist } from '@/utils/googleTagManager';
 import { useRegion } from './RegionContext';
 
 // ============================================================================
@@ -117,11 +118,13 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     try {
       await wishlistAPI.addToWishlist(productId, preferences);
       
+      const currency = region === 'eu' ? 'EUR' : 'USD';
+      
       // Track Facebook Pixel AddToWishlist event
       trackAddToWishlist({
         content_ids: [productId.toString()],
         content_type: 'product',
-        currency: region === 'eu' ? 'EUR' : 'USD',
+        currency: currency,
       });
       
       // Optimistic update
@@ -131,6 +134,32 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       
       // Refresh full wishlist
       await fetchWishlist();
+      
+      // Track GTM add_to_wishlist event - get product details from refreshed wishlist
+      const wishlistItem = wishlist.find(item => item.product_id === productId);
+      if (wishlistItem && wishlistItem.product) {
+        const product = wishlistItem.product;
+        const price = product.sale_price && product.is_on_sale ? product.sale_price : product.regular_price || 0;
+        
+        trackGTMAddToWishlist({
+          id: productId,
+          name: product.name || 'Product',
+          price: price,
+          category: product.categories || undefined,
+          brand: 'SimFab',
+          sku: product.sku,
+          currency: currency
+        });
+      } else {
+        // Fallback: track with minimal data
+        trackGTMAddToWishlist({
+          id: productId,
+          name: 'Product',
+          price: 0,
+          brand: 'SimFab',
+          currency: currency
+        });
+      }
       
       toast({
         title: 'Added to wishlist!',
@@ -144,7 +173,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       throw error;
     }
-  }, [isAuthenticated, wishlistIds, toast, fetchWishlist, region]);
+  }, [isAuthenticated, wishlistIds, toast, fetchWishlist, region, wishlist]);
 
   /**
    * Remove product from wishlist
@@ -153,7 +182,36 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (!isAuthenticated) return;
 
     try {
+      // Get product details before removing (for tracking)
+      const wishlistItem = wishlist.find(item => item.product_id === productId);
+      const product = wishlistItem?.product;
+      const currency = region === 'eu' ? 'EUR' : 'USD';
+      
       await wishlistAPI.removeFromWishlist(productId);
+      
+      // Track GTM remove_from_wishlist event
+      if (product) {
+        const price = product.sale_price && product.is_on_sale ? product.sale_price : product.regular_price || 0;
+        
+        trackGTMRemoveFromWishlist({
+          id: productId,
+          name: product.name || 'Product',
+          price: price,
+          category: product.categories || undefined,
+          brand: 'SimFab',
+          sku: product.sku,
+          currency: currency
+        });
+      } else {
+        // Fallback: track with minimal data
+        trackGTMRemoveFromWishlist({
+          id: productId,
+          name: 'Product',
+          price: 0,
+          brand: 'SimFab',
+          currency: currency
+        });
+      }
       
       // Optimistic update
       const newIds = new Set(wishlistIds);
@@ -175,7 +233,7 @@ export const WishlistProvider: React.FC<{ children: ReactNode }> = ({ children }
       });
       throw error;
     }
-  }, [isAuthenticated, wishlistIds, toast, fetchWishlist]);
+  }, [isAuthenticated, wishlistIds, toast, fetchWishlist, region, wishlist]);
 
   /**
    * Check if product is in wishlist

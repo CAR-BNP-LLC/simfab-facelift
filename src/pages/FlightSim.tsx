@@ -131,8 +131,9 @@ const FlightSim = () => {
   }).filter(Boolean);
 
   const seoElement = useSEO({
-    title: 'Flight Simulator Cockpits & Mounting Systems | Complete Modular Solutions | SimFab',
-    description: 'Professional flight simulator cockpits and mounting hardware. Complete DCS, MSFS, Rotorcraft, and Trainer Station cockpit systems. Modular design with 13+ add-on modules (MFD panels, HOTAS mounts, rudder pedals). Compatible with Winwing, VKB, Virpil, Honeycomb, Thrustmaster, Saitek, CH Products, RealSim Gears, SimGears, MFG, Komodo, and all major flight sim brands.',
+    // Optimized for high-volume queries: "flight sim cockpit" (4,810 impressions) and "flight simulator cockpit" (5,008 impressions)
+    title: 'Flight Sim Cockpit | Complete Flight Simulator Cockpit Systems | SimFab',
+    description: 'Complete flight sim cockpit systems for DCS, MSFS, and all flight simulators. Includes seat, chassis, and mounting hardware. Modular design with unlimited upgrade options. Compatible with Thrustmaster, Logitech, Moza, Winwing, VKB, Virpil, and all major flight sim brands.',
     canonical: getCanonicalUrl('/flight-sim'),
     ogType: 'website'
   });

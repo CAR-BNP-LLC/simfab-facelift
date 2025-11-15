@@ -25,6 +25,7 @@ import { useSEO } from "@/hooks/useSEO";
 import { getProductSEOTitle, getProductSEODescription, getCanonicalUrl, getAbsoluteImageUrl } from "@/utils/seo";
 import { ProductSchema } from "@/components/SEO/ProductSchema";
 import { BreadcrumbSchema } from "@/components/SEO/BreadcrumbSchema";
+import { trackViewItem } from "@/utils/googleTagManager";
 
 const ProductDetail = () => {
   const params = useParams();
@@ -463,7 +464,7 @@ const ProductDetail = () => {
     }
   }, [product]);
 
-  // Track Facebook Pixel ViewContent when product loads
+  // Track Facebook Pixel ViewContent and GTM view_item when product loads
   useEffect(() => {
     if (product && !loading) {
       // Get product price (use calculated price if available, otherwise use regular/sale price)
@@ -476,13 +477,28 @@ const ProductDetail = () => {
         ? product.categories[0] 
         : undefined;
 
+      const currency = region === 'eu' ? 'EUR' : 'USD';
+
+      // Track Facebook Pixel ViewContent
       trackViewContent({
         content_name: product.name,
         content_ids: [product.id.toString()],
         content_type: 'product',
         value: productPrice,
-        currency: region === 'eu' ? 'EUR' : 'USD',
+        currency: currency,
         content_category: category,
+      });
+
+      // Track GTM view_item event
+      trackViewItem({
+        id: product.id,
+        name: product.name,
+        price: productPrice,
+        category: product.categories,
+        brand: 'SimFab',
+        sku: product.sku,
+        slug: product.slug,
+        currency: currency
       });
     }
   }, [product, loading, calculatedPrice, region]);

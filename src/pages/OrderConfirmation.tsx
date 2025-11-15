@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, Package, CreditCard, Truck, Calendar } from 'lucide-react';
 import { orderAPI } from '../services/api';
 import { trackPurchase } from '../utils/facebookPixel';
+import { trackPurchase as trackGTMPurchase } from '../utils/googleTagManager';
 import { useAuth } from '../contexts/AuthContext';
 
 interface OrderItem {
@@ -74,9 +75,12 @@ export default function OrderConfirmation() {
       const zip = address.postal_code || address.postalCode || address.zip;
       const country = address.country || address.countryCode;
 
+      const currency = order.currency || 'USD';
+
+      // Track Facebook Pixel Purchase
       trackPurchase({
         value: order.total_amount,
-        currency: order.currency || 'USD',
+        currency: currency,
         content_ids: contentIds,
         content_type: 'product',
         contents: contents,
@@ -91,6 +95,27 @@ export default function OrderConfirmation() {
         zip: zip,
         country: country,
         externalId: user?.id?.toString(),
+      });
+
+      // Track GTM purchase event
+      const orderItems = order.items.map(item => ({
+        id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        category: undefined, // Order items don't have category in this structure
+        brand: 'SimFab',
+        sku: item.product_sku,
+        quantity: item.quantity
+      }));
+
+      trackGTMPurchase({
+        transaction_id: order.order_number,
+        value: order.total_amount,
+        currency: currency,
+        items: orderItems,
+        shipping: order.shipping_amount || 0,
+        tax: order.tax_amount || 0,
+        coupon: order.discount_amount > 0 ? 'applied' : undefined
       });
 
       hasTrackedPurchase.current = true;

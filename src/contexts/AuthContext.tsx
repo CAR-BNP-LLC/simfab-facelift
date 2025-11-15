@@ -3,6 +3,7 @@ import { authAPI, User } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { linkSessionToUser } from '@/utils/analytics';
 import { initFacebookPixel } from '@/utils/facebookPixel';
+import { setUserId } from '@/utils/googleTagManager';
 
 interface AuthContextType {
   user: User | null;
@@ -37,6 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await authAPI.getProfile();
       const currentUser = response.data.user;
       setUser(currentUser);
+      
+      // Set GTM user_id if user is authenticated
+      if (currentUser.id) {
+        setUserId(currentUser.id);
+      }
       
       // Reinitialize Facebook Pixel with user data for advanced matching
       try {
@@ -103,6 +109,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Failed to link analytics session:', analyticsError);
       }
       
+      // Set GTM user_id for tracking
+      if (loggedInUser.id) {
+        setUserId(loggedInUser.id);
+      }
+
       // Reinitialize Facebook Pixel with user data for advanced matching
       try {
         await initFacebookPixel({
@@ -177,6 +188,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await authAPI.logout();
       setUser(null);
+      
+      // Clear GTM user_id on logout
+      setUserId(null);
+      
       toast({
         title: 'Logged out',
         description: 'You have been successfully logged out.',

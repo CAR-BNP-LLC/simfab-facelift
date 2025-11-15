@@ -4,7 +4,7 @@
  * Uses CartContext for real cart data
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Minus, X, ShoppingCart, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,13 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useCart } from '@/contexts/CartContext';
+import { trackViewCart } from '@/utils/googleTagManager';
+import { useRegion } from '@/contexts/RegionContext';
 
 const Cart = () => {
   const navigate = useNavigate();
   const { cart, loading, updateQuantity, removeItem, applyCoupon } = useCart();
+  const { region } = useRegion();
   const [couponCode, setCouponCode] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
@@ -23,6 +26,23 @@ const Cart = () => {
   const items = cart?.items || [];
   const totals = cart?.totals || { subtotal: 0, discount: 0, shipping: 0, tax: 0, total: 0, currency: 'USD', itemCount: 0 };
   const currency = totals.currency === 'EUR' ? '€' : '$';
+
+  // Track view_cart event when cart loads
+  useEffect(() => {
+    if (cart && !loading && items.length > 0) {
+      const cartItems = items.map(item => ({
+        id: item.product_id,
+        name: item.product_name,
+        price: item.unit_price,
+        category: undefined, // Cart items don't have category in this structure
+        brand: 'SimFab',
+        sku: item.product_sku,
+        quantity: item.quantity
+      }));
+
+      trackViewCart(cartItems, region === 'eu' ? 'EUR' : 'USD');
+    }
+  }, [cart, loading, items, region]);
 
   // Handle quantity update
   const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
