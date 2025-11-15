@@ -25,5 +25,5 @@ RUN npm run build || true
 EXPOSE 3001
 
 # Default command (can be overridden)
-CMD ["npm", "run", "dev"]
+CMD ["npm", "run", "start"]
 

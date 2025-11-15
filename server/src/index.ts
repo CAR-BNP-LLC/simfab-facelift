@@ -90,13 +90,18 @@ const sessionStore = new pgSession({
   ...(sslConfig ? { ssl: sslConfig } : {})
 });
 
-// Cookie configuration based on NODE_ENV:
-// Production: API and frontend are on different servers/domains,
-// so we MUST use SameSite=None with Secure=true for cross-site cookies
-// Development: Use SameSite=Lax (same-site cookies)
+// Cookie configuration for cross-origin requests
+// Since frontend (simfab.vercel.app) and backend (simfab.carbnp.com) are on different domains,
+// we MUST use SameSite=None with Secure=true for cookies to work in Chrome
+// Check if we're in a production-like environment (HTTPS + different origin expected)
+const isHttps = process.env.NODE_ENV === 'production' || process.env.FORCE_HTTPS === 'true';
 const isProduction = process.env.NODE_ENV === 'production';
-const cookieSameSite: 'none' | 'lax' | 'strict' = isProduction ? 'none' : 'lax';
-const cookieSecure = isProduction; // Secure=true in production (HTTPS required), false in dev
+
+// For cross-origin cookies (different domains), we need SameSite=None
+// Check if we're expecting cross-origin requests (production deployment)
+// Default to 'none' if we can't determine, to be safe for cross-origin scenarios
+const cookieSameSite: 'none' | 'lax' | 'strict' = (isProduction || process.env.ALLOW_CROSS_ORIGIN === 'true') ? 'none' : 'lax';
+const cookieSecure = isHttps || isProduction; // Secure=true when HTTPS is used
 
 // For cross-origin cookies, don't set domain (let browser handle it)
 // Setting domain explicitly can cause issues with cross-origin cookies
@@ -104,14 +109,18 @@ const cookieDomain = undefined; // undefined = browser sets domain automatically
 
 console.log('🍪 Cookie Configuration:', {
   isProduction,
+  isHttps,
   sameSite: cookieSameSite,
   secure: cookieSecure,
   domain: cookieDomain || '(not set - browser default)',
-  reason: isProduction 
-    ? 'Production: API and frontend on different servers (cross-site required)' 
-    : 'Development: Same-site cookies',
+  reason: cookieSameSite === 'none' 
+    ? 'Cross-origin: API and frontend on different servers (SameSite=None required)' 
+    : 'Same-origin: Development mode (SameSite=Lax)',
   NODE_ENV: process.env.NODE_ENV || '(not set)',
-  all_node_env_keys: Object.keys(process.env).filter(k => k.includes('NODE'))
+  ALLOW_CROSS_ORIGIN: process.env.ALLOW_CROSS_ORIGIN || '(not set)',
+  note: cookieSameSite === 'none' 
+    ? '⚠️ If cookies still fail, ensure NODE_ENV=production or set ALLOW_CROSS_ORIGIN=true'
+    : 'ℹ️ For cross-origin, set NODE_ENV=production or ALLOW_CROSS_ORIGIN=true'
 });
 
 app.use(session({

@@ -42,22 +42,39 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
       name.includes('sid')
     );
     
-    // Determine the issue
+    // Determine the issue with detailed explanation
     let issue = 'Unknown';
+    let solution = '';
+    
     if (!hasCookieHeader) {
-      issue = 'No cookie header sent by browser';
+      // Check if this is a cross-origin request
+      const origin = req.headers.origin;
+      const host = req.get('host');
+      const isCrossOrigin = origin && host && !origin.includes(host);
+      
+      if (isCrossOrigin) {
+        issue = `Cross-origin cookie blocked: Browser (Chrome) is not sending session cookie from ${origin} to ${host}`;
+        solution = 'The cookie was likely set with SameSite=Lax instead of SameSite=None. For cross-origin requests, the server must set cookies with SameSite=None; Secure. Check server cookie configuration - ensure NODE_ENV=production or set ALLOW_CROSS_ORIGIN=true environment variable.';
+      } else {
+        issue = 'No cookie header sent by browser - browser may have blocked the cookie';
+        solution = 'Check browser cookie settings and ensure cookies are enabled for this domain.';
+      }
     } else if (!hasSessionCookie) {
-      issue = 'Cookie header present but session cookie missing - likely blocked by browser (SameSite/Secure policy)';
+      issue = 'Cookie header present but session cookie (connect.sid) missing - other cookies are being sent but session cookie was blocked';
+      solution = 'The session cookie was likely blocked by browser due to SameSite policy. For cross-origin requests, ensure cookie is set with SameSite=None; Secure.';
     } else if (hasSession && !hasUserId) {
-      issue = 'Session exists but userId is missing - session may be corrupted';
+      issue = 'Session exists but userId is missing - session was created but not authenticated';
+      solution = 'This is a new/empty session. The session cookie is being sent but it contains no user data. User needs to log in again.';
     } else if (!hasSession) {
-      issue = 'No session object - session cookie not being parsed';
+      issue = 'No session object - session cookie not being parsed by express-session';
+      solution = 'The cookie may be malformed or the session store is not working. Check session store configuration.';
     }
     
     console.warn('🔒 Authentication failed in requireAuth:', {
       endpoint: req.path,
       method: req.method,
       issue,
+      solution,
       sessionId,
       hasSession,
       hasUserId,
@@ -71,7 +88,8 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
       referer: req.headers.referer,
       protocol: req.protocol,
       secure: req.secure,
-      host: req.get('host')
+      host: req.get('host'),
+      isCrossOrigin: req.headers.origin && req.get('host') && !req.headers.origin.includes(req.get('host') || '')
     });
     
     throw new AuthenticationError('Authentication required', ErrorCode.UNAUTHORIZED);
