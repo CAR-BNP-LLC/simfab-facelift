@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { authAPI, User } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { linkSessionToUser } from '@/utils/analytics';
@@ -23,6 +23,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
   const { toast } = useToast();
+  // Use ref to track user state without causing callback recreation
+  const userRef = useRef<User | null>(null);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const checkAuth = useCallback(async () => {
     try {
@@ -44,8 +51,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Failed to set Facebook Pixel user data:', pixelError);
       }
     } catch (error) {
-      // User is not logged in
-      setUser(null);
+      // Only clear user if it's an actual authentication error (401)
+      // Don't clear on network errors or other issues
+      const errorCode = (error as any)?.code;
+      if (errorCode === 'UNAUTHORIZED') {
+        // Only log if we had a user before - this indicates a session issue
+        if (userRef.current) {
+          console.warn('⚠️ Session lost: User was authenticated but session is now invalid', {
+            previousUserId: userRef.current.id,
+            previousEmail: userRef.current.email
+          });
+        }
+        setUser(null);
+      } else {
+        // For other errors (network, timeout, etc.), keep existing user state
+        // This prevents logging out users due to temporary network issues
+        console.warn('Authentication check error (non-auth):', error);
+        // Only clear if we don't have a user (first load)
+        if (!userRef.current) {
+          setUser(null);
+        }
+      }
     } finally {
       setLoading(false);
     }

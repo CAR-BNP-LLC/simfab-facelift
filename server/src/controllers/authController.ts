@@ -256,6 +256,19 @@ export class AuthController {
       req.session.userEmail = user.email;
       req.session.authorities = authorities;
 
+      // Explicitly save session to ensure it's persisted
+      req.session.save((err) => {
+        if (err) {
+          console.error('❌ Failed to save session after login:', err);
+        } else {
+          console.log('✅ Session saved after login:', {
+            sessionId: req.sessionID,
+            userId: user.id,
+            email: user.email
+          });
+        }
+      });
+
       res.json({
         success: true,
         message: 'Login successful',
@@ -612,9 +625,19 @@ export class AuthController {
   // Get current user profile
   static async getProfile(req: Request, res: Response): Promise<void> {
     try {
+      const sessionId = req.sessionID;
       const userId = req.session.userId;
 
       if (!userId) {
+        // Only log if we have a session but no userId - this indicates a problem
+        // Don't log if there's no session at all (user just not logged in)
+        if (req.session && Object.keys(req.session).length > 0) {
+          console.warn('⚠️ getProfile: Session exists but userId is missing', {
+            sessionId,
+            sessionKeys: Object.keys(req.session),
+            cookieHeader: req.headers.cookie ? 'present' : 'missing'
+          });
+        }
         res.status(401).json({
           success: false,
           error: 'Not authenticated'

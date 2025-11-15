@@ -35,6 +35,7 @@ export async function apiRequest<T>(
     },
     credentials: 'include', // Important for cookies/sessions
   };
+  
   try {
     // Add 10-second timeout
     const controller = new AbortController();
@@ -44,6 +45,27 @@ export async function apiRequest<T>(
     clearTimeout(timeoutId);
     
     const data = await response.json();
+    
+    // Only log auth profile errors, not normal 401s
+    if (endpoint.includes('/auth/profile') && !response.ok) {
+      // Only log if it's not a normal 401 (user just not logged in)
+      // Log if it's a 401 but we expected to be authenticated, or other errors
+      if (response.status === 401) {
+        // Check if we have cookies - if we do, this might be a session issue
+        if (document.cookie) {
+          console.warn('⚠️ getProfile returned 401 but cookies are present - possible session issue', {
+            status: response.status,
+            cookies: document.cookie
+          });
+        }
+      } else {
+        console.error('❌ getProfile error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: data.error
+        });
+      }
+    }
 
     if (!response.ok) {
       // Handle specific error types
