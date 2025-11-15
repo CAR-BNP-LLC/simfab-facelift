@@ -41,8 +41,19 @@ async function hashSHA256(value: string): Promise<string> {
 /**
  * Initialize Facebook Pixel
  * Should be called once when the app loads
+ * Can optionally include user data for advanced matching
  */
-export function initFacebookPixel(): void {
+export async function initFacebookPixel(userData?: {
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  externalId?: string;
+}): Promise<void> {
   // Only initialize if Pixel ID is provided
   if (!PIXEL_ID || PIXEL_ID === 'your_pixel_id_here') {
     return;
@@ -54,10 +65,57 @@ export function initFacebookPixel(): void {
     return;
   }
 
+  // Prepare advanced matching data if provided
+  let advancedMatching: Record<string, string> | undefined;
+  if (userData) {
+    advancedMatching = {};
+    
+    if (userData.email) {
+      advancedMatching.em = await hashSHA256(userData.email);
+    }
+    if (userData.phone) {
+      const phoneDigits = userData.phone.replace(/\D/g, '');
+      if (phoneDigits) {
+        advancedMatching.ph = await hashSHA256(phoneDigits);
+      }
+    }
+    if (userData.firstName) {
+      advancedMatching.fn = await hashSHA256(userData.firstName);
+    }
+    if (userData.lastName) {
+      advancedMatching.ln = await hashSHA256(userData.lastName);
+    }
+    if (userData.city) {
+      advancedMatching.ct = userData.city;
+    }
+    if (userData.state) {
+      advancedMatching.st = userData.state;
+    }
+    if (userData.zip) {
+      advancedMatching.zp = userData.zip;
+    }
+    if (userData.country) {
+      advancedMatching.country = userData.country;
+    }
+    if (userData.externalId) {
+      advancedMatching.external_id = userData.externalId;
+    }
+
+    // Only include if we have at least one field
+    if (Object.keys(advancedMatching).length === 0) {
+      advancedMatching = undefined;
+    }
+  }
+
   // Check if fbq is available (loaded from index.html)
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
     try {
-      window.fbq('init', PIXEL_ID);
+      // Include advanced matching in init call if available
+      if (advancedMatching) {
+        window.fbq('init', PIXEL_ID, advancedMatching);
+      } else {
+        window.fbq('init', PIXEL_ID);
+      }
       isInitialized = true;
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -66,10 +124,14 @@ export function initFacebookPixel(): void {
     }
   } else {
     // If fbq is not available yet, wait a bit and try again
-    setTimeout(() => {
+    setTimeout(async () => {
       if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
         try {
-          window.fbq('init', PIXEL_ID);
+          if (advancedMatching) {
+            window.fbq('init', PIXEL_ID, advancedMatching);
+          } else {
+            window.fbq('init', PIXEL_ID);
+          }
           isInitialized = true;
         } catch (error) {
           if (import.meta.env.DEV) {
@@ -78,73 +140,6 @@ export function initFacebookPixel(): void {
         }
       }
     }, 100);
-  }
-}
-
-/**
- * Set user data for advanced matching
- * This improves matching accuracy for logged-in users
- * Data is automatically hashed by Facebook Pixel
- */
-export async function setUserData(userData: {
-  email?: string;
-  phone?: string;
-  firstName?: string;
-  lastName?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  country?: string;
-  externalId?: string;
-}): Promise<void> {
-  if (!isPixelReady()) return;
-
-  try {
-    // Hash sensitive data (email, phone, names) using SHA-256
-    const hashedData: Record<string, string> = {};
-    
-    if (userData.email) {
-      hashedData.em = await hashSHA256(userData.email);
-    }
-    if (userData.phone) {
-      // Remove non-numeric characters for phone hashing
-      const phoneDigits = userData.phone.replace(/\D/g, '');
-      if (phoneDigits) {
-        hashedData.ph = await hashSHA256(phoneDigits);
-      }
-    }
-    if (userData.firstName) {
-      hashedData.fn = await hashSHA256(userData.firstName);
-    }
-    if (userData.lastName) {
-      hashedData.ln = await hashSHA256(userData.lastName);
-    }
-    
-    // Add plain text location data (Facebook handles these as-is)
-    if (userData.city) {
-      hashedData.ct = userData.city;
-    }
-    if (userData.state) {
-      hashedData.st = userData.state;
-    }
-    if (userData.zip) {
-      hashedData.zp = userData.zip;
-    }
-    if (userData.country) {
-      hashedData.country = userData.country;
-    }
-    if (userData.externalId) {
-      hashedData.external_id = userData.externalId;
-    }
-
-    // Only set user data if we have at least one field
-    if (Object.keys(hashedData).length > 0) {
-      window.fbq('setUserData', hashedData);
-    }
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.error('Error setting Facebook Pixel user data:', error);
-    }
   }
 }
 

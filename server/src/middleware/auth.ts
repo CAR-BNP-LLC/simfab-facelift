@@ -20,7 +20,60 @@ declare module 'express-session' {
  * Ensures user is logged in
  */
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
-  if (!req.session || !req.session.userId) {
+  const sessionId = req.sessionID;
+  const hasSession = !!req.session;
+  const hasUserId = !!(req.session?.userId);
+  const cookieHeader = req.headers.cookie;
+  const userAgent = req.headers['user-agent'];
+  const isChrome = userAgent?.includes('Chrome') && !userAgent?.includes('Edg');
+  
+  if (!hasSession || !hasUserId) {
+    // Log detailed information about why authentication failed
+    const sessionKeys = req.session ? Object.keys(req.session) : [];
+    const hasCookieHeader = !!cookieHeader;
+    const cookieNames = cookieHeader 
+      ? cookieHeader.split(';').map(c => c.trim().split('=')[0]).filter(Boolean)
+      : [];
+    // Check for common session cookie names (express-session default is 'connect.sid')
+    const hasSessionCookie = cookieNames.some(name => 
+      name === 'connect.sid' || 
+      name.startsWith('connect.sid') ||
+      name.includes('session') ||
+      name.includes('sid')
+    );
+    
+    // Determine the issue
+    let issue = 'Unknown';
+    if (!hasCookieHeader) {
+      issue = 'No cookie header sent by browser';
+    } else if (!hasSessionCookie) {
+      issue = 'Cookie header present but session cookie missing - likely blocked by browser (SameSite/Secure policy)';
+    } else if (hasSession && !hasUserId) {
+      issue = 'Session exists but userId is missing - session may be corrupted';
+    } else if (!hasSession) {
+      issue = 'No session object - session cookie not being parsed';
+    }
+    
+    console.warn('🔒 Authentication failed in requireAuth:', {
+      endpoint: req.path,
+      method: req.method,
+      issue,
+      sessionId,
+      hasSession,
+      hasUserId,
+      sessionKeys,
+      hasCookieHeader,
+      cookieNames,
+      hasSessionCookie,
+      userAgent: userAgent?.substring(0, 50),
+      isChrome,
+      origin: req.headers.origin,
+      referer: req.headers.referer,
+      protocol: req.protocol,
+      secure: req.secure,
+      host: req.get('host')
+    });
+    
     throw new AuthenticationError('Authentication required', ErrorCode.UNAUTHORIZED);
   }
 

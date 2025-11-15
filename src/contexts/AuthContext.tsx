@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { authAPI, User } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { linkSessionToUser } from '@/utils/analytics';
-import { setUserData } from '@/utils/facebookPixel';
+import { initFacebookPixel } from '@/utils/facebookPixel';
 
 interface AuthContextType {
   user: User | null;
@@ -38,9 +38,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentUser = response.data.user;
       setUser(currentUser);
       
-      // Set Facebook Pixel user data for advanced matching when user is already logged in
+      // Reinitialize Facebook Pixel with user data for advanced matching
       try {
-        await setUserData({
+        await initFacebookPixel({
           email: currentUser.email,
           phone: currentUser.phone,
           firstName: currentUser.firstName,
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           externalId: currentUser.id?.toString(),
         });
       } catch (pixelError) {
-        console.warn('Failed to set Facebook Pixel user data:', pixelError);
+        console.warn('Failed to initialize Facebook Pixel with user data:', pixelError);
       }
     } catch (error) {
       // Only clear user if it's an actual authentication error (401)
@@ -103,9 +103,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Failed to link analytics session:', analyticsError);
       }
       
-      // Set Facebook Pixel user data for advanced matching
+      // Reinitialize Facebook Pixel with user data for advanced matching
       try {
-        await setUserData({
+        await initFacebookPixel({
           email: loggedInUser.email,
           phone: loggedInUser.phone,
           firstName: loggedInUser.firstName,
@@ -113,7 +113,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           externalId: loggedInUser.id?.toString(),
         });
       } catch (pixelError) {
-        console.warn('Failed to set Facebook Pixel user data:', pixelError);
+        console.warn('Failed to initialize Facebook Pixel with user data:', pixelError);
       }
       
       toast({
@@ -145,9 +145,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Failed to link analytics session:', analyticsError);
       }
       
-      // Set Facebook Pixel user data for advanced matching
+      // Reinitialize Facebook Pixel with user data for advanced matching
       try {
-        await setUserData({
+        await initFacebookPixel({
           email: newUser.email,
           phone: newUser.phone,
           firstName: newUser.firstName,
@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           externalId: newUser.id?.toString(),
         });
       } catch (pixelError) {
-        console.warn('Failed to set Facebook Pixel user data:', pixelError);
+        console.warn('Failed to initialize Facebook Pixel with user data:', pixelError);
       }
       
       toast({
