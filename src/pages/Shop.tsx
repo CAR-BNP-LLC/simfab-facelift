@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Loader2, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useRegion } from '@/contexts/RegionContext';
 import { trackSearch, trackViewCategory } from '@/utils/facebookPixel';
 
 const Shop = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Array<{ id: string; name: string; count: number }>>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -24,6 +25,14 @@ const Shop = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const { toast } = useToast();
   const { region } = useRegion();
+
+  // Read category from URL params on mount
+  useEffect(() => {
+    const categoryParam = searchParams.get('category');
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [searchParams]);
 
   // Fetch products
   useEffect(() => {
@@ -114,6 +123,13 @@ const Shop = () => {
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setPage(1); // Reset to first page
+    
+    // Update URL params
+    if (categoryId) {
+      setSearchParams({ category: categoryId });
+    } else {
+      setSearchParams({});
+    }
     
     // Track Facebook Pixel ViewCategory event
     if (categoryId) {
@@ -363,7 +379,7 @@ const Shop = () => {
                           if (typeof priceData === 'string') {
                             return <span className="text-lg font-bold text-foreground">{priceData}</span>;
                           }
-                          const currency = product.region === 'eu' ? '€' : '$';
+                          const currency = region === 'eu' ? '€' : '$';
                           return (
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">

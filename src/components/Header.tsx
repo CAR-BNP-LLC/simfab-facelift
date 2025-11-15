@@ -428,6 +428,9 @@ const Header = () => {
                       if (item === 'FLIGHT SIM') window.location.href = '/flight-sim';
                       if (item === 'SIM RACING') window.location.href = '/sim-racing';
                       if (item === 'MONITOR STANDS') window.location.href = '/monitor-stands';
+                      if (item === 'RACING & FLIGHT SEATS') window.location.href = '/racing-flight-seats';
+                      if (item === 'ACCESSORIES') window.location.href = '/accessories';
+                      if (item === 'REFURBISHED') window.location.href = '/refurbished';
                       if (item === 'SERVICES') window.location.href = '/services';
                     }}
                   >
@@ -721,7 +724,13 @@ const Header = () => {
                     className="w-20 h-20 object-cover rounded-lg"
                   />
                   <div>
-                    <button className="text-white font-bold text-lg uppercase tracking-wider">
+                    <button 
+                      className="text-white font-bold text-lg uppercase tracking-wider"
+                      onClick={() => {
+                        window.location.href = '/racing-flight-seats';
+                        setIsMenuOpen(false);
+                      }}
+                    >
                       RACING & FLIGHT SEATS
                     </button>
                   </div>
@@ -767,7 +776,13 @@ const Header = () => {
                     className="w-20 h-20 object-cover rounded-lg"
                   />
                   <div>
-                    <button className="text-white font-bold text-lg uppercase tracking-wider">
+                    <button 
+                      className="text-white font-bold text-lg uppercase tracking-wider"
+                      onClick={() => {
+                        window.location.href = '/accessories';
+                        setIsMenuOpen(false);
+                      }}
+                    >
                       ACCESSORIES
                     </button>
                   </div>
@@ -776,7 +791,13 @@ const Header = () => {
 
               {/* REFURBISHED */}
               <div className="border-b border-gray-800 pb-6">
-                <button className="text-white font-bold text-lg uppercase tracking-wider">
+                <button 
+                  className="text-white font-bold text-lg uppercase tracking-wider"
+                  onClick={() => {
+                    window.location.href = '/refurbished';
+                    setIsMenuOpen(false);
+                  }}
+                >
                   REFURBISHED STOCK
                 </button>
               </div>

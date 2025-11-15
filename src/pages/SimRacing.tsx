@@ -319,9 +319,11 @@ const SimRacing = () => {
               <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                 We offer an ecosystem of products serving the Sim Racing simulation segment from entry-level gamers to modular systems for trainees or advanced professionals, all at an affordable price. Each base model sim cockpit is upgradable and interchangeable via add-on modules.
               </p>
-              <Button className="btn-primary w-full sm:w-auto">
-                conversion kits
-              </Button>
+              <Link to="/shop?category=sim-racing">
+                <Button className="btn-primary w-full sm:w-auto">
+                  conversion kits
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

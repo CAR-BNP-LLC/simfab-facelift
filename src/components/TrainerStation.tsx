@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Link } from 'react-router-dom';
 
 const TrainerStation = () => {
   return (
@@ -37,9 +38,11 @@ const TrainerStation = () => {
               <span className="text-2xl sm:text-3xl font-bold text-card-foreground">from $999</span>
             </div>
 
-            <Button className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-auto">
-              buy now
-            </Button>
+            <Link to="/shop?search=trainer+station">
+              <Button className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-auto">
+                buy now
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

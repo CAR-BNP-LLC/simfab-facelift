@@ -493,9 +493,11 @@ const FlightSim = () => {
                   <span className="text-2xl sm:text-3xl font-bold text-card-foreground">from $999</span>
                 </div>
 
-                <Button className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-auto">
-                  buy now
-                </Button>
+                <Link to="/shop?search=trainer+station">
+                  <Button className="btn-primary text-base sm:text-lg px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-auto">
+                    buy now
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
@@ -552,9 +554,11 @@ const FlightSim = () => {
                 <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
                   Flight sim configurations are suitable for combat and space sim as well as commercial and recreational flight simulation.
                 </p>
-                <Button className="btn-primary w-full sm:w-auto">
-                  see add-ons
-                </Button>
+                <Link to="/shop?category=flight-sim">
+                  <Button className="btn-primary w-full sm:w-auto">
+                    see add-ons
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

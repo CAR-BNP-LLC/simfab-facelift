@@ -2,17 +2,25 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { usePageProducts } from '@/hooks/usePageProducts';
+import { useRegion } from '@/contexts/RegionContext';
 
 const FlightSimSection = () => {
   // Fetch products from API for homepage section
   const { products: apiProducts, loading, error } = usePageProducts('homepage', 'flight-sim-section');
+  const { region } = useRegion();
 
   // Map API products to component format
   const baseModels = apiProducts.map((pageProduct) => {
     const product = pageProduct.product;
     if (!product) return null;
 
-    const currency = product.region === 'eu' ? '€' : '$';
+    const productImage = product.images?.find((img: any) => img.is_primary) || 
+                        product.images?.[0] || 
+                        null;
+
+    const imageUrl = productImage?.image_url || null;
+
+    const currency = region === 'eu' ? '€' : '$';
     const price = product.sale_price 
       ? `${currency}${product.sale_price}` 
       : product.regular_price 
@@ -25,6 +33,7 @@ const FlightSimSection = () => {
       id: product.id,
       name: product.name,
       price,
+      image: imageUrl,
       cta: product.status === 'active' ? 'BUY NOW' : 'SEE MORE',
       slug: product.slug,
     };
@@ -48,9 +57,11 @@ const FlightSimSection = () => {
             <p className="text-base sm:text-lg text-foreground/80 mb-6 sm:mb-8 leading-relaxed">
               All flight sim cockpits come with our patented seat base design complete with a removable center foam insert. The seat base's slanted cutout allows for the adjustment of the mounted stick or helicopter cyclic to within a proper arm's reach, as well as full motion of the stick without protruding into seat foam.
             </p>
-            <Button className="btn-primary w-full sm:w-auto">
-              see more
-            </Button>
+            <Link to="/flight-sim">
+              <Button className="btn-primary w-full sm:w-auto">
+                see more
+              </Button>
+            </Link>
           </div>
           
           <div className="order-1 lg:order-2">
@@ -80,8 +91,18 @@ const FlightSimSection = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {baseModels.map((model) => (
                 <div key={model.id} className="product-card text-center">
-                  <div className="h-48 bg-secondary/50 rounded-lg mb-4 flex items-center justify-center">
-                    <div className="w-16 h-16 bg-muted-foreground/20 rounded"></div>
+                  <div className="h-48 bg-secondary/50 rounded-lg mb-4 overflow-hidden">
+                    {model.image ? (
+                      <img 
+                        src={model.image}
+                        alt={model.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-16 h-16 bg-muted-foreground/20 rounded"></div>
+                      </div>
+                    )}
                   </div>
                   <h4 className="font-semibold text-card-foreground mb-3 leading-tight">
                     {model.name}

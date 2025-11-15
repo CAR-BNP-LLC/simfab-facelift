@@ -43,6 +43,9 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
+const RacingFlightSeats = lazy(() => import("./pages/RacingFlightSeats"));
+const Accessories = lazy(() => import("./pages/Accessories"));
+const Refurbished = lazy(() => import("./pages/Refurbished"));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -89,6 +92,9 @@ const App = () => {
                           <Route path="/order-confirmation/:orderNumber" element={<OrderConfirmation />} />
                           <Route path="/orders/:orderNumber" element={<OrderConfirmation />} />
                           <Route path="/monitor-stands" element={<MonitorStands />} />
+                          <Route path="/racing-flight-seats" element={<RacingFlightSeats />} />
+                          <Route path="/accessories" element={<Accessories />} />
+                          <Route path="/refurbished" element={<Refurbished />} />
                           <Route path="/services" element={<Services />} />
                           <Route path="/assembly-manuals" element={<AssemblyManuals />} />
                           <Route path="/manuals/:id" element={<ManualView />} />
