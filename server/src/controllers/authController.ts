@@ -98,13 +98,6 @@ export class AuthController {
       const userLastName = lastName || last_name;
       const subscribeToNewsletter = subscribeNewsletter !== undefined ? subscribeNewsletter : subscribe_newsletter;
       
-      console.log('📝 Registration - Newsletter subscription:', {
-        subscribeNewsletter,
-        subscribe_newsletter,
-        subscribeToNewsletter,
-        email
-      });
-
       // Validate required fields
       if (!email || !password || !userFirstName || !userLastName) {
         res.status(400).json({
@@ -160,13 +153,13 @@ export class AuthController {
         try {
           const subscribedAt = new Date().toISOString();
           const subscription = await userModel.subscribeToNewsletter(email, subscribedAt);
-          console.log('✅ Newsletter subscription created:', { email, status: subscription.status });
+          // Newsletter subscription created - no need to log
         } catch (subError) {
           console.error('❌ Failed to create newsletter subscription:', subError);
           // Don't fail registration if newsletter subscription fails
         }
       } else {
-        console.log('ℹ️ User did not subscribe to newsletter:', email);
+        // User did not subscribe - no need to log
       }
 
       // Trigger new account creation email event
@@ -264,24 +257,10 @@ export class AuthController {
             console.error('❌ Failed to save session after login:', err);
             reject(err);
           } else {
-            console.log('✅ Session saved after login:', {
-              sessionId: req.sessionID,
-              userId: user.id,
-              email: user.email,
-              cookieHeader: req.headers.cookie ? 'present' : 'missing'
-            });
+            // Session saved successfully - no need to log
             resolve();
           }
         });
-      });
-
-      // Log the Set-Cookie header that will be sent
-      // Note: We can't directly access it, but express-session will set it
-      console.log('🍪 Login response will include Set-Cookie header for session:', {
-        sessionId: req.sessionID,
-        cookieName: 'connect.sid',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
       });
 
       res.json({
@@ -572,12 +551,6 @@ export class AuthController {
         tokenStr = token[0];
       }
 
-      console.log('🔗 Unsubscribe request received:', {
-        token: tokenStr ? tokenStr.substring(0, 20) + '...' : 'missing',
-        tokenLength: tokenStr ? tokenStr.length : 0,
-        queryParams: Object.keys(req.query)
-      });
-
       if (!tokenStr) {
         console.error('❌ No token provided in unsubscribe request');
         res.status(400).json({
@@ -597,7 +570,7 @@ export class AuthController {
         await campaignService.markRecipientAsUnsubscribed(tokenStr);
         await userModel.unsubscribeFromNewsletter(recipient.email);
         
-        console.log('✅ Unsubscribed via database token lookup:', recipient.email);
+        // Unsubscribed successfully - no need to log
         
         res.json({
           success: true,
@@ -644,15 +617,7 @@ export class AuthController {
       const userId = req.session.userId;
 
       if (!userId) {
-        // Only log if we have a session but no userId - this indicates a problem
-        // Don't log if there's no session at all (user just not logged in)
-        if (req.session && Object.keys(req.session).length > 0) {
-          console.warn('⚠️ getProfile: Session exists but userId is missing', {
-            sessionId,
-            sessionKeys: Object.keys(req.session),
-            cookieHeader: req.headers.cookie ? 'present' : 'missing'
-          });
-        }
+        // User is not authenticated - normal case, no need to log
         res.status(401).json({
           success: false,
           error: 'Not authenticated'

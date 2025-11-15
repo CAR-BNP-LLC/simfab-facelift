@@ -28,69 +28,75 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction): vo
   const isChrome = userAgent?.includes('Chrome') && !userAgent?.includes('Edg');
   
   if (!hasSession || !hasUserId) {
-    // Log detailed information about why authentication failed
-    const sessionKeys = req.session ? Object.keys(req.session) : [];
-    const hasCookieHeader = !!cookieHeader;
-    const cookieNames = cookieHeader 
-      ? cookieHeader.split(';').map(c => c.trim().split('=')[0]).filter(Boolean)
-      : [];
-    // Check for common session cookie names (express-session default is 'connect.sid')
-    const hasSessionCookie = cookieNames.some(name => 
-      name === 'connect.sid' || 
-      name.startsWith('connect.sid') ||
-      name.includes('session') ||
-      name.includes('sid')
-    );
+    // Only log authentication failures for admin endpoints
+    const isAdminEndpoint = req.path.startsWith('/api/admin');
     
-    // Determine the issue with detailed explanation
-    let issue = 'Unknown';
-    let solution = '';
-    
-    if (!hasCookieHeader) {
-      // Check if this is a cross-origin request
-      const origin = req.headers.origin;
-      const host = req.get('host');
-      const isCrossOrigin = origin && host && !origin.includes(host);
+    if (isAdminEndpoint) {
+      // Log detailed information about why authentication failed for admin endpoints
+      const sessionKeys = req.session ? Object.keys(req.session) : [];
+      const hasCookieHeader = !!cookieHeader;
+      const cookieNames = cookieHeader 
+        ? cookieHeader.split(';').map(c => c.trim().split('=')[0]).filter(Boolean)
+        : [];
+      // Check for common session cookie names (express-session default is 'connect.sid')
+      const hasSessionCookie = cookieNames.some(name => 
+        name === 'connect.sid' || 
+        name.startsWith('connect.sid') ||
+        name.includes('session') ||
+        name.includes('sid')
+      );
       
-      if (isCrossOrigin) {
-        issue = `Cross-origin cookie blocked: Browser (Chrome) is not sending session cookie from ${origin} to ${host}`;
-        solution = 'The cookie was likely set with SameSite=Lax instead of SameSite=None. For cross-origin requests, the server must set cookies with SameSite=None; Secure. Check server cookie configuration - ensure NODE_ENV=production or set ALLOW_CROSS_ORIGIN=true environment variable.';
-      } else {
-        issue = 'No cookie header sent by browser - browser may have blocked the cookie';
-        solution = 'Check browser cookie settings and ensure cookies are enabled for this domain.';
+      // Determine the issue with detailed explanation
+      let issue = 'Unknown';
+      let solution = '';
+      
+      if (!hasCookieHeader) {
+        // Check if this is a cross-origin request
+        const origin = req.headers.origin;
+        const host = req.get('host');
+        const isCrossOrigin = origin && host && !origin.includes(host);
+        
+        if (isCrossOrigin) {
+          issue = `Cross-origin cookie blocked: Browser (Chrome) is not sending session cookie from ${origin} to ${host}`;
+          solution = 'The cookie was likely set with SameSite=Lax instead of SameSite=None. For cross-origin requests, the server must set cookies with SameSite=None; Secure. Check server cookie configuration - ensure NODE_ENV=production or set ALLOW_CROSS_ORIGIN=true environment variable.';
+        } else {
+          issue = 'No cookie header sent by browser - browser may have blocked the cookie';
+          solution = 'Check browser cookie settings and ensure cookies are enabled for this domain.';
+        }
+      } else if (!hasSessionCookie) {
+        issue = 'Cookie header present but session cookie (connect.sid) missing - other cookies are being sent but session cookie was blocked';
+        solution = 'The session cookie was likely blocked by browser due to SameSite policy. For cross-origin requests, ensure cookie is set with SameSite=None; Secure.';
+      } else if (hasSession && !hasUserId) {
+        issue = 'Session exists but userId is missing - session was created but not authenticated';
+        solution = 'This is a new/empty session. The session cookie is being sent but it contains no user data. User needs to log in again.';
+      } else if (!hasSession) {
+        issue = 'No session object - session cookie not being parsed by express-session';
+        solution = 'The cookie may be malformed or the session store is not working. Check session store configuration.';
       }
-    } else if (!hasSessionCookie) {
-      issue = 'Cookie header present but session cookie (connect.sid) missing - other cookies are being sent but session cookie was blocked';
-      solution = 'The session cookie was likely blocked by browser due to SameSite policy. For cross-origin requests, ensure cookie is set with SameSite=None; Secure.';
-    } else if (hasSession && !hasUserId) {
-      issue = 'Session exists but userId is missing - session was created but not authenticated';
-      solution = 'This is a new/empty session. The session cookie is being sent but it contains no user data. User needs to log in again.';
-    } else if (!hasSession) {
-      issue = 'No session object - session cookie not being parsed by express-session';
-      solution = 'The cookie may be malformed or the session store is not working. Check session store configuration.';
+      
+      console.warn('🔒 Authentication failed in requireAuth (admin endpoint):', {
+        endpoint: req.path,
+        method: req.method,
+        issue,
+        solution,
+        sessionId,
+        hasSession,
+        hasUserId,
+        sessionKeys,
+        hasCookieHeader,
+        cookieNames,
+        hasSessionCookie,
+        userAgent: userAgent?.substring(0, 50),
+        isChrome,
+        origin: req.headers.origin,
+        referer: req.headers.referer,
+        protocol: req.protocol,
+        secure: req.secure,
+        host: req.get('host'),
+        isCrossOrigin: req.headers.origin && req.get('host') && !req.headers.origin.includes(req.get('host') || '')
+      });
     }
-    
-    console.warn('🔒 Authentication failed in requireAuth:', {
-      endpoint: req.path,
-      method: req.method,
-      issue,
-      solution,
-      sessionId,
-      hasSession,
-      hasUserId,
-      sessionKeys,
-      hasCookieHeader,
-      cookieNames,
-      hasSessionCookie,
-      userAgent: userAgent?.substring(0, 50),
-      isChrome,
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      protocol: req.protocol,
-      secure: req.secure,
-      host: req.get('host'),
-      isCrossOrigin: req.headers.origin && req.get('host') && !req.headers.origin.includes(req.get('host') || '')
-    });
+    // For non-admin endpoints, silently fail (normal behavior for unauthenticated users)
     
     throw new AuthenticationError('Authentication required', ErrorCode.UNAUTHORIZED);
   }
