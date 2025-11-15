@@ -256,17 +256,32 @@ export class AuthController {
       req.session.userEmail = user.email;
       req.session.authorities = authorities;
 
-      // Explicitly save session to ensure it's persisted
-      req.session.save((err) => {
-        if (err) {
-          console.error('❌ Failed to save session after login:', err);
-        } else {
-          console.log('✅ Session saved after login:', {
-            sessionId: req.sessionID,
-            userId: user.id,
-            email: user.email
-          });
-        }
+      // Explicitly save session to ensure it's persisted before sending response
+      // This is critical for cross-origin cookies in Chrome
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error('❌ Failed to save session after login:', err);
+            reject(err);
+          } else {
+            console.log('✅ Session saved after login:', {
+              sessionId: req.sessionID,
+              userId: user.id,
+              email: user.email,
+              cookieHeader: req.headers.cookie ? 'present' : 'missing'
+            });
+            resolve();
+          }
+        });
+      });
+
+      // Log the Set-Cookie header that will be sent
+      // Note: We can't directly access it, but express-session will set it
+      console.log('🍪 Login response will include Set-Cookie header for session:', {
+        sessionId: req.sessionID,
+        cookieName: 'connect.sid',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax'
       });
 
       res.json({

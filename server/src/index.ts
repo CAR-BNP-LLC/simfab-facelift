@@ -95,13 +95,18 @@ const sessionStore = new pgSession({
 // so we MUST use SameSite=None with Secure=true for cross-site cookies
 // Development: Use SameSite=Lax (same-site cookies)
 const isProduction = process.env.NODE_ENV === 'production';
-const cookieSameSite: 'none' | 'lax' = isProduction ? 'none' : 'lax';
+const cookieSameSite: 'none' | 'lax' | 'strict' = isProduction ? 'none' : 'lax';
 const cookieSecure = isProduction; // Secure=true in production (HTTPS required), false in dev
+
+// For cross-origin cookies, don't set domain (let browser handle it)
+// Setting domain explicitly can cause issues with cross-origin cookies
+const cookieDomain = undefined; // undefined = browser sets domain automatically
 
 console.log('🍪 Cookie Configuration:', {
   isProduction,
   sameSite: cookieSameSite,
   secure: cookieSecure,
+  domain: cookieDomain || '(not set - browser default)',
   reason: isProduction 
     ? 'Production: API and frontend on different servers (cross-site required)' 
     : 'Development: Same-site cookies',
@@ -113,12 +118,15 @@ app.use(session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
-  saveUninitialized: true, // Changed to true for anonymous cart sessions
+  saveUninitialized: false, // Changed to false - only save sessions that have data (userId)
+  name: 'connect.sid', // Explicit cookie name
   cookie: {
     secure: cookieSecure, // true for cross-site cookies or production (HTTPS required)
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days for cart persistence
-    sameSite: cookieSameSite // 'none' for cross-site, 'lax' for same-site dev
+    sameSite: cookieSameSite, // 'none' for cross-site, 'lax' for same-site dev
+    domain: cookieDomain, // undefined = browser sets domain automatically (better for cross-origin)
+    path: '/' // Explicit path
   }
 }));
 
