@@ -8,6 +8,10 @@ import { usePageProducts } from '@/hooks/usePageProducts';
 import { Loader2 } from 'lucide-react';
 import simRacingHero from '@/assets/sim-racing-hero.png';
 import racingImage from '@/assets/sim-racing-cockpit.jpg';
+import { useSEO } from '@/hooks/useSEO';
+import { getCanonicalUrl } from '@/utils/seo';
+import { BreadcrumbSchema } from '@/components/SEO/BreadcrumbSchema';
+import { ItemListSchema } from '@/components/SEO/ItemListSchema';
 
 const SimRacing = () => {
   // Fetch products from API
@@ -55,8 +59,33 @@ const SimRacing = () => {
     "CH Products", "MFG", "XBOX ONE", "XBOX X", "PS4", "PS5", "Virtual Reality", "PC"
   ];
 
+  const seoElement = useSEO({
+    title: 'Sim Racing Cockpits & Wheel Mounts | Complete Racing Setup | SimFab',
+    description: 'Complete sim racing cockpit systems and wheel mounting solutions. Gen3 and DD modular cockpits with conversion kits for flight sim. Compatible with Logitech G29/G920/G923, Thrustmaster T300/T248/TMX, Moza Racing R5/R9/R12, Simagic Alpha, Fanatec, Hori, and all major racing wheel brands. Works with PC, PlayStation 4/5, and Xbox One/Series X. Modular, adjustable designs.',
+    canonical: getCanonicalUrl('/sim-racing'),
+    ogType: 'website'
+  });
+
+  const breadcrumbItems = [
+    { name: 'Home', url: '/' },
+    { name: 'Sim Racing', url: '/sim-racing' }
+  ];
+
+  const schemaProducts = baseModels.map(item => ({
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    price: { min: 0 },
+    images: []
+  }));
+
   return (
     <div className="min-h-screen bg-background">
+      {seoElement}
+      <BreadcrumbSchema items={breadcrumbItems} />
+      {baseModels.length > 0 && (
+        <ItemListSchema name="Sim Racing Cockpits" items={schemaProducts} />
+      )}
       <Header />
       
       {/* Hero Section */}

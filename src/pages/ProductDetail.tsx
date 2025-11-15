@@ -21,6 +21,10 @@ import { calculateTotalPrice } from "@/utils/priceCalculator";
 import { Badge } from "@/components/ui/badge";
 import { getCurrencySymbol } from "@/utils/currency";
 import { trackViewContent } from "@/utils/facebookPixel";
+import { useSEO } from "@/hooks/useSEO";
+import { getProductSEOTitle, getProductSEODescription, getCanonicalUrl, getAbsoluteImageUrl } from "@/utils/seo";
+import { ProductSchema } from "@/components/SEO/ProductSchema";
+import { BreadcrumbSchema } from "@/components/SEO/BreadcrumbSchema";
 
 const ProductDetail = () => {
   const params = useParams();
@@ -1142,8 +1146,40 @@ const ProductDetail = () => {
       }))
     : [];
 
+  // SEO data
+  const seoTitle = getProductSEOTitle(product);
+  const seoDescription = getProductSEODescription(product);
+  const canonicalUrl = getCanonicalUrl(`/product/${product.slug}`);
+  const ogImage = images.length > 0 ? getAbsoluteImageUrl(images[0].url) : undefined;
+  const priceData = getDisplayPrice();
+  const productPrice = priceData.price || (product.price?.sale || product.price?.regular || product.price?.min || 0);
+  const productCurrency = getCurrencySymbol((product as any)?.region || region);
+  const inStock = isProductInStock(product);
+  
+  // Breadcrumb items for schema
+  const breadcrumbItems = [
+    { name: 'Home', url: '/' },
+    { name: 'Shop', url: '/shop' },
+    { name: product.name, url: `/product/${product.slug}` }
+  ];
+
+  const seoElement = useSEO({
+    title: seoTitle,
+    description: seoDescription,
+    canonical: canonicalUrl,
+    ogImage: ogImage,
+    ogType: 'product',
+    ogUrl: canonicalUrl,
+    productPrice: productPrice,
+    productCurrency: productCurrency === '€' ? 'EUR' : 'USD',
+    productAvailability: inStock ? 'in stock' : 'out of stock'
+  });
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {seoElement}
+      <ProductSchema product={product} region={(product as any)?.region || region} />
+      <BreadcrumbSchema items={breadcrumbItems} />
       <Header />
       
       <main className="container mx-auto px-4 py-8 mt-20">

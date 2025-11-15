@@ -8,6 +8,10 @@ import { usePageProducts } from '@/hooks/usePageProducts';
 import flightSimImage from '@/assets/flight-sim-cockpit.jpg';
 import heroCockpitImage from '@/assets/hero-cockpit.jpg';
 import trainerStationImage from '@/assets/trainer-station.jpg';
+import { useSEO } from '@/hooks/useSEO';
+import { getCanonicalUrl } from '@/utils/seo';
+import { BreadcrumbSchema } from '@/components/SEO/BreadcrumbSchema';
+import { ItemListSchema } from '@/components/SEO/ItemListSchema';
 
 const ModularCockpitsCarousel = () => {
   const [currentImage, setCurrentImage] = useState(0);
@@ -126,8 +130,36 @@ const FlightSim = () => {
     };
   }).filter(Boolean);
 
+  const seoElement = useSEO({
+    title: 'Flight Simulator Cockpits & Mounting Systems | Complete Modular Solutions | SimFab',
+    description: 'Professional flight simulator cockpits and mounting hardware. Complete DCS, MSFS, Rotorcraft, and Trainer Station cockpit systems. Modular design with 13+ add-on modules (MFD panels, HOTAS mounts, rudder pedals). Compatible with Winwing, VKB, Virpil, Honeycomb, Thrustmaster, Saitek, CH Products, RealSim Gears, SimGears, MFG, Komodo, and all major flight sim brands.',
+    canonical: getCanonicalUrl('/flight-sim'),
+    ogType: 'website'
+  });
+
+  const breadcrumbItems = [
+    { name: 'Home', url: '/' },
+    { name: 'Flight Sim', url: '/flight-sim' }
+  ];
+
+  // Prepare products for ItemListSchema
+  const schemaProducts = baseModels.map(item => ({
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    price: {
+      min: 0 // Price parsing would be needed from string format
+    },
+    images: [] // Would need to get from product data
+  }));
+
   return (
     <div className="min-h-screen bg-background">
+      {seoElement}
+      <BreadcrumbSchema items={breadcrumbItems} />
+      {baseModels.length > 0 && (
+        <ItemListSchema name="Flight Simulator Cockpits" items={schemaProducts} />
+      )}
       <Header />
       
       <main>

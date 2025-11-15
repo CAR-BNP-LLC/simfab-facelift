@@ -66,6 +66,8 @@ services:
       EMAIL_ENABLED: ${EMAIL_ENABLED:-true}
       EMAIL_FROM_EMAIL: ${EMAIL_FROM_EMAIL:-contact.esaconsult@gmail.com}
       EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-SimFab}
+
+      DOCKER_ENV: 'true'
     ports:
       - "3001:3001"
     volumes:

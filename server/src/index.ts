@@ -41,6 +41,7 @@ import { createSiteNoticeRoutes } from './routes/site-notices';
 import { createAdminSiteNoticeRoutes } from './routes/admin/site-notices';
 import { createAnalyticsRoutes } from './routes/analytics';
 import { createSharedConfigRoutes } from './routes/sharedConfigs';
+import { createSitemapRoutes } from './routes/sitemap';
 import { pool, getSSLConfig } from './config/database';
 import { createErrorHandler } from './middleware/errorHandler';
 import { regionDetection } from './middleware/regionDetection';
@@ -298,6 +299,7 @@ app.use('/api/site-notices', createSiteNoticeRoutes(pool));
 app.use('/api/admin/site-notices', createAdminSiteNoticeRoutes(pool));
 app.use('/api/analytics', createAnalyticsRoutes(pool));
 app.use('/api/shared-configs', createSharedConfigRoutes(pool));
+app.use('/', createSitemapRoutes(pool));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

@@ -6,6 +6,10 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { usePageProducts } from '@/hooks/usePageProducts';
+import { useSEO } from '@/hooks/useSEO';
+import { getCanonicalUrl } from '@/utils/seo';
+import { BreadcrumbSchema } from '@/components/SEO/BreadcrumbSchema';
+import { ItemListSchema } from '@/components/SEO/ItemListSchema';
 
 const MonitorMountSystemsCarousel = () => {
   const [currentImage, setCurrentImage] = useState(0);
@@ -147,8 +151,33 @@ const MonitorStands = () => {
     };
   }).filter(Boolean);
 
+  const seoElement = useSEO({
+    title: 'Monitor Stands for Sim Racing & Flight Sim | Triple Monitor Mounts | SimFab',
+    description: 'Professional monitor mounting systems for simulators. Single, triple, and overhead/sub-mount monitor stands. Compatible with 24" to 65" displays. Modular design with adjustable height and angle. Includes VESA brackets, swing arms, and TV mounting options.',
+    canonical: getCanonicalUrl('/monitor-stands'),
+    ogType: 'website'
+  });
+
+  const breadcrumbItems = [
+    { name: 'Home', url: '/' },
+    { name: 'Monitor Stands', url: '/monitor-stands' }
+  ];
+
+  const schemaProducts = [...products, ...addOns].map(item => ({
+    id: item.id,
+    name: item.name,
+    slug: item.slug || '',
+    price: { min: 0 },
+    images: []
+  }));
+
   return (
     <div className="min-h-screen bg-background">
+      {seoElement}
+      <BreadcrumbSchema items={breadcrumbItems} />
+      {schemaProducts.length > 0 && (
+        <ItemListSchema name="Monitor Stands" items={schemaProducts} />
+      )}
       <Header />
       
       {/* Hero Section */}

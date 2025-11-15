@@ -14,6 +14,18 @@ export default defineConfig(({ mode }) => ({
       port: 5173, // HMR port
       host: "localhost", // HMR host for external access
     },
+    proxy: {
+      '/sitemap.xml': {
+        // In Docker, use service name 'server', otherwise use localhost
+        // Check multiple ways to detect Docker environment
+        target: (process.env.DOCKER_ENV === 'true' || 
+                 process.env.VITE_API_URL?.includes('server') ||
+                 process.env.CHOKIDAR_USEPOLLING === 'true')
+          ? 'http://server:3001'
+          : (process.env.VITE_API_URL?.replace(/\/api.*$/, '') || 'http://localhost:3001'),
+        changeOrigin: true,
+      },
+    },
   },
   plugins: [
     react(),

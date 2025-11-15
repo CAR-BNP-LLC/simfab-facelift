@@ -1,8 +1,22 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { Button } from '@/components/ui/button';
+import { useSEO } from '@/hooks/useSEO';
+import { getCanonicalUrl } from '@/utils/seo';
+import { BreadcrumbSchema } from '@/components/SEO/BreadcrumbSchema';
 
 const AssemblyManuals = () => {
+  const seoElement = useSEO({
+    title: 'Assembly Manuals & Setup Guides | SimFab Cockpit Installation | SimFab',
+    description: 'Complete assembly manuals and setup guides for all SimFab cockpits and modules. Step-by-step installation instructions for DCS, MSFS, racing cockpits, Flight Sim add-on modules #1-13, and monitor stands. Download PDF guides.',
+    canonical: getCanonicalUrl('/assembly-manuals'),
+    ogType: 'website'
+  });
+
+  const breadcrumbItems = [
+    { name: 'Home', url: '/' },
+    { name: 'Assembly Manuals', url: '/assembly-manuals' }
+  ];
   const flightSimManuals = [
     { name: "DCS Flight Sim Modular Cockpit", config: "DCS Edition" },
     { name: "MSFS Flight Sim Modular Cockpit", config: "MSFS Edition" },
@@ -37,6 +51,8 @@ const AssemblyManuals = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {seoElement}
+      <BreadcrumbSchema items={breadcrumbItems} />
       <Header />
       
       <main className="container mx-auto px-4 py-16">

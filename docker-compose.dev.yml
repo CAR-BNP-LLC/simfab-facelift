@@ -53,6 +53,7 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_URL: ${VITE_API_URL:-http://localhost:3001}
+      DOCKER_ENV: 'true'
       CHOKIDAR_USEPOLLING: true
       WATCHPACK_POLLING: true
       # Region Configuration
