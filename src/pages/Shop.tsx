@@ -337,15 +337,35 @@ const Shop = () => {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product) => (
-                <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group flex flex-col">
+                <Card key={product.id} className="bg-card border-border hover:border-destructive/50 transition-colors group flex flex-col relative cursor-pointer">
                   <CardContent className="p-0 relative flex flex-col flex-1">
-                    {/* Wishlist Button - Top Right */}
-                    <div className="absolute top-2 right-2 z-10">
+                    {/* Wishlist Button - Top Right - Above clickable area */}
+                    <div className="absolute top-2 right-2 z-30" onClick={(e) => e.stopPropagation()}>
                       <WishlistButton productId={product.id} variant="icon" size="sm" />
                     </div>
                     
+                    {/* Clickable Link covering card content */}
+                    <Link 
+                      to={`/product/${product.slug}`}
+                      className="absolute inset-0 z-10"
+                      aria-label={`View ${product.name}`}
+                      onClick={(e) => {
+                        // Allow clicks on buttons to work independently
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button') || target.closest('[role="button"]')) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }
+                      }}
+                    />
+                    
                     {/* Product Image */}
-                    <div className="aspect-square bg-muted rounded-t-lg overflow-hidden">
+                    <div className="aspect-square bg-muted rounded-t-lg overflow-hidden relative">
+                      {isSaleActive(product) && product.sale_label && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold z-20">
+                          {product.sale_label}
+                        </div>
+                      )}
                       {getProductImage(product) ? (
                         <img
                           src={getProductImage(product)}
@@ -360,14 +380,7 @@ const Shop = () => {
                     </div>
                     
                     {/* Product Info */}
-                    <div className="p-4 flex flex-col flex-1 gap-2">
-                      {/* Sale Badge */}
-                      {isSaleActive(product) && product.sale_label && (
-                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-bold z-10">
-                          {product.sale_label}
-                        </div>
-                      )}
-                      
+                    <div className="p-4 flex flex-col flex-1 gap-2 relative">
                       <h3 className="text-sm font-medium text-foreground line-clamp-2">
                         {product.name}
                       </h3>
@@ -408,8 +421,8 @@ const Shop = () => {
                       )}
                       
                       {/* Buy Now Button - Pushed to bottom with minimal gap */}
-                      <div className="mt-auto pt-2">
-                        <Link to={`/product/${product.slug}`}>
+                      <div className="mt-auto pt-2 relative z-30" onClick={(e) => e.stopPropagation()}>
+                        <Link to={`/product/${product.slug}`} onClick={(e) => e.stopPropagation()}>
                           <Button 
                             variant="outline" 
                             className="w-full border-border text-foreground hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"

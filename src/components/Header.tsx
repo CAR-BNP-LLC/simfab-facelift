@@ -442,9 +442,10 @@ const Header = () => {
               {/* Mega Menu - Positioned relative to the entire nav container */}
               {activeMegaMenu && (megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent] || megaMenuProducts[activeMegaMenu]) && (
                 <div 
-                  className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[900px] max-w-[1200px] z-50"
+                  className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[700px] xl:min-w-[800px] max-w-[90vw] xl:max-w-[1000px] z-50"
                   onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
                   onMouseLeave={() => setActiveMegaMenu(null)}
+                  style={{ maxWidth: 'min(90vw, 1000px)' }}
                 >
                       {/* Loading State */}
                       {loadingMegaMenu[activeMegaMenu] && (
@@ -456,14 +457,14 @@ const Header = () => {
 
                       {/* Real Products from API */}
                       {!loadingMegaMenu[activeMegaMenu] && megaMenuProducts[activeMegaMenu] && megaMenuProducts[activeMegaMenu].length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-4 lg:gap-4 xl:gap-6 mb-6 sm:mb-8">
                           {megaMenuProducts[activeMegaMenu].slice(0, 6).map((product) => (
                             <div key={product.id} className="group cursor-pointer">
                               <div 
                                 className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 hover:scale-105"
                                 onClick={() => window.location.href = `/product/${product.slug}`}
                               >
-                                <div className="aspect-square bg-black/20 flex items-center justify-center p-4">
+                                <div className="aspect-square bg-black/20 flex items-center justify-center p-2 sm:p-3">
                                   {getProductImage(product) ? (
                                     <img 
                                       src={getProductImage(product)} 
@@ -474,17 +475,17 @@ const Header = () => {
                                     <p className="text-muted-foreground text-xs">No image available</p>
                                   )}
                                 </div>
-                                <div className="p-4 text-center">
-                                  <h3 className="text-sm font-medium text-card-foreground mb-2 leading-tight line-clamp-2">
+                                <div className="p-3 sm:p-4 text-center">
+                                  <h3 className="text-xs sm:text-sm font-medium text-card-foreground mb-1 sm:mb-2 leading-tight line-clamp-2">
                                     {product.name}
                                   </h3>
-                                  <p className="text-xs text-muted-foreground mb-3">
+                                  <p className="text-xs text-muted-foreground mb-2 sm:mb-3">
                                     {getProductPrice(product)}
                                   </p>
                                   <Button 
                                     variant="outline" 
                                     size="sm"
-                                    className="w-full border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                                    className="w-full text-xs sm:text-sm border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors py-1 sm:py-2"
                                   >
                                     VIEW DETAILS
                                   </Button>
