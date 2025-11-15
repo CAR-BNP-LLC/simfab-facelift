@@ -82,7 +82,7 @@ services:
       else
         echo 'Skipping automatic migrations (RUN_MIGRATIONS_ON_START != true)';
       fi &&
-      npm run dev
+      npm start
       "
 
   # Frontend with Hot Reload
