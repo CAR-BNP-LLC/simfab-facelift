@@ -9,6 +9,7 @@ import { ProductService } from '../services/ProductService';
 import { ProductVariationService } from '../services/ProductVariationService';
 import { ProductImageService } from '../services/ProductImageService';
 import { FileUploadService } from '../services/FileUploadService';
+import { ImageMigrationService } from '../services/ImageMigrationService';
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -22,6 +23,7 @@ export class AdminProductController {
   private variationService: ProductVariationService;
   private imageService: ProductImageService;
   private fileUploadService: FileUploadService;
+  private imageMigrationService: ImageMigrationService;
   private pool: Pool;
 
   constructor(pool: Pool) {
@@ -30,6 +32,7 @@ export class AdminProductController {
     this.variationService = new ProductVariationService(pool);
     this.imageService = new ProductImageService(pool);
     this.fileUploadService = new FileUploadService();
+    this.imageMigrationService = new ImageMigrationService(pool);
   }
 
   // ============================================================================
@@ -486,6 +489,21 @@ export class AdminProductController {
       });
 
       res.json(successResponse(mismatchMap));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Migrate external images to local storage
+   * POST /api/admin/products/migrate-images
+   */
+  migrateImages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const result = await this.imageMigrationService.migrateAllImages(baseUrl);
+
+      res.json(successResponse(result, 'Image migration completed'));
     } catch (error) {
       next(error);
     }

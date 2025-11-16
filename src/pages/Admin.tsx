@@ -41,7 +41,8 @@ import {
   AlertTriangle,
   Truck,
   RotateCcw,
-  Megaphone
+  Megaphone,
+  Download
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -170,6 +171,9 @@ const Admin = () => {
   
   // CSV import/export state
   const [csvDialogOpen, setCsvDialogOpen] = useState(false);
+  
+  // Image migration state
+  const [migratingImages, setMigratingImages] = useState(false);
   
   // Force delete dialog state
   const [forceDeleteDialogOpen, setForceDeleteDialogOpen] = useState(false);
@@ -1082,6 +1086,49 @@ const Admin = () => {
     }
   };
 
+  // Image migration function
+  const handleMigrateImages = async () => {
+    if (!confirm('This will download all external product and variation images to your server. This may take a while. Continue?')) {
+      return;
+    }
+
+    setMigratingImages(true);
+    try {
+      const response = await fetch(`${API_URL}/api/admin/products/migrate-images`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        const result = data.data;
+        toast({
+          title: 'Migration Complete',
+          description: `Migrated ${result.migratedProductImages} product images and ${result.migratedVariationOptions} variation images. ${result.errors.length} errors occurred.`,
+          variant: result.errors.length > 0 ? 'default' : 'default'
+        });
+        
+        if (result.errors.length > 0) {
+          console.error('Migration errors:', result.errors);
+        }
+        
+        // Refresh products to show updated images
+        fetchProducts();
+      } else {
+        throw new Error(data.error?.message || 'Migration failed');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Migration Failed',
+        description: error.message || 'Failed to migrate images',
+        variant: 'destructive'
+      });
+    } finally {
+      setMigratingImages(false);
+    }
+  };
+
   // Variation management functions
   const fetchProductVariations = async (productId: number) => {
     try {
@@ -1926,6 +1973,25 @@ const Admin = () => {
                       <Upload className="mr-2 h-4 w-4" />
                       Import/Export CSV
                     </Button>
+                    <PermittedFor authority="products:edit">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleMigrateImages}
+                        disabled={migratingImages}
+                      >
+                        {migratingImages ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Migrating...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="mr-2 h-4 w-4" />
+                            Migrate Images
+                          </>
+                        )}
+                      </Button>
+                    </PermittedFor>
                     <PermittedFor authority="products:delete">
                       <Button 
                         variant="destructive" 

@@ -302,6 +302,17 @@ export const createAdminProductRoutes = (pool: Pool): Router => {
     csvController.validateCSV
   );
 
+  /**
+   * @route   POST /api/admin/products/migrate-images
+   * @desc    Migrate external images to local storage
+   * @access  Admin with products:edit authority
+   */
+  router.post(
+    '/migrate-images',
+    requireAuthority('products:edit'),
+    controller.migrateImages
+  );
+
   return router;
 };
 
