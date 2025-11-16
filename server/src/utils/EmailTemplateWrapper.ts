@@ -14,6 +14,44 @@ export class EmailTemplateWrapper {
   private static readonly TEXT_MUTED = '#888888'; // Muted gray
 
   /**
+   * Get and normalize frontend URL
+   * Ensures URL has proper protocol (https:// for production, http:// for localhost)
+   */
+  private static getFrontendUrl(): string {
+    // Check environment variables first
+    let url = process.env.FRONTEND_URL 
+      || process.env.VITE_FRONTEND_URL 
+      || process.env.API_URL?.replace('/api', '');
+    
+    // If no env var is set, try to detect production environment
+    if (!url) {
+      // Check multiple indicators of production environment
+      const isProduction = 
+        process.env.NODE_ENV === 'production' ||
+        process.env.VERCEL_ENV === 'production' ||
+        process.env.RAILWAY_ENVIRONMENT === 'production' ||
+        process.env.HEROKU_APP_NAME !== undefined ||
+        (typeof process.env.HOSTNAME === 'string' && !process.env.HOSTNAME.includes('localhost')) ||
+        (typeof process.env.HOST === 'string' && !process.env.HOST.includes('localhost'));
+      
+      url = isProduction ? 'simfab.com' : 'localhost:5173';
+    }
+    
+    // Normalize URL: add protocol if missing
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      // For production or if URL doesn't contain localhost, use https
+      // For localhost, use http
+      if (url.includes('localhost') || url.includes('127.0.0.1')) {
+        url = `http://${url}`;
+      } else {
+        url = `https://${url}`;
+      }
+    }
+    
+    return url;
+  }
+
+  /**
    * Wrap email content with SimFab branded template
    */
   static wrap(
@@ -22,32 +60,37 @@ export class EmailTemplateWrapper {
     headerImage?: string
   ): string {
     // Use absolute URL for logo in emails
-    // Try multiple environment variables for frontend URL
-    const baseUrl = process.env.FRONTEND_URL 
-      || process.env.VITE_FRONTEND_URL 
-      || process.env.API_URL?.replace('/api', '') 
-      || (process.env.NODE_ENV === 'production' ? 'https://simfab.com' : 'http://localhost:5173');
+    const baseUrl = this.getFrontendUrl();
     
     let logoUrl: string;
     
     if (headerImage) {
-      // If header_image starts with http, use as-is
+      // If header_image already has a full URL (http:// or https://), use as-is
       if (headerImage.startsWith('http://') || headerImage.startsWith('https://')) {
         logoUrl = headerImage;
       } else {
-        // Make relative paths absolute
-        const cleanPath = headerImage.startsWith('/') ? headerImage : '/' + headerImage;
+        // Make relative paths absolute by prepending baseUrl
+        // Ensure path starts with / if it doesn't already
+        const cleanPath = headerImage.startsWith('/') ? headerImage : `/${headerImage}`;
         logoUrl = `${baseUrl}${cleanPath}`;
       }
     } else {
-      // Default logo - use absolute URL
+      // Default logo - use absolute URL with baseUrl prefix
       logoUrl = `${baseUrl}${this.LOGO_URL}`;
     }
     
-    // Debug: log logo URL construction (remove in production if too verbose)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`📧 [DEBUG] Logo URL: ${logoUrl} (baseUrl: ${baseUrl}, headerImage: ${headerImage || 'default'})`);
-    }
+    // Debug: log logo URL construction to help diagnose production issues
+    console.log(`📧 [DEBUG] Logo URL Construction:`, {
+      finalLogoUrl: logoUrl,
+      baseUrl,
+      headerImage: headerImage || 'default (using LOGO_URL constant)',
+      logoPath: headerImage || this.LOGO_URL,
+      FRONTEND_URL: process.env.FRONTEND_URL || '(not set)',
+      VITE_FRONTEND_URL: process.env.VITE_FRONTEND_URL || '(not set)',
+      NODE_ENV: process.env.NODE_ENV || '(not set)',
+      VERCEL_ENV: process.env.VERCEL_ENV || '(not set)',
+      HOSTNAME: process.env.HOSTNAME || '(not set)'
+    });
     
     const title = headerTitle || 'SimFab';
     
@@ -218,10 +261,7 @@ export class EmailTemplateWrapper {
     headerTitle?: string,
     headerImage?: string
   ): string {
-    const baseUrl = process.env.FRONTEND_URL 
-      || process.env.VITE_FRONTEND_URL 
-      || process.env.API_URL?.replace('/api', '') 
-      || (process.env.NODE_ENV === 'production' ? 'https://simfab.com' : 'http://localhost:5173');
+    const baseUrl = this.getFrontendUrl();
     
     const unsubscribeUrl = `${baseUrl}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
     
