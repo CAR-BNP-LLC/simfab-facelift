@@ -1,4 +1,4 @@
-import { useState, useEffect, KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import { Search, User, ShoppingCart, Heart, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import CartSidebar from './CartSidebar';
@@ -19,6 +19,7 @@ const Header = () => {
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
+  const keepMenuOpenRef = useRef(false);
   
   // Use cart from context
   const { cart, itemCount } = useCart();
@@ -218,6 +219,53 @@ const Header = () => {
     };
   }, []);
 
+  // Keep menu open when mouse is over tooltips
+  useEffect(() => {
+    if (!activeMegaMenu) {
+      keepMenuOpenRef.current = false;
+      return;
+    }
+
+    const checkMousePosition = (e: MouseEvent) => {
+      const menuElement = document.querySelector('[data-mega-menu]') as HTMLElement;
+      if (!menuElement) {
+        keepMenuOpenRef.current = false;
+        return;
+      }
+
+      const menuRect = menuElement.getBoundingClientRect();
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      // Check if mouse is over menu (with padding for safety)
+      const overMenu = mouseX >= menuRect.left - 100 && mouseX <= menuRect.right + 100 &&
+                      mouseY >= menuRect.top - 50 && mouseY <= menuRect.bottom + 200;
+
+      // Check if mouse is over any tooltip/popover
+      const tooltipElements = document.querySelectorAll('[role="tooltip"], [data-radix-tooltip-content], [data-radix-popper-content-wrapper], [class*="tooltip"]');
+      let overTooltip = false;
+      
+      tooltipElements.forEach((tooltip) => {
+        const tooltipRect = tooltip.getBoundingClientRect();
+        if (mouseX >= tooltipRect.left - 30 && mouseX <= tooltipRect.right + 30 &&
+            mouseY >= tooltipRect.top - 30 && mouseY <= tooltipRect.bottom + 30) {
+          overTooltip = true;
+        }
+      });
+
+      // Update ref to track if we should keep menu open
+      keepMenuOpenRef.current = overMenu || overTooltip;
+    };
+
+    // Add mousemove listener to track mouse position
+    document.addEventListener('mousemove', checkMousePosition);
+    
+    return () => {
+      document.removeEventListener('mousemove', checkMousePosition);
+      keepMenuOpenRef.current = false;
+    };
+  }, [activeMegaMenu]);
+
 
 
   // Fetch featured products for mega menu
@@ -410,16 +458,32 @@ const Header = () => {
                     }
                   }}
                   onMouseLeave={(e) => {
-                    // Only hide menu if mouse is leaving the entire navigation area
+                    // Check if mouse is moving to the mega menu area
                     const rect = e.currentTarget.getBoundingClientRect();
                     const mouseY = e.clientY;
                     const mouseX = e.clientX;
                     
-                    // Check if mouse is still within the navigation item bounds or moving to menu
-                    if (mouseY < rect.bottom + 10 && mouseX >= rect.left && mouseX <= rect.right) {
-                      return; // Don't hide menu
+                    // Get the mega menu element if it exists
+                    const megaMenu = document.querySelector('[data-mega-menu]') as HTMLElement;
+                    if (megaMenu) {
+                      const menuRect = megaMenu.getBoundingClientRect();
+                      // Check if mouse is moving toward the menu area (within reasonable bounds)
+                      if (mouseY >= rect.bottom && mouseY <= menuRect.bottom + 20 && 
+                          mouseX >= menuRect.left - 50 && mouseX <= menuRect.right + 50) {
+                        return; // Don't hide menu, mouse is moving to menu
+                      }
                     }
-                    setActiveMegaMenu(null);
+                    
+                    // Small delay to allow mouse to reach menu
+                    setTimeout(() => {
+                      // Double-check if menu is still active (mouse might have entered menu)
+                      if (activeMegaMenu === item) {
+                        const currentMegaMenu = document.querySelector('[data-mega-menu]') as HTMLElement;
+                        if (!currentMegaMenu || !currentMegaMenu.matches(':hover')) {
+                          setActiveMegaMenu(null);
+                        }
+                      }
+                    }, 100);
                   }}
                 >
                   <button 
@@ -442,12 +506,35 @@ const Header = () => {
               
               {/* Mega Menu - Positioned relative to the entire nav container */}
               {activeMegaMenu && (megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent] || megaMenuProducts[activeMegaMenu]) && (
-                <div 
-                  className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[700px] xl:min-w-[800px] max-w-[90vw] xl:max-w-[1000px] z-50"
-                  onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
-                  onMouseLeave={() => setActiveMegaMenu(null)}
-                  style={{ maxWidth: 'min(90vw, 1000px)' }}
-                >
+                <>
+                  {/* Invisible bridge to prevent gap issues - spans full menu width and fills the gap */}
+                  <div 
+                    className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 h-2 z-40"
+                    onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
+                    onMouseLeave={() => {}}
+                    style={{ 
+                      pointerEvents: 'auto',
+                      width: 'min(90vw, 1000px)',
+                      minWidth: '300px',
+                      marginTop: '0.5rem'
+                    }}
+                  />
+                  <div 
+                    data-mega-menu
+                    className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[700px] xl:min-w-[800px] max-w-[90vw] xl:max-w-[1000px] z-50"
+                    onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
+                    onMouseLeave={() => {
+                      // Delay closing to allow mouse to reach tooltip
+                      // The global mousemove listener updates keepMenuOpenRef
+                      setTimeout(() => {
+                        // Only close if ref indicates we shouldn't keep it open
+                        if (!keepMenuOpenRef.current && activeMegaMenu) {
+                          setActiveMegaMenu(null);
+                        }
+                      }, 300);
+                    }}
+                    style={{ maxWidth: 'min(90vw, 1000px)' }}
+                  >
                       {/* Loading State */}
                       {loadingMegaMenu[activeMegaMenu] && (
                         <div className="flex items-center justify-center py-8">
@@ -521,6 +608,7 @@ const Header = () => {
                         </div>
                       )}
                 </div>
+                </>
               )}
             </nav>
 
