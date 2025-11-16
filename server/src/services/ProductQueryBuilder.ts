@@ -373,6 +373,9 @@ export class ProductQueryBuilder {
       UNION ALL
       SELECT 'refurbished' as category, COUNT(*)::int as count
       FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"refurbished"%' ${regionFilter}
+      UNION ALL
+      SELECT 'bundles' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"bundles"%' ${regionFilter}
       ORDER BY count DESC
     `;
 

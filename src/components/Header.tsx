@@ -199,7 +199,7 @@ const Header = () => {
     }
   };
 
-  const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'REFURBISHED', 'SERVICES'];
+  const mainNavItems = ['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES', 'B-STOCK', 'BUNDLES', 'SERVICES'];
 
 
   // Listen for product changes to invalidate cache
@@ -430,7 +430,8 @@ const Header = () => {
                       if (item === 'MONITOR STANDS') window.location.href = '/monitor-stands';
                       if (item === 'RACING & FLIGHT SEATS') window.location.href = '/racing-flight-seats';
                       if (item === 'ACCESSORIES') window.location.href = '/accessories';
-                      if (item === 'REFURBISHED') window.location.href = '/refurbished';
+                      if (item === 'B-STOCK') window.location.href = '/b-stock';
+                      if (item === 'BUNDLES') window.location.href = '/shop?category=bundles';
                       if (item === 'SERVICES') window.location.href = '/services';
                     }}
                   >
@@ -790,16 +791,29 @@ const Header = () => {
                 </div>
               </div>
 
-              {/* REFURBISHED */}
+              {/* B-STOCK */}
               <div className="border-b border-gray-800 pb-6">
                 <button 
                   className="text-white font-bold text-lg uppercase tracking-wider"
                   onClick={() => {
-                    window.location.href = '/refurbished';
+                    window.location.href = '/b-stock';
                     setIsMenuOpen(false);
                   }}
                 >
-                  REFURBISHED STOCK
+                  B-STOCK
+                </button>
+              </div>
+
+              {/* BUNDLES */}
+              <div className="border-b border-gray-800 pb-6">
+                <button 
+                  className="text-white font-bold text-lg uppercase tracking-wider"
+                  onClick={() => {
+                    window.location.href = '/shop?category=bundles';
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  BUNDLES
                 </button>
               </div>
 

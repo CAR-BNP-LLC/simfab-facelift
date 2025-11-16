@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const Refurbished = () => {
+const BStock = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -11,5 +11,5 @@ const Refurbished = () => {
   return null;
 };
 
-export default Refurbished;
+export default BStock;
 

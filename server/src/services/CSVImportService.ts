@@ -45,7 +45,8 @@ export class CSVImportService {
     'services',
     'individual-parts',
     'racing-flight-seats',
-    'refurbished'
+    'refurbished',
+    'bundles'
   ];
 
   constructor(private pool: Pool) {

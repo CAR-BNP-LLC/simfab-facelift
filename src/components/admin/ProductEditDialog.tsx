@@ -1056,7 +1056,8 @@ const ProductEditDialog = ({
                         <SelectItem value="services">Services</SelectItem>
                         <SelectItem value="individual-parts">Individual Parts</SelectItem>
                         <SelectItem value="racing-flight-seats">Racing & Flight Seats</SelectItem>
-                        <SelectItem value="refurbished">Refurbished</SelectItem>
+                        <SelectItem value="refurbished">B-stock</SelectItem>
+                        <SelectItem value="bundles">Bundles</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

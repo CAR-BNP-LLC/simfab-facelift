@@ -1,5 +1,5 @@
 -- Migration 050: Add new product categories
--- Adds support for: conversion-kits, services, individual-parts, racing-flight-seats, refurbished
+-- Adds support for: conversion-kits, services, individual-parts, racing-flight-seats, refurbished, bundles
 -- These categories are now valid in CSV imports and available in admin UI
 
 -- This migration is informational/documentation only
@@ -17,6 +17,7 @@
 -- - individual-parts: Individual replacement parts
 -- - racing-flight-seats: Racing and flight simulator seats
 -- - refurbished: Refurbished products
+-- - bundles: Product bundles
 
-COMMENT ON COLUMN products.categories IS 'Product categories stored as JSON array. Valid categories: flight-sim, sim-racing, cockpits, monitor-stands, accessories, conversion-kits, services, individual-parts, racing-flight-seats, refurbished';
+COMMENT ON COLUMN products.categories IS 'Product categories stored as JSON array. Valid categories: flight-sim, sim-racing, cockpits, monitor-stands, accessories, conversion-kits, services, individual-parts, racing-flight-seats, refurbished, bundles';
 
