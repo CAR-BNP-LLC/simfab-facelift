@@ -20,6 +20,10 @@ const Header = () => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
   const keepMenuOpenRef = useRef(false);
+  const [megaMenuPosition, setMegaMenuPosition] = useState<{ left: number; right?: number } | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const menuItemRefs = useRef<Record<string, HTMLElement | null>>({});
+  const menuInitializingRef = useRef(false);
   
   // Use cart from context
   const { cart, itemCount } = useCart();
@@ -218,6 +222,72 @@ const Header = () => {
       window.removeEventListener('productChanged', handleProductChange);
     };
   }, []);
+
+  // Calculate mega menu position function
+  const calculateMegaMenuPosition = (menuItemKey: string) => {
+    const menuItem = menuItemRefs.current[menuItemKey];
+    if (!menuItem || !navRef.current) {
+      return null;
+    }
+
+    const navRect = navRef.current.getBoundingClientRect();
+    const itemRect = menuItem.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const megaMenuWidth = Math.min(1000, viewportWidth * 0.9);
+    const padding = 16; // Viewport padding
+
+    // Calculate ideal left position (centered under menu item)
+    const itemCenter = itemRect.left + itemRect.width / 2;
+    let leftPosition = itemCenter - megaMenuWidth / 2;
+
+    // Adjust if menu would overflow on the right
+    if (leftPosition + megaMenuWidth > viewportWidth - padding) {
+      leftPosition = viewportWidth - megaMenuWidth - padding;
+    }
+
+    // Adjust if menu would overflow on the left
+    if (leftPosition < padding) {
+      leftPosition = padding;
+    }
+
+    // Convert to relative position within nav container
+    // Allow the menu to extend beyond nav container boundaries if needed
+    // The viewport overflow protection is already handled above
+    const relativeLeft = leftPosition - navRect.left;
+
+    return { left: relativeLeft };
+  };
+
+  // Calculate mega menu position based on active menu item
+  useEffect(() => {
+    if (!activeMegaMenu || !navRef.current) {
+      setMegaMenuPosition(null);
+      menuInitializingRef.current = false;
+      return;
+    }
+
+    // Calculate position immediately using requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      const position = calculateMegaMenuPosition(activeMegaMenu);
+      if (position) {
+        setMegaMenuPosition(position);
+      }
+    });
+
+    // Recalculate on window resize
+    const handleResize = () => {
+      const position = calculateMegaMenuPosition(activeMegaMenu);
+      if (position) {
+        setMegaMenuPosition(position);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [activeMegaMenu]);
 
   // Keep menu open when mouse is over tooltips
   useEffect(() => {
@@ -446,18 +516,38 @@ const Header = () => {
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center space-x-1 lg:space-x-2 xl:space-x-3 2xl:space-x-4 flex-1 justify-center max-w-3xl relative">
+            <nav ref={navRef} className="hidden lg:flex items-center space-x-1 lg:space-x-2 xl:space-x-3 2xl:space-x-4 flex-1 justify-center max-w-3xl relative">
               {mainNavItems.map((item) => (
                 <div
                   key={item}
+                  ref={(el) => {
+                    menuItemRefs.current[item] = el;
+                  }}
                   onMouseEnter={() => {
+                    menuInitializingRef.current = true;
                     setActiveMegaMenu(item);
+                    // Calculate position immediately
+                    requestAnimationFrame(() => {
+                      const position = calculateMegaMenuPosition(item);
+                      if (position) {
+                        setMegaMenuPosition(position);
+                      }
+                      // Allow menu to close after a short delay to ensure it's rendered
+                      setTimeout(() => {
+                        menuInitializingRef.current = false;
+                      }, 100);
+                    });
                     // Fetch products when hovering over category
                     if (['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES'].includes(item)) {
                       fetchMegaMenuProducts(item);
                     }
                   }}
                   onMouseLeave={(e) => {
+                    // Don't close if menu is still initializing
+                    if (menuInitializingRef.current) {
+                      return;
+                    }
+
                     // Check if mouse is moving to the mega menu area
                     const rect = e.currentTarget.getBoundingClientRect();
                     const mouseY = e.clientY;
@@ -474,16 +564,25 @@ const Header = () => {
                       }
                     }
                     
-                    // Small delay to allow mouse to reach menu
+                    // Longer delay to allow mouse to reach menu and for menu to fully render
                     setTimeout(() => {
+                      // Don't close if still initializing or if mouse is over menu
+                      if (menuInitializingRef.current) {
+                        return;
+                      }
                       // Double-check if menu is still active (mouse might have entered menu)
                       if (activeMegaMenu === item) {
                         const currentMegaMenu = document.querySelector('[data-mega-menu]') as HTMLElement;
-                        if (!currentMegaMenu || !currentMegaMenu.matches(':hover')) {
+                        // Check if mouse is over menu or menu item
+                        const isOverMenu = currentMegaMenu && (
+                          currentMegaMenu.matches(':hover') || 
+                          keepMenuOpenRef.current
+                        );
+                        if (!isOverMenu) {
                           setActiveMegaMenu(null);
                         }
                       }
-                    }, 100);
+                    }, 200);
                   }}
                 >
                   <button 
@@ -504,24 +603,27 @@ const Header = () => {
                 </div>
               ))}
               
-              {/* Mega Menu - Positioned relative to the entire nav container */}
+              {/* Mega Menu - Positioned relative to the active menu item */}
               {activeMegaMenu && (megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent] || megaMenuProducts[activeMegaMenu]) && (
                 <>
-                  {/* Invisible bridge to prevent gap issues - spans full menu width and fills the gap */}
-                  <div 
-                    className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 h-2 z-40"
-                    onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
-                    onMouseLeave={() => {}}
-                    style={{ 
-                      pointerEvents: 'auto',
-                      width: 'min(90vw, 1000px)',
-                      minWidth: '300px',
-                      marginTop: '0.5rem'
-                    }}
-                  />
+                  {/* Invisible bridge to prevent gap issues */}
+                  {megaMenuPosition && (
+                    <div 
+                      className="hidden lg:block absolute top-full h-2 z-40"
+                      onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
+                      onMouseLeave={() => {}}
+                      style={{ 
+                        pointerEvents: 'auto',
+                        left: `${megaMenuPosition.left}px`,
+                        width: 'min(90vw, 1000px)',
+                        minWidth: '300px',
+                        marginTop: '0.5rem'
+                      }}
+                    />
+                  )}
                   <div 
                     data-mega-menu
-                    className="hidden lg:block absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[700px] xl:min-w-[800px] max-w-[90vw] xl:max-w-[1000px] z-50"
+                    className="hidden lg:block absolute top-full mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[700px] xl:min-w-[800px] max-w-[90vw] xl:max-w-[1000px] z-50"
                     onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
                     onMouseLeave={() => {
                       // Delay closing to allow mouse to reach tooltip
@@ -533,7 +635,11 @@ const Header = () => {
                         }
                       }, 300);
                     }}
-                    style={{ maxWidth: 'min(90vw, 1000px)' }}
+                    style={{ 
+                      left: megaMenuPosition ? `${megaMenuPosition.left}px` : '50%',
+                      transform: megaMenuPosition ? 'none' : 'translateX(-50%)',
+                      maxWidth: 'min(90vw, 1000px)'
+                    }}
                   >
                       {/* Loading State */}
                       {loadingMegaMenu[activeMegaMenu] && (
