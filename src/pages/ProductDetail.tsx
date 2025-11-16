@@ -981,6 +981,40 @@ const ProductDetail = () => {
     );
   }
 
+  // Helper function to check if a variation name suggests it's a color variation
+  const isColorVariation = (variationName: string): boolean => {
+    const name = variationName.toLowerCase();
+    return name.includes('color') || name.includes('colour') || name.includes('paint') || name.includes('finish');
+  };
+
+  // Get the selected color image URL from image variations (only for color variations)
+  const getSelectedColorImage = (): string | null => {
+    if (!product?.variations?.image) return null;
+    
+    // Check all image variations to see if any are color variations with a selected option
+    for (const variation of product.variations.image) {
+      const variationName = variation.name || '';
+      if (isColorVariation(variationName)) {
+        const variationId = variation.id.toString();
+        const selectedOptionId = selectedImageValues[variationId];
+        
+        if (selectedOptionId && variation.options) {
+          const selectedOption = variation.options.find((opt: any) => 
+            opt.id.toString() === selectedOptionId || opt.id === parseInt(selectedOptionId)
+          );
+          
+          if (selectedOption?.image_url) {
+            return selectedOption.image_url;
+          }
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  const selectedColorImageUrl = getSelectedColorImage();
+
   // Transform product data for components (with safe access)
   const images = Array.isArray(product.images) && product.images.length > 0
     ? product.images
@@ -1211,7 +1245,11 @@ const ProductDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Image Gallery */}
           <div className="lg:col-span-8">
-            <ProductImageGallery images={images} productName={product.name} />
+            <ProductImageGallery 
+              images={images} 
+              productName={product.name}
+              selectedColorImageUrl={selectedColorImageUrl}
+            />
           </div>
 
           {/* Product Info */}
