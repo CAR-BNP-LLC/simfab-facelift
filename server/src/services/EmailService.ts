@@ -93,6 +93,9 @@ export class EmailService {
       const subject = this.templateEngine.replaceVariables(template.subject, options.variables);
       let htmlBody = this.templateEngine.replaceVariables(template.html_body, options.variables);
       
+      // Replace hardcoded localhost URLs with correct frontend URL
+      htmlBody = this.templateEngine.replaceLocalhostUrls(htmlBody);
+      
       // Wrap content in styled template with logo and branding
       htmlBody = EmailTemplateWrapper.wrap(
         htmlBody,
@@ -101,7 +104,9 @@ export class EmailService {
       );
       
       const textBody = template.text_body 
-        ? this.templateEngine.replaceVariables(template.text_body, options.variables)
+        ? this.templateEngine.replaceLocalhostUrls(
+            this.templateEngine.replaceVariables(template.text_body, options.variables)
+          )
         : null;
 
       // Get email settings

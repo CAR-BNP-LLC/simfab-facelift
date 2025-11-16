@@ -717,6 +717,27 @@ const ProductEditDialog = ({
                       />
                     </div>
 
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="featured"
+                        checked={productForm.featured}
+                        onCheckedChange={(checked) => setProductForm({ ...productForm, featured: checked as boolean })}
+                      />
+                      <div className="flex items-center gap-1">
+                        <Label htmlFor="featured" className="cursor-pointer">Featured Product</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-4 w-4 text-gray-500 hover:text-gray-700 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p>Featured products are highlighted in navbar category menus</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="short_description">Short Description</Label>

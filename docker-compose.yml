@@ -32,8 +32,8 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       SESSION_SECRET: docker-dev-secret-key
       PORT: 3001
-      FRONTEND_URL: http://localhost:5173
-      API_URL: http://localhost:3001
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      API_URL: ${API_URL:-http://localhost:3001}
       RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
       # PayPal Configuration (Sandbox for development)
       PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-your_sandbox_client_id_here}

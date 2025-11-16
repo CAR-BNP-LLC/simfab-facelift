@@ -9,7 +9,8 @@ const Footer = () => {
   
   const quickLinks = [
     'SERVICES', 'ASSEMBLY MANUALS', 'COMPATIBLE BRANDS', 'GALLERY', 
-    'BLOG', 'BUNDLES'
+    // 'BLOG', 
+    'BUNDLES'
   ];
 
   const eventLinks = [
