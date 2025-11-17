@@ -242,11 +242,11 @@ const Header = () => {
     const firstItemRect = firstItem.getBoundingClientRect();
     const lastItemRect = lastItem.getBoundingClientRect();
     
-    // Calculate left position (align with first item's left edge)
-    const leftPosition = firstItemRect.left;
+    // Calculate left position (align with first item's left edge, shifted slightly left)
+    const leftPosition = firstItemRect.left - 8; // Shift 8px to the left
     
-    // Calculate width (from first item's left to last item's right)
-    const megaMenuWidth = lastItemRect.right - firstItemRect.left;
+    // Calculate width (from first item's left to last item's right, accounting for left shift)
+    const megaMenuWidth = lastItemRect.right - firstItemRect.left + 8; // Add back the 8px shift
 
     // Convert to relative position within nav container
     const relativeLeft = leftPosition - navRect.left;
@@ -599,7 +599,7 @@ const Header = () => {
                   )}
                   <div 
                     data-mega-menu
-                    className="hidden lg:block absolute top-full bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 z-50"
+                    className="hidden lg:block absolute bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 z-50"
                     onMouseEnter={() => {
                       clearCloseTimeout();
                       setActiveMegaMenu(activeMegaMenu);
@@ -608,6 +608,7 @@ const Header = () => {
                       scheduleMenuClose(200);
                     }}
                     style={{ 
+                      top: megaMenuPosition && navRef.current ? `${navRef.current.getBoundingClientRect().bottom + 4}px` : undefined,
                       left: megaMenuPosition ? `${megaMenuPosition.left}px` : '50%',
                       transform: megaMenuPosition ? 'none' : 'translateX(-50%)',
                       width: megaMenuPosition?.width ? `${megaMenuPosition.width}px` : 'min(90vw, 1000px)',
