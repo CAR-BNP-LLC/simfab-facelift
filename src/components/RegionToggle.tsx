@@ -5,41 +5,47 @@
 
 import { Button } from '@/components/ui/button';
 import { useRegion } from '@/contexts/RegionContext';
-import { Globe } from 'lucide-react';
+import { Globe, ChevronDown } from 'lucide-react';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export const RegionToggle = () => {
-  const { region, toggleRegion } = useRegion();
+  const { region, setRegion } = useRegion();
 
-  const handleToggle = () => {
-    console.log('🔄 Toggling region from', region, 'to', region === 'us' ? 'eu' : 'us');
-    toggleRegion();
+  const handleRegionChange = (newRegion: 'us' | 'eu') => {
+    console.log('🔄 Changing region from', region, 'to', newRegion);
+    setRegion(newRegion);
   };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleToggle}
-            className="gap-2"
-          >
-            <Globe className="h-4 w-4" />
-            <span className="font-semibold">{region.toUpperCase()}</span>
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Switch to {region === 'us' ? 'EU' : 'US'} region</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <Globe className="h-4 w-4" />
+          <span className="font-semibold">{region.toUpperCase()}</span>
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuRadioGroup value={region} onValueChange={(value) => handleRegionChange(value as 'us' | 'eu')}>
+          <DropdownMenuRadioItem value="us">
+            US
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="eu">
+            EU
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

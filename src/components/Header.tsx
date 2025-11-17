@@ -19,11 +19,10 @@ const Header = () => {
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
-  const keepMenuOpenRef = useRef(false);
   const [megaMenuPosition, setMegaMenuPosition] = useState<{ left: number; right?: number } | null>(null);
   const navRef = useRef<HTMLElement>(null);
   const menuItemRefs = useRef<Record<string, HTMLElement | null>>({});
-  const menuInitializingRef = useRef(false);
+  const closeMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Use cart from context
   const { cart, itemCount } = useCart();
@@ -225,20 +224,18 @@ const Header = () => {
 
   // Calculate mega menu position function
   const calculateMegaMenuPosition = (menuItemKey: string) => {
-    const menuItem = menuItemRefs.current[menuItemKey];
-    if (!menuItem || !navRef.current) {
+    if (!navRef.current) {
       return null;
     }
 
     const navRect = navRef.current.getBoundingClientRect();
-    const itemRect = menuItem.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const megaMenuWidth = Math.min(1000, viewportWidth * 0.9);
     const padding = 16; // Viewport padding
 
-    // Calculate ideal left position (centered under menu item)
-    const itemCenter = itemRect.left + itemRect.width / 2;
-    let leftPosition = itemCenter - megaMenuWidth / 2;
+    // Center the menu in the viewport
+    const viewportCenter = viewportWidth / 2;
+    let leftPosition = viewportCenter - megaMenuWidth / 2;
 
     // Adjust if menu would overflow on the right
     if (leftPosition + megaMenuWidth > viewportWidth - padding) {
@@ -262,7 +259,6 @@ const Header = () => {
   useEffect(() => {
     if (!activeMegaMenu || !navRef.current) {
       setMegaMenuPosition(null);
-      menuInitializingRef.current = false;
       return;
     }
 
@@ -289,54 +285,60 @@ const Header = () => {
     };
   }, [activeMegaMenu]);
 
-  // Keep menu open when mouse is over tooltips
-  useEffect(() => {
-    if (!activeMegaMenu) {
-      keepMenuOpenRef.current = false;
-      return;
+  // Helper function to clear close menu timeout
+  const clearCloseTimeout = () => {
+    if (closeMenuTimeoutRef.current) {
+      clearTimeout(closeMenuTimeoutRef.current);
+      closeMenuTimeoutRef.current = null;
     }
+  };
 
-    const checkMousePosition = (e: MouseEvent) => {
-      const menuElement = document.querySelector('[data-mega-menu]') as HTMLElement;
-      if (!menuElement) {
-        keepMenuOpenRef.current = false;
-        return;
-      }
+  // Helper function to schedule menu close with delay
+  const scheduleMenuClose = (delay: number = 200) => {
+    clearCloseTimeout();
+    closeMenuTimeoutRef.current = setTimeout(() => {
+      setActiveMegaMenu(null);
+      closeMenuTimeoutRef.current = null;
+    }, delay);
+  };
 
-      const menuRect = menuElement.getBoundingClientRect();
-      const mouseX = e.clientX;
-      const mouseY = e.clientY;
-
-      // Check if mouse is over menu (with padding for safety)
-      const overMenu = mouseX >= menuRect.left - 100 && mouseX <= menuRect.right + 100 &&
-                      mouseY >= menuRect.top - 50 && mouseY <= menuRect.bottom + 200;
-
-      // Check if mouse is over any tooltip/popover
-      const tooltipElements = document.querySelectorAll('[role="tooltip"], [data-radix-tooltip-content], [data-radix-popper-content-wrapper], [class*="tooltip"]');
-      let overTooltip = false;
-      
-      tooltipElements.forEach((tooltip) => {
-        const tooltipRect = tooltip.getBoundingClientRect();
-        if (mouseX >= tooltipRect.left - 30 && mouseX <= tooltipRect.right + 30 &&
-            mouseY >= tooltipRect.top - 30 && mouseY <= tooltipRect.bottom + 30) {
-          overTooltip = true;
-        }
-      });
-
-      // Update ref to track if we should keep menu open
-      keepMenuOpenRef.current = overMenu || overTooltip;
-    };
-
-    // Add mousemove listener to track mouse position
-    document.addEventListener('mousemove', checkMousePosition);
-    
+  // Cleanup timeout on unmount
+  useEffect(() => {
     return () => {
-      document.removeEventListener('mousemove', checkMousePosition);
-      keepMenuOpenRef.current = false;
+      clearCloseTimeout();
     };
-  }, [activeMegaMenu]);
+  }, []);
 
-
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMenuOpen) {
+      // Save the current overflow value
+      const originalOverflow = document.body.style.overflow;
+      const originalPosition = document.body.style.position;
+      const originalTop = document.body.style.top;
+      const originalWidth = document.body.style.width;
+      
+      // Get current scroll position
+      const scrollY = window.scrollY;
+      
+      // Lock body scroll
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      
+      return () => {
+        // Restore original styles
+        document.body.style.overflow = originalOverflow;
+        document.body.style.position = originalPosition;
+        document.body.style.top = originalTop;
+        document.body.style.width = originalWidth;
+        
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isMenuOpen]);
 
   // Fetch featured products for mega menu
   const fetchMegaMenuProducts = async (categoryKey: string) => {
@@ -524,7 +526,9 @@ const Header = () => {
                     menuItemRefs.current[item] = el;
                   }}
                   onMouseEnter={() => {
-                    menuInitializingRef.current = true;
+                    // Clear any pending close timeout
+                    clearCloseTimeout();
+                    // Open the menu
                     setActiveMegaMenu(item);
                     // Calculate position immediately
                     requestAnimationFrame(() => {
@@ -532,57 +536,15 @@ const Header = () => {
                       if (position) {
                         setMegaMenuPosition(position);
                       }
-                      // Allow menu to close after a short delay to ensure it's rendered
-                      setTimeout(() => {
-                        menuInitializingRef.current = false;
-                      }, 100);
                     });
                     // Fetch products when hovering over category
                     if (['FLIGHT SIM', 'SIM RACING', 'RACING & FLIGHT SEATS', 'MONITOR STANDS', 'ACCESSORIES'].includes(item)) {
                       fetchMegaMenuProducts(item);
                     }
                   }}
-                  onMouseLeave={(e) => {
-                    // Don't close if menu is still initializing
-                    if (menuInitializingRef.current) {
-                      return;
-                    }
-
-                    // Check if mouse is moving to the mega menu area
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const mouseY = e.clientY;
-                    const mouseX = e.clientX;
-                    
-                    // Get the mega menu element if it exists
-                    const megaMenu = document.querySelector('[data-mega-menu]') as HTMLElement;
-                    if (megaMenu) {
-                      const menuRect = megaMenu.getBoundingClientRect();
-                      // Check if mouse is moving toward the menu area (within reasonable bounds)
-                      if (mouseY >= rect.bottom && mouseY <= menuRect.bottom + 20 && 
-                          mouseX >= menuRect.left - 50 && mouseX <= menuRect.right + 50) {
-                        return; // Don't hide menu, mouse is moving to menu
-                      }
-                    }
-                    
-                    // Longer delay to allow mouse to reach menu and for menu to fully render
-                    setTimeout(() => {
-                      // Don't close if still initializing or if mouse is over menu
-                      if (menuInitializingRef.current) {
-                        return;
-                      }
-                      // Double-check if menu is still active (mouse might have entered menu)
-                      if (activeMegaMenu === item) {
-                        const currentMegaMenu = document.querySelector('[data-mega-menu]') as HTMLElement;
-                        // Check if mouse is over menu or menu item
-                        const isOverMenu = currentMegaMenu && (
-                          currentMegaMenu.matches(':hover') || 
-                          keepMenuOpenRef.current
-                        );
-                        if (!isOverMenu) {
-                          setActiveMegaMenu(null);
-                        }
-                      }
-                    }, 200);
+                  onMouseLeave={() => {
+                    // Schedule menu close with delay (allows time to move to menu)
+                    scheduleMenuClose(200);
                   }}
                 >
                   <button 
@@ -610,8 +572,13 @@ const Header = () => {
                   {megaMenuPosition && (
                     <div 
                       className="hidden lg:block absolute top-full h-2 z-40"
-                      onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
-                      onMouseLeave={() => {}}
+                      onMouseEnter={() => {
+                        clearCloseTimeout();
+                        setActiveMegaMenu(activeMegaMenu);
+                      }}
+                      onMouseLeave={() => {
+                        scheduleMenuClose(200);
+                      }}
                       style={{ 
                         pointerEvents: 'auto',
                         left: `${megaMenuPosition.left}px`,
@@ -624,16 +591,12 @@ const Header = () => {
                   <div 
                     data-mega-menu
                     className="hidden lg:block absolute top-full mt-2 bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 min-w-[300px] sm:min-w-[600px] lg:min-w-[700px] xl:min-w-[800px] max-w-[90vw] xl:max-w-[1000px] z-50"
-                    onMouseEnter={() => setActiveMegaMenu(activeMegaMenu)}
+                    onMouseEnter={() => {
+                      clearCloseTimeout();
+                      setActiveMegaMenu(activeMegaMenu);
+                    }}
                     onMouseLeave={() => {
-                      // Delay closing to allow mouse to reach tooltip
-                      // The global mousemove listener updates keepMenuOpenRef
-                      setTimeout(() => {
-                        // Only close if ref indicates we shouldn't keep it open
-                        if (!keepMenuOpenRef.current && activeMegaMenu) {
-                          setActiveMegaMenu(null);
-                        }
-                      }, 300);
+                      scheduleMenuClose(200);
                     }}
                     style={{ 
                       left: megaMenuPosition ? `${megaMenuPosition.left}px` : '50%',
@@ -811,7 +774,18 @@ const Header = () => {
 
         {/* Mobile Menu Overlay */}
         {isMenuOpen && (
-          <div className="lg:hidden fixed inset-0 bg-black z-50 overflow-y-auto">
+          <div 
+            className="lg:hidden fixed inset-0 bg-black z-50 overflow-y-auto"
+            style={{ touchAction: 'pan-y' }}
+            onTouchStart={(e) => {
+              // Prevent touch events from propagating to body
+              e.stopPropagation();
+            }}
+            onTouchMove={(e) => {
+              // Allow scrolling within menu, but prevent body scroll
+              e.stopPropagation();
+            }}
+          >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-800">
               <img 
@@ -863,17 +837,29 @@ const Header = () => {
                     <button 
                       className="text-white font-bold text-lg uppercase tracking-wider"
                       onClick={() => {
-                        window.location.href = '/flight-sim';
+                        navigate('/flight-sim');
                         setIsMenuOpen(false);
                       }}
                     >
                       FLIGHT SIM
                     </button>
                     <div className="mt-2 space-y-1">
-                      <button className="block text-gray-300 hover:text-white transition-colors">
+                      <button 
+                        className="block text-gray-300 hover:text-white transition-colors w-full text-left"
+                        onClick={() => {
+                          navigate('/shop?category=flight-sim-add-ons');
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         ADD-ONS
                       </button>
-                      <button className="block text-gray-300 hover:text-white transition-colors">
+                      <button 
+                        className="block text-gray-300 hover:text-white transition-colors w-full text-left"
+                        onClick={() => {
+                          navigate('/accessories');
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         ACCESSORIES
                       </button>
                     </div>
@@ -893,17 +879,29 @@ const Header = () => {
                     <button 
                       className="text-white font-bold text-lg uppercase tracking-wider"
                       onClick={() => {
-                        window.location.href = '/sim-racing';
+                        navigate('/sim-racing');
                         setIsMenuOpen(false);
                       }}
                     >
                       SIM RACING
                     </button>
                     <div className="mt-2 space-y-1">
-                      <button className="block text-gray-300 hover:text-white transition-colors">
+                      <button 
+                        className="block text-gray-300 hover:text-white transition-colors w-full text-left"
+                        onClick={() => {
+                          navigate('/shop?category=conversion-kits');
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         CONVERSION KITS
                       </button>
-                      <button className="block text-gray-300 hover:text-white transition-colors">
+                      <button 
+                        className="block text-gray-300 hover:text-white transition-colors w-full text-left"
+                        onClick={() => {
+                          navigate('/shop?category=individual-parts');
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         INDIVIDUAL PARTS
                       </button>
                     </div>
@@ -923,7 +921,7 @@ const Header = () => {
                     <button 
                       className="text-white font-bold text-lg uppercase tracking-wider"
                       onClick={() => {
-                        window.location.href = '/racing-flight-seats';
+                        navigate('/racing-flight-seats');
                         setIsMenuOpen(false);
                       }}
                     >
@@ -945,17 +943,29 @@ const Header = () => {
                     <button 
                       className="text-white font-bold text-lg uppercase tracking-wider"
                       onClick={() => {
-                        window.location.href = '/monitor-stands';
+                        navigate('/monitor-stands');
                         setIsMenuOpen(false);
                       }}
                     >
                       MONITOR STANDS
                     </button>
                     <div className="mt-2 space-y-1">
-                      <button className="block text-gray-300 hover:text-white transition-colors">
+                      <button 
+                        className="block text-gray-300 hover:text-white transition-colors w-full text-left"
+                        onClick={() => {
+                          navigate('/shop?category=single-monitor-stand');
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         SINGLE MONITOR STAND
                       </button>
-                      <button className="block text-gray-300 hover:text-white transition-colors">
+                      <button 
+                        className="block text-gray-300 hover:text-white transition-colors w-full text-left"
+                        onClick={() => {
+                          navigate('/shop?category=triple-monitor-stand');
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         TRIPLE MONITOR STAND
                       </button>
                     </div>
@@ -975,7 +985,7 @@ const Header = () => {
                     <button 
                       className="text-white font-bold text-lg uppercase tracking-wider"
                       onClick={() => {
-                        window.location.href = '/accessories';
+                        navigate('/accessories');
                         setIsMenuOpen(false);
                       }}
                     >
@@ -990,7 +1000,7 @@ const Header = () => {
                 <button 
                   className="text-white font-bold text-lg uppercase tracking-wider"
                   onClick={() => {
-                    window.location.href = '/b-stock';
+                    navigate('/b-stock');
                     setIsMenuOpen(false);
                   }}
                 >
@@ -1003,7 +1013,7 @@ const Header = () => {
                 <button 
                   className="text-white font-bold text-lg uppercase tracking-wider"
                   onClick={() => {
-                    window.location.href = '/shop?category=bundles';
+                    navigate('/shop?category=bundles');
                     setIsMenuOpen(false);
                   }}
                 >
@@ -1016,7 +1026,7 @@ const Header = () => {
                 <button 
                   className="text-white font-bold text-lg uppercase tracking-wider w-full text-left"
                   onClick={() => {
-                    window.location.href = '/shop';
+                    navigate('/shop');
                     setIsMenuOpen(false);
                   }}
                 >
@@ -1030,7 +1040,7 @@ const Header = () => {
                   <button 
                     className="text-white font-bold text-lg uppercase tracking-wider"
                     onClick={() => {
-                      window.location.href = '/services';
+                      navigate('/services');
                       setIsMenuOpen(false);
                     }}
                   >
@@ -1091,7 +1101,7 @@ const Header = () => {
                   <button 
                     className="text-white font-bold text-lg uppercase tracking-wider w-full text-left"
                     onClick={() => {
-                      window.location.href = '/admin';
+                      navigate('/admin');
                       setIsMenuOpen(false);
                     }}
                   >
