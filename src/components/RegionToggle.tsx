@@ -25,15 +25,15 @@ export const RegionToggle = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-        >
-          <Globe className="h-4 w-4" />
-          <span className="font-semibold">{region.toUpperCase()}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Globe className="h-4 w-4" />
+            <span className="font-semibold">{region.toUpperCase()}</span>
           <ChevronDown className="h-4 w-4" />
-        </Button>
+          </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup value={region} onValueChange={(value) => handleRegionChange(value as 'us' | 'eu')}>
