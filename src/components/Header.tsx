@@ -19,7 +19,7 @@ const Header = () => {
   const [loadingMegaMenu, setLoadingMegaMenu] = useState<Record<string, boolean>>({});
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mobileSearchQuery, setMobileSearchQuery] = useState('');
-  const [megaMenuPosition, setMegaMenuPosition] = useState<{ left: number; width?: number; maxHeight?: number } | null>(null);
+  const [megaMenuPosition, setMegaMenuPosition] = useState<{ left: number; width?: number; maxHeight?: number; top?: number } | null>(null);
   const navRef = useRef<HTMLElement>(null);
   const menuItemRefs = useRef<Record<string, HTMLElement | null>>({});
   const closeMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,6 +231,10 @@ const Header = () => {
     const navRect = navRef.current.getBoundingClientRect();
     const viewportHeight = window.innerHeight;
     
+    // Get the parent container that holds the navbar (the div with flex items-center justify-between h-16)
+    const navbarContainer = navRef.current.closest('.flex.items-center.justify-between');
+    const navbarContainerRect = navbarContainer?.getBoundingClientRect();
+    
     // Get first and last menu items
     const firstItem = menuItemRefs.current[mainNavItems[0]]; // FLIGHT SIM
     const lastItem = menuItemRefs.current[mainNavItems[mainNavItems.length - 1]]; // SERVICES
@@ -242,23 +246,28 @@ const Header = () => {
     const firstItemRect = firstItem.getBoundingClientRect();
     const lastItemRect = lastItem.getBoundingClientRect();
     
-    // Calculate left position (align with first item's left edge)
-    const leftPosition = firstItemRect.left;
+    // Calculate left position (align with first item's left edge, shifted slightly left)
+    const leftPosition = firstItemRect.left - 8; // Shift 8px to the left
     
-    // Calculate width (from first item's left to last item's right)
-    const megaMenuWidth = lastItemRect.right - firstItemRect.left;
+    // Calculate width (from first item's left to last item's right, accounting for left shift)
+    const megaMenuWidth = lastItemRect.right - firstItemRect.left + 8; // Add back the 8px shift
 
     // Convert to relative position within nav container
     const relativeLeft = leftPosition - navRect.left;
 
+    // Calculate top position - use the navbar container's bottom if available, otherwise nav's bottom
+    // Convert from viewport coordinates to relative coordinates within the nav element
+    const navbarBottom = navbarContainerRect ? navbarContainerRect.bottom : navRect.bottom;
+    const topPosition = navbarBottom - navRect.top;
+    
     // Calculate max height to prevent overflow on shorter screens
     // Leave space for header + padding + margin to ensure menu doesn't go off screen
-    const spaceFromTop = navRect.bottom;
+    const spaceFromTop = navbarBottom;
     const spaceFromBottom = 32; // Bottom padding/margin
     const calculatedMaxHeight = viewportHeight - spaceFromTop - spaceFromBottom;
     const maxHeight = Math.max(400, calculatedMaxHeight);
 
-    return { left: relativeLeft, width: megaMenuWidth, maxHeight };
+    return { left: relativeLeft, width: megaMenuWidth, maxHeight, top: topPosition };
   };
 
   // Calculate mega menu position based on active menu item
@@ -601,7 +610,7 @@ const Header = () => {
                   )}
                   <div 
                     data-mega-menu
-                    className="hidden lg:block absolute top-full bg-background border border-border rounded-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 z-50"
+                    className="hidden lg:block absolute bg-background border-t border-l border-r border-border rounded-b-lg shadow-2xl p-4 sm:p-6 lg:p-6 xl:p-8 z-50"
                     onMouseEnter={() => {
                       clearCloseTimeout();
                       setActiveMegaMenu(activeMegaMenu);
@@ -610,6 +619,7 @@ const Header = () => {
                       scheduleMenuClose(200);
                     }}
                     style={{ 
+                      top: megaMenuPosition?.top !== undefined ? `${megaMenuPosition.top}px` : (megaMenuPosition && navRef.current ? `${navRef.current.getBoundingClientRect().bottom}px` : undefined),
                       left: megaMenuPosition ? `${megaMenuPosition.left}px` : '50%',
                       transform: megaMenuPosition ? 'none' : 'translateX(-50%)',
                       width: megaMenuPosition?.width ? `${megaMenuPosition.width}px` : 'min(90vw, 1000px)',
@@ -619,7 +629,10 @@ const Header = () => {
                       overflow: 'hidden',
                       display: 'flex',
                       flexDirection: 'column',
-                      boxSizing: 'border-box'
+                      boxSizing: 'border-box',
+                      marginTop: 0,
+                      margin: 0,
+                      paddingTop: 0
                     }}
                   >
                       {/* Loading State */}
@@ -634,19 +647,19 @@ const Header = () => {
                       {!loadingMegaMenu[activeMegaMenu] && megaMenuProducts[activeMegaMenu] && megaMenuProducts[activeMegaMenu].length > 0 && (
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 mb-4" style={{ minHeight: 0, maxHeight: '100%', overflow: 'hidden' }}>
                           {megaMenuProducts[activeMegaMenu].slice(0, 8).map((product) => (
-                            <div key={product.id} className="group cursor-pointer flex flex-col h-full">
+                             <div key={product.id} className="group cursor-pointer flex flex-col h-full">
                               <div 
-                                className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 flex flex-col h-full"
+                                className="bg-card rounded-lg overflow-hidden hover:bg-card/80 transition-all duration-300 flex flex-col h-full border border-transparent hover:border-red-500"
                                 onClick={() => window.location.href = `/product/${product.slug}`}
                               >
-                                <div className="bg-black/20 flex items-center justify-center p-4 flex-shrink-0" style={{ height: '240px', minHeight: '240px' }}>
-                                  {getProductImage(product) ? (
-                                    <img 
-                                      src={getProductImage(product)} 
-                                      alt={product.name}
-                                      className="w-full h-full object-contain"
-                                      style={{ maxHeight: '220px', maxWidth: '100%' }}
-                                    />
+                                 <div className="bg-black/20 flex items-center justify-center p-2 flex-shrink-0" style={{ height: '200px', minHeight: '200px' }}>
+                                    {getProductImage(product) ? (
+                                      <img 
+                                        src={getProductImage(product)} 
+                                        alt={product.name}
+                                        className="w-full h-full object-contain"
+                                        style={{ maxHeight: '190px', maxWidth: '100%' }}
+                                      />
                                   ) : (
                                     <p className="text-muted-foreground text-xs">No image</p>
                                   )}
