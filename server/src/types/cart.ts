@@ -152,6 +152,7 @@ export interface Order {
   discount_amount: number;
   total_amount: number;
   currency: string;
+  region?: 'us' | 'eu';
   
   // Customer info
   customer_email: string;

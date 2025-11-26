@@ -46,7 +46,9 @@ export class CSVImportService {
     'individual-parts',
     'racing-flight-seats',
     'refurbished',
-    'bundles'
+    'bundles',
+    'flight-sim-add-on-modules',
+    'flight-sim-accessories'
   ];
 
   constructor(private pool: Pool) {
@@ -79,35 +81,39 @@ export class CSVImportService {
   }
 
   /**
-   * Validate category slug
-   * Returns an ImportError if invalid, null if valid
+   * Validate category slug(s)
+   * Validates all categories in the array if multiple are provided
+   * Returns an ImportError if any category is invalid, null if all are valid
    */
   private validateCategory(categories: string, rowNumber: number): ImportError | null {
     if (!categories || categories.trim() === '') {
       return null; // Empty is allowed (optional field)
     }
 
-    let category: string | null = null;
+    let categoryArray: string[] = [];
     const trimmed = categories.trim();
 
     // Parse category (handle both JSON array and plain string)
     try {
       const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        category = String(parsed[0]);
+      if (Array.isArray(parsed)) {
+        // Handle array of categories
+        categoryArray = parsed.map(cat => String(cat).trim()).filter(cat => cat);
       } else if (typeof parsed === 'string') {
-        category = parsed;
+        categoryArray = [parsed.trim()];
       }
     } catch {
-      // Not valid JSON, treat as plain string
-      category = trimmed;
+      // Not valid JSON, treat as plain string (single category)
+      categoryArray = [trimmed];
     }
 
-    if (!category) {
+    if (categoryArray.length === 0) {
       return null; // Empty after parsing is allowed
     }
 
-    const normalizedCategory = category.trim().toLowerCase();
+    // Validate each category in the array
+    for (const category of categoryArray) {
+      const normalizedCategory = category.toLowerCase();
     if (!this.VALID_CATEGORIES.includes(normalizedCategory)) {
       return {
         row: rowNumber,
@@ -115,9 +121,10 @@ export class CSVImportService {
         message: `Invalid category: "${category}". Expected one of: ${this.VALID_CATEGORIES.join(', ')}`,
         severity: 'warning' // Warning, not critical - allow import to proceed
       };
+      }
     }
 
-    return null; // Valid category
+    return null; // All categories are valid
   }
 
   /**
@@ -387,42 +394,51 @@ export class CSVImportService {
     }
     if (row.tax_class) product.tax_class = row.tax_class.trim();
     if (row.shipping_class) product.shipping_class = row.shipping_class.trim();
-    // Product can only be in one category, store as single-item array
-    // Handle both old format (JSON array string like "[""category""]") and new format (plain string)
+    // Products can be in multiple categories, store as array
+    // Handle both old format (JSON array string like "[""category1"", ""category2""]") and new format (plain string or comma-separated)
     if (row.categories) {
-      let category: string | null = null;
+      let categoryArray: string[] = [];
       const trimmed = row.categories.trim();
       
       if (trimmed) {
         // Try to parse as JSON array (old export format)
         try {
           const parsed = JSON.parse(trimmed);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            category = String(parsed[0]);
+          if (Array.isArray(parsed)) {
+            // Handle array of categories
+            categoryArray = parsed.map(cat => String(cat).trim()).filter(cat => cat);
           } else if (typeof parsed === 'string') {
-            category = parsed;
+            categoryArray = [parsed.trim()];
           }
         } catch {
-          // Not valid JSON, treat as plain string (new format)
-          category = trimmed;
+          // Not valid JSON, try comma-separated or treat as single category
+          if (trimmed.includes(',')) {
+            categoryArray = trimmed.split(',').map(cat => cat.trim()).filter(cat => cat);
+          } else {
+            categoryArray = [trimmed];
+          }
         }
       }
       
-      if (category) {
-        // Validate category slug
-        const normalizedCategory = category.trim().toLowerCase();
-        if (!this.VALID_CATEGORIES.includes(normalizedCategory)) {
+      if (categoryArray.length > 0) {
+        // Validate and normalize all category slugs
+        const validatedCategories: string[] = [];
+        for (const category of categoryArray) {
+          const normalizedCategory = category.toLowerCase().trim();
+          if (this.VALID_CATEGORIES.includes(normalizedCategory)) {
+            validatedCategories.push(normalizedCategory);
+          } else {
           // Log warning but don't fail import - allow it to proceed for debugging
           console.warn(
             `⚠️  [Row ${row.sku || 'unknown'}] Invalid category: "${category}"` +
             `\n   Expected one of: ${this.VALID_CATEGORIES.join(', ')}` +
             `\n   Received: "${category}"` +
-            `\n   This category will be stored but may not work correctly in the frontend.`
+              `\n   This category will be skipped.`
           );
+          }
         }
-        // Store as single-item array (database expects JSON array)
-        // Store the category as-is (even if invalid) to help with debugging
-        (product as any).categories = [category];
+        // Store as array (database expects JSON array)
+        (product as any).categories = validatedCategories.length > 0 ? validatedCategories : null;
       }
     }
     // Tags: Handle both JSON array format (from old exports) and pipe-delimited format

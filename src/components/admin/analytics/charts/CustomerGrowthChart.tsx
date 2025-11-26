@@ -138,3 +138,4 @@ export const CustomerGrowthChart = memo<CustomerGrowthChartProps>(({
 });
 
 CustomerGrowthChart.displayName = 'CustomerGrowthChart';
+

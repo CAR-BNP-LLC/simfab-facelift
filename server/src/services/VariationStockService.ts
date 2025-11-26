@@ -17,11 +17,12 @@ export class VariationStockService {
   /**
    * Get available stock for a specific variation option
    */
-  async getVariationOptionStock(optionId: number): Promise<number> {
-    const client = await this.pool.connect();
+  async getVariationOptionStock(optionId: number, client?: any): Promise<number> {
+    const useProvidedClient = !!client;
+    const dbClient = client || await this.pool.connect();
     
     try {
-      const result = await client.query(
+      const result = await dbClient.query(
         `SELECT 
           COALESCE(stock_quantity, 0) as stock,
           COALESCE(reserved_quantity, 0) as reserved
@@ -37,27 +38,55 @@ export class VariationStockService {
       const { stock, reserved } = result.rows[0];
       return Math.max(0, stock - reserved);
     } finally {
-      client.release();
+      if (!useProvidedClient) {
+        dbClient.release();
+      }
     }
   }
 
   /**
    * Reserve stock for a variation option
+   * @param optionId - Variation option ID
+   * @param quantity - Quantity to reserve
+   * @param orderId - Order ID
+   * @param client - Optional database client (if provided, uses existing transaction)
    */
   async reserveVariationStock(
     optionId: number, 
     quantity: number, 
-    orderId: number
+    orderId: number,
+    client?: any
   ): Promise<VariationStockReservation> {
-    const client = await this.pool.connect();
+    const useProvidedClient = !!client;
+    const dbClient = client || await this.pool.connect();
     
     try {
-      await client.query('BEGIN');
+      if (!useProvidedClient) {
+        await dbClient.query('BEGIN');
+      }
 
       // Check available stock
-      const availableStock = await this.getVariationOptionStock(optionId);
+      const availableStock = await this.getVariationOptionStock(optionId, dbClient);
       
-      if (quantity > availableStock) {
+      // Check if product allows backorders
+      const productResult = await dbClient.query(
+        `SELECT p.id,
+         CASE 
+           WHEN p.backorders_allowed IS NULL THEN false
+           WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+           ELSE false
+         END as backorders_allowed
+         FROM products p
+         JOIN product_variations v ON v.product_id = p.id
+         JOIN variation_options vo ON vo.variation_id = v.id
+         WHERE vo.id = $1`,
+        [optionId]
+      );
+      
+      const backordersAllowed = productResult.rows[0]?.backorders_allowed || false;
+      
+      // Only throw error if backorders are not allowed and stock is insufficient
+      if (quantity > availableStock && !backordersAllowed) {
         throw new ValidationError(
           `Insufficient stock. Only ${availableStock} available for this option`,
           { available: availableStock, requested: quantity }
@@ -68,7 +97,7 @@ export class VariationStockService {
       const expiresAt = new Date();
       expiresAt.setMinutes(expiresAt.getMinutes() + 30); // 30 minute expiration
 
-      const result = await client.query(
+      const result = await dbClient.query(
         `INSERT INTO variation_stock_reservations 
          (order_id, variation_option_id, quantity, status, expires_at)
          VALUES ($1, $2, $3, 'pending', $4)
@@ -77,24 +106,30 @@ export class VariationStockService {
       );
 
       // Update reserved quantity
-      await client.query(
+      await dbClient.query(
         `UPDATE variation_options 
          SET reserved_quantity = reserved_quantity + $1
          WHERE id = $2`,
         [quantity, optionId]
       );
 
-      await client.query('COMMIT');
+      if (!useProvidedClient) {
+        await dbClient.query('COMMIT');
+      }
       return result.rows[0];
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!useProvidedClient) {
+        await dbClient.query('ROLLBACK');
+      }
       if (error instanceof NotFoundError || error instanceof ValidationError) {
         throw error;
       }
       console.error('Error reserving variation stock:', error);
       throw error;
     } finally {
-      client.release();
+      if (!useProvidedClient) {
+        dbClient.release();
+      }
     }
   }
 
@@ -170,11 +205,12 @@ export class VariationStockService {
       );
 
       // Deduct stock and reduce reserved quantity
+      // Allow negative stock for backorders
       for (const reservation of reservations.rows) {
         await client.query(
           `UPDATE variation_options 
            SET 
-             stock_quantity = GREATEST(0, stock_quantity - $1),
+             stock_quantity = stock_quantity - $1,
              reserved_quantity = GREATEST(0, reserved_quantity - $1)
            WHERE id = $2`,
           [reservation.quantity, reservation.variation_option_id]
@@ -212,11 +248,16 @@ export class VariationStockService {
       // Check if product has stock-tracked variations
       const productResult = await client.query(
         `SELECT p.stock, 
+         CASE 
+           WHEN p.backorders_allowed IS NULL THEN false
+           WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+           ELSE false
+         END as backorders_allowed,
          COUNT(v.id) FILTER (WHERE v.tracks_stock = true) as tracked_variations
          FROM products p
          LEFT JOIN product_variations v ON v.product_id = p.id AND v.tracks_stock = true
          WHERE p.id = $1
-         GROUP BY p.id, p.stock`,
+         GROUP BY p.id, p.stock, p.backorders_allowed`,
         [productId]
       );
 
@@ -224,13 +265,15 @@ export class VariationStockService {
         return { available: false, availableQuantity: 0, message: 'Product not found' };
       }
 
-      const { stock: productStock, tracked_variations } = productResult.rows[0];
+      const { stock: productStock, backorders_allowed: backordersAllowed, tracked_variations } = productResult.rows[0];
 
       // If no stock-tracked variations, use product-level stock
       if (tracked_variations === 0 || !configuration.variations) {
+        // If backorders allowed and stock is 0, product is still available (backorder)
+        const isAvailable = productStock > 0 || backordersAllowed;
         return {
-          available: productStock > 0,
-          availableQuantity: productStock
+          available: isAvailable,
+          availableQuantity: productStock > 0 ? productStock : (backordersAllowed ? 0 : 0)
         };
       }
 
@@ -366,11 +409,15 @@ export class VariationStockService {
       // Check if we have any unlimited variations mixed with limited ones
       const hasUnlimitedVariations = variationStock.some((vs: any) => vs.available === Infinity);
       
+      // backordersAllowed was already declared at the top of the function from productResult
+      // If backorders allowed and minAvailable is 0, product is still available (backorder)
+      const isAvailable = hasUnlimitedVariations ? true : (minAvailable > 0 || backordersAllowed);
+      
       return {
         // If any variation has unlimited stock, product is available (unlimited variations don't constrain)
-        // Otherwise, availability depends on minimum stock
-        available: hasUnlimitedVariations ? true : minAvailable > 0,
-        availableQuantity: hasUnlimitedVariations ? Infinity : Math.max(0, minAvailable),
+        // Otherwise, availability depends on minimum stock or backorders
+        available: isAvailable,
+        availableQuantity: hasUnlimitedVariations ? Infinity : (minAvailable > 0 ? minAvailable : (backordersAllowed ? 0 : 0)),
         variationStock
       };
     } finally {

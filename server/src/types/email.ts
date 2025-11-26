@@ -89,6 +89,7 @@ export interface SendEmailOptions {
   recipientName?: string;
   variables: Record<string, any>;
   adminCopy?: boolean;
+  region?: 'us' | 'eu'; // Region for region-specific SMTP settings
 }
 
 export interface EmailResult {

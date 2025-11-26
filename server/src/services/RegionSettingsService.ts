@@ -144,6 +144,38 @@ export class RegionSettingsService {
   }
 
   /**
+   * Get SMTP settings for a region
+   * @param region - Region code ('us' or 'eu')
+   * @param maskSecrets - Whether to mask sensitive values like passwords (default: true)
+   * @returns SMTP configuration object
+   */
+  async getSmtpSettings(region: 'us' | 'eu', maskSecrets: boolean = true): Promise<{
+    smtp_host: string | null;
+    smtp_port: number;
+    smtp_user: string | null;
+    smtp_password: string | null;
+    smtp_from_email: string | null;
+    smtp_from_name: string | null;
+    smtp_enabled: boolean;
+    smtp_test_mode: boolean;
+    smtp_test_email: string | null;
+  }> {
+    const settings = await this.getSettings(region, false, maskSecrets);
+    
+    return {
+      smtp_host: settings.smtp_host || null,
+      smtp_port: settings.smtp_port || 587,
+      smtp_user: settings.smtp_user || null,
+      smtp_password: settings.smtp_password || null,
+      smtp_from_email: settings.smtp_from_email || null,
+      smtp_from_name: settings.smtp_from_name || 'SimFab',
+      smtp_enabled: settings.smtp_enabled !== false, // Default to true if not set
+      smtp_test_mode: settings.smtp_test_mode === true,
+      smtp_test_email: settings.smtp_test_email || null
+    };
+  }
+
+  /**
    * Update a single setting
    */
   async updateSetting(
@@ -254,10 +286,17 @@ export class RegionSettingsService {
 
   /**
    * Clear cache for a region
+   * Clears all cache variations (masked/unmasked, public/all)
    */
   private clearCache(region: 'us' | 'eu'): void {
-    this.cache.delete(`${region}_public`);
-    this.cache.delete(`${region}_all`);
+    // Clear all possible cache key variations for this region
+    const keysToDelete: string[] = [];
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(`${region}_`)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach(key => this.cache.delete(key));
   }
 
   /**
@@ -300,4 +339,5 @@ export class RegionSettingsService {
     }
   }
 }
+
 

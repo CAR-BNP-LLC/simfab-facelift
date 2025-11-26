@@ -156,3 +156,4 @@ export const ProductPerformanceChart = memo<ProductPerformanceChartProps>(({
 });
 
 ProductPerformanceChart.displayName = 'ProductPerformanceChart';
+

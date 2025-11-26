@@ -145,3 +145,4 @@ export const CustomerSegmentsChart = memo<CustomerSegmentsChartProps>(({
 });
 
 CustomerSegmentsChart.displayName = 'CustomerSegmentsChart';
+

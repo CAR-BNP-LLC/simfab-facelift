@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ interface ShippingQuote {
 }
 
 const ShippingQuotes = () => {
+  const navigate = useNavigate();
   const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -343,8 +345,8 @@ const ShippingQuotes = () => {
                           size="sm"
                           className="text-xs"
                           onClick={() => {
-                            // Could navigate to order details if needed
-                            window.open(`/admin?tab=orders&order=${quote.order_id}`, '_blank');
+                            // Navigate to admin orders tab with order parameter
+                            navigate(`/admin?tab=orders&order=${quote.order_id}`);
                           }}
                         >
                           View Order #{quote.order_id}
@@ -445,4 +447,5 @@ const ShippingQuotes = () => {
 };
 
 export default ShippingQuotes;
+
 

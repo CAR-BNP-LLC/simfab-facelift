@@ -119,7 +119,29 @@ export class ProductService {
       
       const sql = `
         SELECT 
-          p.*,
+          p.id, p.type, p.sku, p.gtin_upc_ean_isbn, p.name, p.slug,
+          p.published, p.is_featured, p.visibility_in_catalog,
+          p.short_description, p.description,
+          p.date_sale_price_starts, p.date_sale_price_ends,
+          p.tax_status, p.tax_class, p.in_stock, p.stock,
+          p.low_stock_amount, 
+          CASE 
+            WHEN p.backorders_allowed IS NULL THEN false
+            WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+            ELSE false
+          END as backorders_allowed,
+          p.sold_individually,
+          p.weight_lbs, p.length_in, p.width_in, p.height_in,
+          p.package_weight, p.package_weight_unit, p.package_length, p.package_width, p.package_height, p.package_dimension_unit,
+          p.tariff_code,
+          p.allow_customer_reviews, p.purchase_note,
+          p.sale_price, p.regular_price, p.categories, p.tags,
+          p.shipping_class, p.brands, p.created_at, p.updated_at,
+          p.status, p.featured, p.price_min, p.price_max, p.meta_data,
+          p.seo_title, p.seo_description,
+          p.is_on_sale, p.sale_start_date, p.sale_end_date, p.sale_label,
+          p.note,
+          p.region, p.product_group_id, p.deleted_at, p.is_bundle,
           COALESCE(
             (SELECT json_agg(pi ORDER BY pi.sort_order)
              FROM product_images pi
@@ -257,7 +279,7 @@ export class ProductService {
           weight_lbs, length_in, width_in, height_in,
           package_weight, package_weight_unit, package_length, package_width, package_height, package_dimension_unit,
           tariff_code,
-          stock, low_stock_amount, in_stock,
+          stock, low_stock_amount, in_stock, backorders_allowed,
           tax_class, shipping_class,
           categories, tags, meta_data,
           seo_title, seo_description,
@@ -269,12 +291,12 @@ export class ProductService {
           $11, $12, $13, $14,
           $15, $16, $17, $18, $19, $20,
           $21,
-          $22, $23, $24,
-          $25, $26,
-          $27, $28, $29,
-          $30, $31,
-          $32,
-          $33, $34
+          $22, $23, $24, $25,
+          $26, $27,
+          $28, $29, $30,
+          $31, $32,
+          $33,
+          $34, $35
         )
         RETURNING *
       `;
@@ -302,9 +324,10 @@ export class ProductService {
         data.package_height || null,
         data.package_dimension_unit || null,
         data.tariff_code || null,
-        stockQty,
+          stockQty,
         data.low_stock_threshold || 5,
         stockQty > 0 ? '1' : '0',
+        (data.allow_backorders || false) ? 'yes' : 'no',
         data.tax_class || null,
         data.shipping_class || null,
         data.categories ? JSON.stringify(data.categories) : null,
@@ -519,6 +542,24 @@ export class ProductService {
       if (data.low_stock_threshold !== undefined) {
         addField('low_stock_amount', data.low_stock_threshold);
       }
+      // Backorders allowed - region-specific (NOT synced)
+      // Check both allow_backorders and backorders_allowed (frontend uses backorders_allowed)
+      const hasAllowBackorders = data.allow_backorders !== undefined;
+      const hasBackordersAllowed = (data as any).backorders_allowed !== undefined;
+      
+      if (hasAllowBackorders || hasBackordersAllowed) {
+        const backorderValue = hasAllowBackorders
+          ? data.allow_backorders 
+          : (data as any).backorders_allowed;
+        console.log('🔧 Processing backorders_allowed:', { hasAllowBackorders, hasBackordersAllowed, backorderValue, type: typeof backorderValue });
+        // Convert boolean to TEXT format ('yes' or 'no')
+        // Always set the field, even if false (to explicitly disable backorders)
+        // Use forceAddField to ensure it's always included in the UPDATE query
+        forceAddField('backorders_allowed', backorderValue ? 'yes' : 'no');
+        console.log('✅ Added backorders_allowed to update query:', backorderValue ? 'yes' : 'no');
+      } else {
+        console.log('⚠️  backorders_allowed not found in update data');
+      }
       
       if (data.tax_class !== undefined) {
         addField('tax_class', data.tax_class);
@@ -593,11 +634,13 @@ export class ProductService {
       console.log('🔧 Updating product SQL:', sql);
       console.log('🔧 Update values:', values);
       console.log('🔧 Update fields count:', updateFields.length);
+      console.log('🔧 Update fields:', updateFields);
       
       const result = await client.query(sql, values);
       const updatedProduct = result.rows[0];
       
       console.log('✅ Product updated, returned data:', JSON.stringify(updatedProduct, null, 2));
+      console.log('✅ Updated backorders_allowed in DB:', updatedProduct.backorders_allowed);
 
       // If product is in a group and we have shared fields to sync, update the paired product
       if (hasGroup && pairedProductId && Object.keys(sharedFieldsToSync).length > 0) {
@@ -751,7 +794,11 @@ export class ProductService {
 
       await client.query('COMMIT');
 
-      return updatedProduct;
+      // Return the updated product using getProductById to ensure proper formatting
+      // (e.g., backorders_allowed converted to boolean)
+      const formattedProduct = await this.getProductById(id);
+      console.log('✅ Formatted product returned, backorders_allowed:', formattedProduct.backorders_allowed, typeof formattedProduct.backorders_allowed);
+      return formattedProduct;
     } catch (error) {
       await client.query('ROLLBACK');
       if (error instanceof NotFoundError || error instanceof ValidationError) throw error;

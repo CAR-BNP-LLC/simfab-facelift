@@ -99,7 +99,8 @@ const ProductEditDialog = ({
     sale_end_date: '',
     sale_label: '',
     stock_quantity: '10',
-    categories: 'accessories',
+    backorders_allowed: false,
+    categories: [] as string[],
     tags: '',
     note: '',
     region: 'us' as 'us' | 'eu',
@@ -194,18 +195,34 @@ const ProductEditDialog = ({
         sale_end_date: '',
         sale_label: product.sale_label || '',
         stock_quantity: product.stock?.toString() || '0',
+        backorders_allowed: (() => {
+          const value = (product as any).backorders_allowed;
+          console.log('🔍 Initializing backorders_allowed from product:', { value, type: typeof value, productId: product.id });
+          if (typeof value === 'boolean') {
+            console.log('✅ Using boolean value:', value);
+            return value;
+          }
+          if (typeof value === 'string') {
+            const lower = value.toLowerCase().trim();
+            const result = lower === 'yes' || lower === '1' || lower === 'true' || lower === 'on';
+            console.log('✅ Converted string to boolean:', { original: value, lower, result });
+            return result;
+          }
+          console.log('⚠️  Unknown type, defaulting to false');
+          return false;
+        })(),
         categories: (() => {
           try {
             if (Array.isArray(product.categories)) {
-              return product.categories[0] || 'accessories';
+              return product.categories;
             }
             if (typeof product.categories === 'string') {
               const parsed = JSON.parse(product.categories);
-              return Array.isArray(parsed) ? (parsed[0] || 'accessories') : 'accessories';
+              return Array.isArray(parsed) ? parsed : [];
             }
-            return 'accessories';
+            return [];
           } catch {
-            return 'accessories';
+            return [];
           }
         })(),
         tags: (() => {
@@ -554,6 +571,7 @@ const ProductEditDialog = ({
 
     setLoading(true);
     try {
+      console.log('📋 Form state before submit:', { backorders_allowed: productForm.backorders_allowed });
       const isGroupMode = mode === 'group';
       const isStandalone = !isGroupMode && !pairedProduct;
       
@@ -566,7 +584,7 @@ const ProductEditDialog = ({
           short_description: productForm.short_description,
           featured: productForm.featured,
           status: productForm.status,
-          categories: [productForm.categories],
+          categories: productForm.categories,
           tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [],
           note: productForm.note || null,
           package_weight: productForm.package_weight ? parseFloat(productForm.package_weight) : null,
@@ -587,7 +605,7 @@ const ProductEditDialog = ({
           short_description: productForm.short_description,
           featured: productForm.featured,
           status: productForm.status,
-          categories: [productForm.categories],
+          categories: productForm.categories,
           tags: productForm.tags ? productForm.tags.split(',').map(tag => tag.trim()) : [],
           note: productForm.note || null,
           regular_price: parseFloat(productForm.regular_price) || 0,
@@ -597,6 +615,7 @@ const ProductEditDialog = ({
           sale_end_date: saleEndDate || null,
           sale_label: productForm.sale_label || null,
           stock_quantity: parseInt(productForm.stock_quantity) || 0,
+          backorders_allowed: Boolean(productForm.backorders_allowed), // Explicitly convert to boolean
           package_weight: productForm.package_weight ? parseFloat(productForm.package_weight) : null,
           package_weight_unit: productForm.package_weight_unit || null,
           package_length: productForm.package_length ? parseFloat(productForm.package_length) : null,
@@ -605,6 +624,7 @@ const ProductEditDialog = ({
           package_dimension_unit: productForm.package_dimension_unit || null,
           tariff_code: productForm.tariff_code || null
         };
+        console.log('📤 Standalone mode - sending backorders_allowed:', allFieldsData.backorders_allowed);
         await onSave(allFieldsData);
       } else {
         // Individual mode with paired product: Send only pricing and stock (region-specific)
@@ -615,8 +635,10 @@ const ProductEditDialog = ({
           sale_start_date: saleStartDate || null,
           sale_end_date: saleEndDate || null,
           sale_label: productForm.sale_label || null,
-          stock_quantity: parseInt(productForm.stock_quantity) || 0
+          stock_quantity: parseInt(productForm.stock_quantity) || 0,
+          backorders_allowed: Boolean(productForm.backorders_allowed) // Explicitly convert to boolean
         };
+        console.log('📤 Individual mode - sending backorders_allowed:', formData.backorders_allowed);
         await onSave(formData);
       }
       onClose();
@@ -1028,6 +1050,16 @@ const ProductEditDialog = ({
                         onChange={(e) => setProductForm({ ...productForm, stock_quantity: e.target.value })}
                       />
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="backorders_allowed"
+                        checked={productForm.backorders_allowed}
+                        onCheckedChange={(checked) => setProductForm({ ...productForm, backorders_allowed: checked as boolean })}
+                      />
+                      <Label htmlFor="backorders_allowed" className="cursor-pointer">
+                        Allow backorders (product can be ordered when stock is 0)
+                      </Label>
+                    </div>
                   </CardContent>
                 </Card>
               </>
@@ -1042,24 +1074,71 @@ const ProductEditDialog = ({
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="categories">Category</Label>
-                    <Select value={productForm.categories} onValueChange={(value) => setProductForm({ ...productForm, categories: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="flight-sim">Flight Sim</SelectItem>
-                        <SelectItem value="sim-racing">Sim Racing</SelectItem>
-                        <SelectItem value="accessories">Accessories</SelectItem>
-                        <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
-                        <SelectItem value="conversion-kits">Conversion Kits</SelectItem>
-                        <SelectItem value="services">Services</SelectItem>
-                        <SelectItem value="individual-parts">Individual Parts</SelectItem>
-                        <SelectItem value="racing-flight-seats">Racing & Flight Seats</SelectItem>
-                        <SelectItem value="refurbished">B-stock</SelectItem>
-                        <SelectItem value="bundles">Bundles</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="categories">Categories</Label>
+                    <div className="mt-2 space-y-2 border rounded-md p-4 max-h-60 overflow-y-auto">
+                      {[
+                        { value: 'flight-sim', label: 'Flight Sim' },
+                        { value: 'sim-racing', label: 'Sim Racing' },
+                        { value: 'accessories', label: 'Accessories' },
+                        { value: 'monitor-stands', label: 'Monitor Stands' },
+                        { value: 'conversion-kits', label: 'Conversion Kits' },
+                        { value: 'services', label: 'Services' },
+                        { value: 'individual-parts', label: 'Individual Parts' },
+                        { value: 'racing-flight-seats', label: 'Racing & Flight Seats' },
+                        { value: 'refurbished', label: 'B-stock' },
+                        { value: 'bundles', label: 'Bundles' },
+                        { value: 'flight-sim-add-on-modules', label: 'Flight Sim Add-On Modules' },
+                        { value: 'flight-sim-accessories', label: 'Flight Sim Accessories' }
+                      ].map((category) => (
+                        <div key={category.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`category-${category.value}`}
+                            checked={productForm.categories.includes(category.value)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setProductForm({
+                                  ...productForm,
+                                  categories: [...productForm.categories, category.value]
+                                });
+                              } else {
+                                setProductForm({
+                                  ...productForm,
+                                  categories: productForm.categories.filter(c => c !== category.value)
+                                });
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`category-${category.value}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {category.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                    {productForm.categories.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {productForm.categories.map((cat) => (
+                          <Badge key={cat} variant="secondary">
+                            {[
+                              { value: 'flight-sim', label: 'Flight Sim' },
+                              { value: 'sim-racing', label: 'Sim Racing' },
+                              { value: 'accessories', label: 'Accessories' },
+                              { value: 'monitor-stands', label: 'Monitor Stands' },
+                              { value: 'conversion-kits', label: 'Conversion Kits' },
+                              { value: 'services', label: 'Services' },
+                              { value: 'individual-parts', label: 'Individual Parts' },
+                              { value: 'racing-flight-seats', label: 'Racing & Flight Seats' },
+                              { value: 'refurbished', label: 'B-stock' },
+                              { value: 'bundles', label: 'Bundles' },
+                              { value: 'flight-sim-add-on-modules', label: 'Flight Sim Add-On Modules' },
+                              { value: 'flight-sim-accessories', label: 'Flight Sim Accessories' }
+                            ].find(c => c.value === cat)?.label || cat}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="tags">Tags (comma separated)</Label>

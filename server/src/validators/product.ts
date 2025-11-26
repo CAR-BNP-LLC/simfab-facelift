@@ -7,6 +7,26 @@ import Joi from 'joi';
 import { ProductType, ProductStatus, VariationType } from '../types/product';
 
 // ============================================================================
+// VALID CATEGORIES
+// ============================================================================
+
+const VALID_CATEGORIES = [
+  'flight-sim',
+  'sim-racing',
+  'cockpits',
+  'monitor-stands',
+  'accessories',
+  'conversion-kits',
+  'services',
+  'individual-parts',
+  'racing-flight-seats',
+  'refurbished',
+  'bundles',
+  'flight-sim-add-on-modules',
+  'flight-sim-accessories'
+];
+
+// ============================================================================
 // PRODUCT SCHEMAS
 // ============================================================================
 
@@ -50,7 +70,8 @@ export const createProductSchema = Joi.object({
   tariff_code: Joi.string().allow(null, '').optional(),
 
   // Inventory
-  stock_quantity: Joi.number().integer().min(0).optional(),
+  // Allow negative stock when backorders are allowed
+  stock_quantity: Joi.number().integer().optional(),
   low_stock_threshold: Joi.number().integer().min(0).optional(),
   manage_stock: Joi.boolean().optional(),
   allow_backorders: Joi.boolean().optional(),
@@ -61,7 +82,7 @@ export const createProductSchema = Joi.object({
   shipping_class: Joi.string().max(50).allow(null).optional(),
 
   // Metadata
-  categories: Joi.array().items(Joi.string()).optional(),
+  categories: Joi.array().items(Joi.string().valid(...VALID_CATEGORIES)).optional(),
   tags: Joi.array().items(Joi.string()).optional(),
   meta_data: Joi.object().optional(),
 
@@ -113,10 +134,12 @@ export const updateProductSchema = Joi.object({
   tariff_code: Joi.string().allow(null, '').optional(),
 
   // Inventory
-  stock_quantity: Joi.number().integer().min(0).optional(),
+  // Allow negative stock when backorders are allowed
+  stock_quantity: Joi.number().integer().optional(),
   low_stock_threshold: Joi.number().integer().min(0).optional(),
   manage_stock: Joi.boolean().optional(),
   allow_backorders: Joi.boolean().optional(),
+  backorders_allowed: Joi.boolean().optional(), // Alias for allow_backorders (frontend uses this name)
 
   // Shipping
   requires_shipping: Joi.boolean().optional(),
@@ -124,7 +147,7 @@ export const updateProductSchema = Joi.object({
   shipping_class: Joi.string().max(50).allow(null).optional(),
 
   // Metadata
-  categories: Joi.array().items(Joi.string()).optional(),
+  categories: Joi.array().items(Joi.string().valid(...VALID_CATEGORIES)).optional(),
   tags: Joi.array().items(Joi.string()).optional(),
   meta_data: Joi.object().optional(),
 

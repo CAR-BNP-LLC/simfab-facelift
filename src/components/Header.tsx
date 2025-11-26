@@ -433,25 +433,27 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-50 relative">
       {/* Utility Bar */}
-      <div className="bg-secondary text-foreground text-sm py-3 px-4">
-        <div className="container mx-auto flex items-center justify-between">
+      <div className="bg-secondary text-foreground text-xs md:text-sm py-2 md:py-3 px-4">
+        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-2 md:gap-0">
           {/* Contact Info */}
           <span className="text-center flex-1">
             {contactInfo?.phone_display ? (
               <>
-                {contactInfo.phone_display.split(':')[0]}:{' '}
+                <span className="hidden sm:inline">{contactInfo.phone_display.split(':')[0]}: </span>
                 <a href={`tel:${contactInfo.phone}`} className="text-primary hover:underline">
                   {contactInfo.phone_display.split(':').slice(1).join(':').trim() || contactInfo.phone}
                 </a>
-                {' | '}
+                <span className="hidden md:inline">{' | '}</span>
+                <span className="md:hidden block mt-1"></span>
               </>
             ) : (
               <>
-                Toll free for USA & Canada:{' '}
+                <span className="hidden sm:inline">Toll free for USA & Canada: </span>
                 <a href="tel:1-888-299-2746" className="text-primary hover:underline">
                   1-888-299-2746
                 </a>
-                {' | '}
+                <span className="hidden md:inline">{' | '}</span>
+                <span className="md:hidden block mt-1"></span>
               </>
             )}
             <a href="/international-shipping" className="text-primary hover:underline">
@@ -671,15 +673,27 @@ const Header = () => {
                       {megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent] && megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent].categories.length > 0 && (
                         <div className="border-t border-border pt-6">
                           <div className="flex flex-wrap gap-4 justify-center">
-                            {megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent].categories.map((category) => (
-                              <Button
-                                key={category}
-                                variant="outline"
-                                className="border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
-                              >
-                                {category}
-                              </Button>
-                            ))}
+                            {megaMenuContent[activeMegaMenu as keyof typeof megaMenuContent].categories.map((category) => {
+                              const categoryMap: Record<string, string> = {
+                                'FLIGHT SIM ADD-ON MODULES': '/flight-sim-add-on-modules',
+                                'FLIGHT SIM ACCESSORIES': '/flight-sim-accessories',
+                                'CONVERSION KITS': '/shop?category=conversion-kits',
+                                'INDIVIDUAL PARTS': '/shop?category=individual-parts',
+                                'SIM RACING INDIVIDUAL PARTS': '/shop?category=individual-parts',
+                                'ALL ACCESSORIES': '/accessories'
+                              };
+                              const categoryUrl = categoryMap[category] || '/shop';
+                              return (
+                                <Button
+                                  key={category}
+                                  variant="outline"
+                                  className="border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+                                  onClick={() => navigate(categoryUrl)}
+                                >
+                                  {category}
+                                </Button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

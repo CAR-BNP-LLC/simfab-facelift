@@ -65,3 +65,4 @@ COMMENT ON COLUMN region_settings.region IS 'Region code: us or eu';
 COMMENT ON COLUMN region_settings.is_public IS 'Whether this setting can be accessed by frontend without authentication';
 COMMENT ON COLUMN region_settings.setting_type IS 'Data type: string, number, boolean, or json';
 
+

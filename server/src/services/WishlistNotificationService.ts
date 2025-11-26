@@ -338,11 +338,15 @@ export class WishlistNotificationService {
 
     try {
       // Send email
+      // Default to 'us' region for wishlist notifications (could be enhanced to detect from user preferences)
+      const region: 'us' | 'eu' = 'us';
+      
       const emailResult = await this.emailService.sendEmail({
         templateType: templateType as any,
         recipientEmail: userEmail,
         recipientName: userName,
         variables,
+        region: region
       });
 
       // Record notification

@@ -89,6 +89,9 @@ export class CartReminderService {
           const cartUrl = `${baseUrl}/cart?region=${cart.region}`;
 
           // Send reminder email
+          // Get region from cart (default to 'us' if not set)
+          const cartRegion = (cart.region || 'us') as 'us' | 'eu';
+          
           await this.emailService.triggerEvent(
             'cart.reminder_1day',
             {
@@ -101,7 +104,8 @@ export class CartReminderService {
             {
               customerEmail: cart.user_email!,
               customerName: cart.user_name || 'Customer'
-            }
+            },
+            cartRegion
           );
 
           // Mark reminder as sent
@@ -192,6 +196,9 @@ export class CartReminderService {
           const cartUrl = `${baseUrl}/cart?region=${cart.region}`;
 
           // Send reminder email using the same template (we can reuse it)
+          // Get region from cart (default to 'us' if not set)
+          const cartRegion = (cart.region || 'us') as 'us' | 'eu';
+          
           await this.emailService.triggerEvent(
             'cart.reminder_7days',
             {
@@ -204,7 +211,8 @@ export class CartReminderService {
             {
               customerEmail: cart.user_email!,
               customerName: cart.user_name || 'Customer'
-            }
+            },
+            cartRegion
           );
 
           // Mark reminder as sent

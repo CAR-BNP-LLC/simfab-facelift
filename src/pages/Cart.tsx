@@ -97,11 +97,11 @@ const Cart = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 md:mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Your Shopping Cart</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">Your Shopping Cart</h1>
             <p className="text-muted-foreground">
               {totals.itemCount > 0 ? `Total: ${totals.itemCount} item${totals.itemCount !== 1 ? 's' : ''}` : 'Your cart is empty'}
             </p>
@@ -138,9 +138,16 @@ const Cart = () => {
 
         {/* Cart with Items */}
         {!loading && items.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2">
+              {/* Backorder Notice */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <span className="font-medium">Note:</span> Some items in your cart may be available on backorder. 
+                  You will be notified if any items need to be backordered when you complete your order.
+                </p>
+              </div>
               <div className="bg-card rounded-lg shadow-sm border border-border">
                 {/* Table Header */}
                 <div className="hidden md:grid grid-cols-12 gap-4 p-4 border-b border-border font-semibold text-sm">
@@ -260,7 +267,7 @@ const Cart = () => {
 
             {/* Cart Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-card rounded-lg shadow-sm border border-border p-6 sticky top-4">
+              <div className="bg-card rounded-lg shadow-sm border border-border p-4 md:p-6 lg:sticky lg:top-4">
                 <h2 className="text-xl font-bold mb-6">Cart Summary</h2>
 
                 {/* Applied Coupons */}

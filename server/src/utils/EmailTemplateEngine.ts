@@ -51,7 +51,7 @@ export class EmailTemplateEngine {
     let result = template;
     
     // Add frontend_url to variables if not already present
-    const allVariables = {
+    const allVariables: Record<string, any> = {
       ...variables,
       frontend_url: this.getFrontendUrl()
     };

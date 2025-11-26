@@ -56,3 +56,4 @@
 COMMENT ON TABLE page_products IS 'Seed data will be populated after products are identified. Use admin UI to configure page products.';
 
 
+

@@ -225,6 +225,9 @@ export class ShippingQuoteService {
 
   /**
    * List shipping quotes with filters
+   * Only shows:
+   * - Quotes associated with paid orders (order_id exists AND payment_status = 'paid'), OR
+   * - Manual quote requests (order_id IS NULL - from "contact for shipping quote" button)
    */
   async getShippingQuotes(
     page: number = 1,
@@ -243,17 +246,34 @@ export class ShippingQuoteService {
 
     try {
       const offset = (page - 1) * limit;
-      let whereClause = '';
+      const conditions: string[] = [];
       const params: any[] = [];
+      let paramIndex = 1;
 
+      // Filter: Only show paid orders or manual quote requests (order_id IS NULL)
+      conditions.push(`(
+        sq.order_id IS NULL 
+        OR EXISTS (
+          SELECT 1 FROM orders o 
+          WHERE o.id = sq.order_id 
+          AND o.payment_status = 'paid'
+        )
+      )`);
+
+      // Add status filter if provided
       if (status) {
-        whereClause = 'WHERE status = $1';
+        conditions.push(`sq.status = $${paramIndex}`);
         params.push(status);
+        paramIndex++;
       }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
       // Get total count
       const countResult = await client.query(
-        `SELECT COUNT(*) as total FROM shipping_quotes ${whereClause}`,
+        `SELECT COUNT(*) as total 
+         FROM shipping_quotes sq 
+         ${whereClause}`,
         params
       );
       const total = parseInt(countResult.rows[0].total);
@@ -261,10 +281,11 @@ export class ShippingQuoteService {
       // Get quotes
       const queryParams = [...params, limit, offset];
       const query = `
-        SELECT * FROM shipping_quotes 
+        SELECT sq.* 
+        FROM shipping_quotes sq
         ${whereClause}
-        ORDER BY created_at DESC
-        LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+        ORDER BY sq.created_at DESC
+        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
       `;
 
       const result = await client.query(query, queryParams);

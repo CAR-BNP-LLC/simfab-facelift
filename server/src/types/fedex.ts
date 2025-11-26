@@ -60,9 +60,6 @@ export interface FedExRateRequest {
       };
     }>;
   };
-  accountNumber?: {
-    value: string;
-  };
 }
 
 export interface FedExRateResponse {
