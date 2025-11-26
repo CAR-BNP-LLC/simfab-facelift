@@ -164,6 +164,9 @@ export class AuthController {
 
       // Trigger new account creation email event
       try {
+        // Get region from request (default to 'us' if not set)
+        const region = (req.region || 'us') as 'us' | 'eu';
+        
         await emailService.triggerEvent(
           'auth.account_created',
           {
@@ -173,7 +176,8 @@ export class AuthController {
           {
             customerEmail: email,
             customerName: userFirstName || email
-          }
+          },
+          region
         );
       } catch (emailError) {
         console.error('Failed to trigger account created email event:', emailError);
@@ -351,7 +355,10 @@ export class AuthController {
 
       // Trigger password reset email event
       try {
+        // Get region from request (default to 'us' if not set)
+        const region = (req.region || 'us') as 'us' | 'eu';
         const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetCode}`;
+        
         await emailService.triggerEvent(
           'auth.password_reset',
           {
@@ -362,7 +369,8 @@ export class AuthController {
           {
             customerEmail: email,
             customerName: user.first_name || email
-          }
+          },
+          region
         );
       } catch (emailError) {
         console.error('Failed to trigger password reset email event:', emailError);

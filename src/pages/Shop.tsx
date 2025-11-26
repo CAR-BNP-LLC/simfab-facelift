@@ -226,11 +226,21 @@ const Shop = () => {
 
   const isProductInStock = (product: any) => {
     try {
+      const backordersAllowed = product.backorders_allowed;
+      
       // Handle both structures
       if (product.stock !== undefined) {
+        // If stock is 0 but backorders are allowed, product is still available
+        if (product.stock === 0 && backordersAllowed) {
+          return true;
+        }
         return product.stock > 0;
       }
       if (product.stock_quantity !== undefined) {
+        // If stock is 0 but backorders are allowed, product is still available
+        if (product.stock_quantity === 0 && backordersAllowed) {
+          return true;
+        }
         return product.stock_quantity > 0;
       }
       if (product.in_stock === '1' || product.in_stock === true) {
@@ -248,21 +258,21 @@ const Shop = () => {
       
       <main className="container mx-auto px-4 pt-32 pb-20">
         {/* Page Header */}
-        <div className="flex justify-between items-center mb-12">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-8 md:mb-12 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-destructive mb-2">SimFab Shop</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-destructive mb-2">SimFab Shop</h1>
             <div className="w-39 h-1 bg-destructive"></div>
           </div>
           
           {/* Search Bar */}
-          <div className="relative w-80">
+          <div className="relative w-full md:w-80">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="pl-10 bg-card border-border"
+              className="pl-10 pr-20 md:pr-24 bg-card border-border"
             />
             <Button
               onClick={handleSearch}
@@ -276,8 +286,8 @@ const Shop = () => {
         </div>
 
         {/* Category Navigation */}
-        <div className="mb-12">
-          <nav className="flex flex-wrap gap-8">
+        <div className="mb-8 md:mb-12">
+          <nav className="flex flex-wrap gap-4 md:gap-8">
             <button
               type="button"
               onClick={() => handleCategoryChange('')}
@@ -416,9 +426,19 @@ const Shop = () => {
                       </div>
                       
                       {/* Stock Status */}
-                      {!isProductInStock(product) && (
-                        <p className="text-sm text-destructive">Out of Stock</p>
-                      )}
+                      {(() => {
+                        const stock = product.stock || product.stock_quantity || 0;
+                        const backordersAllowed = product.backorders_allowed;
+                        const isInStock = isProductInStock(product);
+                        const isBackorder = stock === 0 && backordersAllowed;
+                        
+                        if (!isInStock && !isBackorder) {
+                          return <p className="text-sm text-destructive">Out of Stock</p>;
+                        } else if (isBackorder) {
+                          return <p className="text-sm text-yellow-600 font-medium">Available on backorder</p>;
+                        }
+                        return null;
+                      })()}
                       
                       {/* Buy Now Button - Pushed to bottom with minimal gap */}
                       <div className="mt-auto pt-2 relative z-30" onClick={(e) => e.stopPropagation()}>

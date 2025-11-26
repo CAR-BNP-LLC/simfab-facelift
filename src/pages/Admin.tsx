@@ -126,6 +126,22 @@ const Admin = () => {
       setActiveTabState(currentUrlTab);
     }
   }, [searchParams, activeTab]);
+
+  // Handle order query parameter - open order details when order param is present
+  useEffect(() => {
+    const orderIdParam = searchParams.get('order');
+    if (orderIdParam && activeTab === 'orders' && !orderDetailsModalOpen) {
+      const orderId = parseInt(orderIdParam);
+      if (!isNaN(orderId) && (!selectedOrder || selectedOrder.id !== orderId)) {
+        handleViewOrderDetails(orderId);
+        // Remove order param from URL after opening modal
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('order');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, activeTab]);
   const [products, setProducts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -221,7 +237,7 @@ const Admin = () => {
     regular_price: '',
     stock_quantity: '10',
     stock_quantity_eu: '10', // Stock for EU when creating for both
-    categories: 'accessories',
+    categories: [] as string[],
     tags: '',
     note: '',
     region: 'us' as 'us' | 'eu' | 'both'
@@ -487,7 +503,7 @@ const Admin = () => {
           regular_price: parseFloat(productForm.regular_price),
           stock_quantity: parseInt(productForm.stock_quantity),
           featured: productForm.featured,
-          categories: [productForm.categories],
+          categories: productForm.categories,
           tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : [],
           note: productForm.note || null
         };
@@ -519,7 +535,7 @@ const Admin = () => {
             regular_price: '',
             stock_quantity: '10',
             stock_quantity_eu: '10',
-            categories: 'accessories',
+            categories: [],
             tags: '',
             note: '',
             region: 'us'
@@ -545,7 +561,7 @@ const Admin = () => {
           status: productForm.status,
           featured: productForm.featured,
           regular_price: parseFloat(productForm.regular_price),
-          categories: [productForm.categories],
+          categories: productForm.categories,
           tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : [],
           note: productForm.note || null
         };
@@ -603,7 +619,7 @@ const Admin = () => {
           regular_price: parseFloat(productForm.regular_price),
           stock_quantity: parseInt(productForm.stock_quantity),
           featured: productForm.featured,
-          categories: [productForm.categories],
+          categories: productForm.categories,
           tags: productForm.tags ? productForm.tags.split(',').map(t => t.trim()) : [],
           note: productForm.note || null
         };
@@ -837,6 +853,29 @@ const Admin = () => {
     // Individual product editing mode - show only region-specific fields
     setEditMode('individual');
     
+    // Fetch fresh product data to ensure we have the latest values (especially for backorders_allowed)
+    try {
+      console.log('🔄 Fetching fresh product data for editing:', product.id);
+      const response = await fetch(`${API_URL}/api/admin/products/${product.id}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        console.log('✅ Fresh product data fetched:', { 
+          id: data.data.id, 
+          backorders_allowed: data.data.backorders_allowed,
+          type: typeof data.data.backorders_allowed 
+        });
+        product = data.data; // Use fresh data
+      } else {
+        console.warn('⚠️  Failed to fetch fresh product data, using cached data');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching fresh product data:', error);
+      // Continue with cached product data if fetch fails
+    }
+    
     // Find paired product if it exists (for reference, but we're editing individual)
     const paired = product.product_group_id ? products.find(p => 
       p.product_group_id === product.product_group_id && 
@@ -854,13 +893,36 @@ const Admin = () => {
     }
   };
 
-  const handleEditGroup = (groupProducts: any[]) => {
+  const handleEditGroup = async (groupProducts: any[]) => {
     // Group editing mode - show only shared fields
     setEditMode('group');
     setEditingProductGroup(groupProducts);
     
     // Use the first product as the base for editing
-    const mainProduct = groupProducts[0];
+    let mainProduct = groupProducts[0];
+    
+    // Fetch fresh product data to ensure we have the latest values
+    try {
+      console.log('🔄 Fetching fresh product data for group editing:', mainProduct.id);
+      const response = await fetch(`${API_URL}/api/admin/products/${mainProduct.id}`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success && data.data) {
+        console.log('✅ Fresh product data fetched for group:', { 
+          id: data.data.id, 
+          backorders_allowed: data.data.backorders_allowed 
+        });
+        mainProduct = data.data; // Use fresh data
+      } else {
+        console.warn('⚠️  Failed to fetch fresh product data, using cached data');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching fresh product data:', error);
+      // Continue with cached product data if fetch fails
+    }
+    
     const paired = groupProducts.find(p => p.id !== mainProduct.id && p.region !== mainProduct.region);
     
     setEditingProduct(mainProduct);
@@ -947,6 +1009,12 @@ const Admin = () => {
       console.log('📥 Product update response:', data);
 
       if (data.success) {
+        console.log('✅ Product update successful:', { 
+          id: data.data?.id, 
+          backorders_allowed: data.data?.backorders_allowed,
+          type: typeof data.data?.backorders_allowed 
+        });
+        
         toast({
           title: 'Success',
           description: 'Product updated successfully',
@@ -2509,23 +2577,71 @@ const Admin = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="categories">Category</Label>
-                      <Select value={productForm.categories} onValueChange={(value) => setProductForm({ ...productForm, categories: value })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="flight-sim">Flight Sim</SelectItem>
-                          <SelectItem value="sim-racing">Sim Racing</SelectItem>
-                          <SelectItem value="accessories">Accessories</SelectItem>
-                          <SelectItem value="monitor-stands">Monitor Stands</SelectItem>
-                          <SelectItem value="conversion-kits">Conversion Kits</SelectItem>
-                          <SelectItem value="services">Services</SelectItem>
-                          <SelectItem value="individual-parts">Individual Parts</SelectItem>
-                          <SelectItem value="racing-flight-seats">Racing & Flight Seats</SelectItem>
-                          <SelectItem value="refurbished">B-stock</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label htmlFor="categories">Categories</Label>
+                      <div className="mt-2 space-y-2 border rounded-md p-4 max-h-60 overflow-y-auto">
+                        {[
+                          { value: 'flight-sim', label: 'Flight Sim' },
+                          { value: 'sim-racing', label: 'Sim Racing' },
+                          { value: 'accessories', label: 'Accessories' },
+                          { value: 'monitor-stands', label: 'Monitor Stands' },
+                          { value: 'conversion-kits', label: 'Conversion Kits' },
+                          { value: 'services', label: 'Services' },
+                          { value: 'individual-parts', label: 'Individual Parts' },
+                          { value: 'racing-flight-seats', label: 'Racing & Flight Seats' },
+                          { value: 'refurbished', label: 'B-stock' },
+                          { value: 'bundles', label: 'Bundles' },
+                          { value: 'flight-sim-add-on-modules', label: 'Flight Sim Add-On Modules' },
+                          { value: 'flight-sim-accessories', label: 'Flight Sim Accessories' }
+                        ].map((category) => (
+                          <div key={category.value} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`admin-category-${category.value}`}
+                              checked={productForm.categories.includes(category.value)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setProductForm({
+                                    ...productForm,
+                                    categories: [...productForm.categories, category.value]
+                                  });
+                                } else {
+                                  setProductForm({
+                                    ...productForm,
+                                    categories: productForm.categories.filter(c => c !== category.value)
+                                  });
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`admin-category-${category.value}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {category.label}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      {productForm.categories.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {productForm.categories.map((cat) => (
+                            <Badge key={cat} variant="secondary">
+                              {[
+                                { value: 'flight-sim', label: 'Flight Sim' },
+                                { value: 'sim-racing', label: 'Sim Racing' },
+                                { value: 'accessories', label: 'Accessories' },
+                                { value: 'monitor-stands', label: 'Monitor Stands' },
+                                { value: 'conversion-kits', label: 'Conversion Kits' },
+                                { value: 'services', label: 'Services' },
+                                { value: 'individual-parts', label: 'Individual Parts' },
+                                { value: 'racing-flight-seats', label: 'Racing & Flight Seats' },
+                                { value: 'refurbished', label: 'B-stock' },
+                                { value: 'bundles', label: 'Bundles' },
+                                { value: 'flight-sim-add-on-modules', label: 'Flight Sim Add-On Modules' },
+                                { value: 'flight-sim-accessories', label: 'Flight Sim Accessories' }
+                              ].find(c => c.value === cat)?.label || cat}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="tags">Tags (comma separated)</Label>

@@ -408,7 +408,21 @@ export class CartService {
         normalizedConfig
       );
       
-      if (data.quantity > availableStock) {
+      // Check if product allows backorders
+      const backorderCheck = await client.query(
+        `SELECT 
+         CASE 
+           WHEN backorders_allowed IS NULL THEN false
+           WHEN LOWER(TRIM(backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+           ELSE false
+         END as backorders_allowed
+         FROM products WHERE id = $1`,
+        [product.id]
+      );
+      const backordersAllowed = backorderCheck.rows[0]?.backorders_allowed || false;
+      
+      // Only throw error if backorders are not allowed and stock is insufficient
+      if (data.quantity > availableStock && !backordersAllowed) {
         await client.query('ROLLBACK');
         throw new ValidationError(`Insufficient stock. Only ${availableStock} available`, {
           available: availableStock,
@@ -1040,9 +1054,18 @@ export class CartService {
     const errors: string[] = [];
 
     try {
-      // Get cart items
+      // Get cart items with backorder information
       const itemsSql = `
-        SELECT ci.*, p.stock, p.status, p.name
+        SELECT 
+          ci.*, 
+          p.stock, 
+          p.status, 
+          p.name,
+          CASE 
+            WHEN p.backorders_allowed IS NULL THEN false
+            WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+            ELSE false
+          END as backorders_allowed
         FROM cart_items ci
         JOIN products p ON p.id = ci.product_id
         WHERE ci.cart_id = $1
@@ -1062,8 +1085,9 @@ export class CartService {
           errors.push(`Product "${item.name}" is no longer available`);
         }
 
-        // Check stock
-        if (item.stock < item.quantity) {
+        // Check stock - only fail if stock is insufficient AND backorders are not allowed
+        const backordersAllowed = item.backorders_allowed || false;
+        if (item.stock < item.quantity && !backordersAllowed) {
           errors.push(`Insufficient stock for "${item.name}". Only ${item.stock} available`);
         }
       }

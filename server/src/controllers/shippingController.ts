@@ -121,6 +121,9 @@ export class ShippingController {
 
       // Send emails
       try {
+        // Get region from request (default to 'us' if not set)
+        const region = (req.region || 'us') as 'us' | 'eu';
+        
         // Email to admin
         await this.emailService.triggerEvent(
           'shipping.quote.requested',
@@ -136,7 +139,8 @@ export class ShippingController {
           },
           {
             adminEmail: 'info@simfab.com'
-          }
+          },
+          region
         );
 
         // Email to customer
@@ -150,7 +154,8 @@ export class ShippingController {
           {
             customerEmail: quote.customer_email,
             customerName: quote.customer_name
-          }
+          },
+          region
         );
       } catch (emailError) {
         console.error('Failed to send quote request emails:', emailError);

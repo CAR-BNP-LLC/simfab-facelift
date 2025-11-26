@@ -83,6 +83,7 @@ export interface Product {
   low_stock_amount: number; // Database uses 'low_stock_amount'
   in_stock: string; // Database uses string '1' or '0'
   is_bundle: boolean; // If true, this product contains other products
+  backorders_allowed: boolean; // If true, product can be ordered when stock is 0 (stock goes negative)
   
   // Shipping
   tax_class: string | null;
@@ -335,6 +336,7 @@ export interface CreateProductDto {
   low_stock_threshold?: number;
   manage_stock?: boolean;
   allow_backorders?: boolean;
+  backorders_allowed?: boolean; // Alias for allow_backorders (frontend uses this name)
   
   // Shipping
   requires_shipping?: boolean;

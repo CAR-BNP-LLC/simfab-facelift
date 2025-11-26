@@ -9,6 +9,7 @@ import { EmailTemplate, EmailLogInput, EmailSettings, EmailResult, SendEmailOpti
 import { EmailTemplateEngine } from '../utils/EmailTemplateEngine';
 import { EmailTemplateWrapper } from '../utils/EmailTemplateWrapper';
 import { NotFoundError, ValidationError } from '../utils/errors';
+import { RegionSettingsService } from './RegionSettingsService';
 
 export interface SendMarketingEmailOptions {
   recipientEmail: string;
@@ -16,24 +17,32 @@ export interface SendMarketingEmailOptions {
   subject: string;
   content: string;
   unsubscribeToken: string;
+  region?: 'us' | 'eu'; // Region for region-specific SMTP settings
 }
 
 export class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private transporters: Map<'us' | 'eu', nodemailer.Transporter | null> = new Map();
   private templateEngine: EmailTemplateEngine;
+  private regionSettingsService: RegionSettingsService;
   
   constructor(private pool: Pool) {
     this.templateEngine = new EmailTemplateEngine();
+    this.regionSettingsService = new RegionSettingsService(pool);
+    // Initialize transporters map
+    this.transporters.set('us', null);
+    this.transporters.set('eu', null);
   }
 
   /**
-   * Initialize SMTP connection
+   * Initialize SMTP connection for a specific region
+   * Uses lazy initialization - called when first email is sent for that region
    */
-  async initialize(): Promise<void> {
-    const settings = await this.getEmailSettings();
+  async initialize(region: 'us' | 'eu' = 'us'): Promise<void> {
+    const settings = await this.getEmailSettings(region);
     
     if (!settings.enabled) {
-      console.log('📧 Email service is disabled');
+      console.log(`📧 Email service is disabled for region: ${region}`);
+      this.transporters.set(region, null);
       return;
     }
 
@@ -42,31 +51,49 @@ export class EmailService {
     // 1. Explicitly set to test_mode = true, OR
     // 2. SMTP credentials are missing
     const hasSMTPCredentials = settings.smtp_host && settings.smtp_user && settings.smtp_password;
-    const shouldUseTestMode = settings.test_mode === true || !hasSMTPCredentials;
     
-    if (shouldUseTestMode) {
-      console.log('📧 Email service initialized in TEST MODE');
-      this.transporter = nodemailer.createTransport({
+    // Debug: Check if password appears to be masked (ends with xxxxx)
+    if (settings.smtp_password && typeof settings.smtp_password === 'string' && settings.smtp_password.endsWith('xxxxx')) {
+      console.error(`❌ [SMTP Config Error] Password for region ${region} appears to be masked (ends with 'xxxxx'). Please re-enter the password in Admin Settings.`);
+      console.log(`📧 Email service will use TEST MODE due to masked password`);
+      this.transporters.set(region, nodemailer.createTransport({
         streamTransport: true,
         newline: 'unix',
         buffer: true
-      });
+      }));
+      return;
+    }
+    
+    const shouldUseTestMode = settings.test_mode === true || !hasSMTPCredentials;
+    
+    if (shouldUseTestMode) {
+      console.log(`📧 Email service initialized in TEST MODE for region: ${region}`);
+      this.transporters.set(region, nodemailer.createTransport({
+        streamTransport: true,
+        newline: 'unix',
+        buffer: true
+      }));
     } else {
       // Production SMTP - credentials are verified to exist
-      this.transporter = nodemailer.createTransport({
-        host: settings.smtp_host!,
+      // Trim whitespace from credentials to avoid authentication issues
+      const smtpHost = settings.smtp_host!.trim();
+      const smtpUser = settings.smtp_user!.trim();
+      const smtpPassword = settings.smtp_password!.trim();
+      
+      this.transporters.set(region, nodemailer.createTransport({
+        host: smtpHost,
         port: settings.smtp_port || 587,
         secure: settings.smtp_port === 465, // true for 465 (SSL), false for 587 (TLS)
         auth: {
-          user: settings.smtp_user!,
-          pass: settings.smtp_password!
+          user: smtpUser,
+          pass: smtpPassword
         },
         // Additional options for better compatibility
         tls: {
           rejectUnauthorized: false // For self-signed certificates (development only)
         }
-      });
-      console.log(`✅ Email service initialized for PRODUCTION (${settings.smtp_host}:${settings.smtp_port})`);
+      }));
+      console.log(`✅ Email service initialized for PRODUCTION (${region}): ${settings.smtp_host}:${settings.smtp_port}`);
     }
   }
 
@@ -109,8 +136,11 @@ export class EmailService {
           )
         : null;
 
-      // Get email settings
-      const settings = await this.getEmailSettings();
+      // Determine region (default to 'us' for backward compatibility)
+      const region = options.region || 'us';
+
+      // Get email settings for the region
+      const settings = await this.getEmailSettings(region);
 
       // Determine actual recipient
       // In test mode, redirect to test email if configured
@@ -136,19 +166,24 @@ export class EmailService {
       const hasSMTPConfig = settings.smtp_host && settings.smtp_user && settings.smtp_password;
       const isProductionMode = settings.test_mode === false && hasSMTPConfig;
       
+      // Get or initialize transporter for this region
+      let transporter = this.transporters.get(region);
+      
       // Ensure transporter is initialized if needed
-      if (isProductionMode && !this.transporter) {
-        await this.initialize();
+      if (isProductionMode && !transporter) {
+        await this.initialize(region);
+        transporter = this.transporters.get(region);
       }
       
       // Ensure transporter is properly initialized for production
       if (isProductionMode) {
-        if (!this.transporter) {
-          await this.initialize();
+        if (!transporter) {
+          await this.initialize(region);
+          transporter = this.transporters.get(region);
         }
         
-        if (!this.transporter) {
-          console.error('❌ Failed to initialize transporter for production');
+        if (!transporter) {
+          console.error(`❌ Failed to initialize transporter for production (region: ${region})`);
           result = {
             success: false,
             error: 'Email transporter not initialized',
@@ -175,7 +210,7 @@ export class EmailService {
         }
 
         try {
-          const info: any = await this.transporter!.sendMail(mailOptions);
+          const info: any = await transporter.sendMail(mailOptions);
           
           result = {
             success: true,
@@ -189,29 +224,47 @@ export class EmailService {
             ['sent', logId]
           );
         } catch (error: any) {
-          console.error('❌ [DEBUG] Error sending email:', error);
-          console.error('❌ [DEBUG] Error details:', {
-            code: error.code,
-            command: error.command,
-            response: error.response,
-            responseCode: error.responseCode,
-            message: error.message,
-            stack: error.stack,
-            to: actualRecipient,
-            from: mailOptions.from,
-            subject: mailOptions.subject
-          });
+          // Enhanced error logging for SMTP issues
+          const errorCode = error.code || 'UNKNOWN';
+          const isAuthError = errorCode === 'EAUTH' || error.responseCode === 535;
+          const errorMessage = error.message || 'Failed to send email';
+          
+          if (isAuthError) {
+            console.error('❌ SMTP Authentication Error:', {
+              region,
+              message: 'Invalid SMTP credentials. Please configure SMTP settings in Admin → Settings → SMTP Email Settings for this region.',
+              smtp_host: settings.smtp_host || 'Not configured',
+              smtp_user: settings.smtp_user ? `${settings.smtp_user.substring(0, 3)}***` : 'Not configured',
+              from_email: settings.smtp_from_email || 'Not configured',
+              to: actualRecipient,
+              subject: mailOptions.subject
+            });
+          } else {
+            console.error('❌ [DEBUG] Error sending email:', {
+              region,
+              code: error.code,
+              command: error.command,
+              response: error.response,
+              responseCode: error.responseCode,
+              message: error.message,
+              to: actualRecipient,
+              from: mailOptions.from,
+              subject: mailOptions.subject
+            });
+          }
           
           result = {
             success: false,
-            error: error.message || 'Failed to send email',
+            error: isAuthError 
+              ? 'SMTP authentication failed. Please configure SMTP settings in Admin → Settings → SMTP Email Settings for this region.'
+              : errorMessage,
             logId
           };
 
           // Update log with error
           await client.query(
             'UPDATE email_logs SET status = $1, error_message = $2 WHERE id = $3',
-            ['failed', error.message || 'Failed to send email', logId]
+            ['failed', result.error, logId]
           );
         }
       } else {
@@ -236,7 +289,8 @@ export class EmailService {
             recipientEmail: adminEmail,
             recipientName: 'SimFab Admin',
             variables: options.variables,
-            adminCopy: false
+            adminCopy: false,
+            region: region // Pass region to admin copy emails
           });
         }
       }
@@ -278,11 +332,36 @@ export class EmailService {
   }
 
   /**
-   * Get email settings
-   * Priority: Environment variables > Database settings > Defaults
+   * Get email settings for a region
+   * Priority: region_settings > Environment variables > Database settings > Defaults
    */
-  private async getEmailSettings(): Promise<EmailSettings> {
-    // Check for environment variables first (production mode)
+  private async getEmailSettings(region: 'us' | 'eu' = 'us'): Promise<EmailSettings> {
+    // First, try to get SMTP settings from region_settings
+    try {
+      const regionSmtpSettings = await this.regionSettingsService.getSmtpSettings(region, false);
+      
+      // If region has SMTP settings configured, use them
+      if (regionSmtpSettings.smtp_host || regionSmtpSettings.smtp_user) {
+        return {
+          test_mode: regionSmtpSettings.smtp_test_mode,
+          enabled: regionSmtpSettings.smtp_enabled,
+          smtp_host: regionSmtpSettings.smtp_host || undefined,
+          smtp_port: regionSmtpSettings.smtp_port || 587,
+          smtp_user: regionSmtpSettings.smtp_user || undefined,
+          smtp_password: regionSmtpSettings.smtp_password || undefined,
+          smtp_from_email: regionSmtpSettings.smtp_from_email || 'noreply@simfab.com',
+          smtp_from_name: regionSmtpSettings.smtp_from_name || 'SimFab',
+          test_email: regionSmtpSettings.smtp_test_email || undefined,
+          daily_limit: 1000, // Default values
+          rate_limit_per_minute: 10,
+          updated_at: new Date()
+        };
+      }
+    } catch (error) {
+      console.warn(`Failed to get region SMTP settings for ${region}, falling back to env vars:`, error);
+    }
+    
+    // Fall back to environment variables (backward compatibility)
     // Support both EMAIL_SMTP_* and SMTP_* variable names
     const smtpHost = process.env.SMTP_HOST || process.env.EMAIL_SMTP_HOST;
     const useEnv = process.env.EMAIL_USE_ENV === 'true' || smtpHost;
@@ -396,6 +475,7 @@ export class EmailService {
    * @param event - The trigger event (e.g., 'order.created', 'order.processing')
    * @param variables - Template variables to use
    * @param recipientInfo - Information about recipients (customer email, admin email, etc.)
+   * @param region - Region for region-specific SMTP settings (defaults to 'us')
    */
   async triggerEvent(
     event: string,
@@ -404,7 +484,8 @@ export class EmailService {
       customerEmail?: string;
       customerName?: string;
       adminEmail?: string;
-    }
+    },
+    region: 'us' | 'eu' = 'us'
   ): Promise<EmailResult[]> {
     const results: EmailResult[] = [];
     
@@ -481,7 +562,8 @@ export class EmailService {
               templateType: template.type,
               recipientEmail: recipient.email,
               recipientName: recipient.name,
-              variables
+              variables,
+              region: region // Pass region to sendEmail
             });
             results.push(result);
           }
@@ -519,8 +601,11 @@ export class EmailService {
     const client = await this.pool.connect();
     
     try {
-      // Get email settings
-      const settings = await this.getEmailSettings();
+      // Determine region (default to 'us' for backward compatibility)
+      const region = options.region || 'us';
+      
+      // Get email settings for the region
+      const settings = await this.getEmailSettings(region);
 
       // Wrap content with marketing email template (includes unsubscribe footer)
       const htmlBody = EmailTemplateWrapper.wrapMarketingEmail(
@@ -552,6 +637,7 @@ export class EmailService {
       const isProductionMode = settings.test_mode === false && hasSMTPConfig;
       
       console.log('📧 Marketing Email Send Mode:', {
+        region,
         test_mode: settings.test_mode,
         hasSMTPConfig: !!hasSMTPConfig, // Don't log the actual password
         isProductionMode,
@@ -560,12 +646,16 @@ export class EmailService {
       });
       
       if (isProductionMode) {
-        if (!this.transporter) {
-          await this.initialize();
+        // Get or initialize transporter for this region
+        let transporter = this.transporters.get(region);
+        
+        if (!transporter) {
+          await this.initialize(region);
+          transporter = this.transporters.get(region);
         }
         
-        if (!this.transporter) {
-          console.error('❌ Failed to initialize transporter for production');
+        if (!transporter) {
+          console.error(`❌ Failed to initialize transporter for production (region: ${region})`);
           result = {
             success: false,
             error: 'Email transporter not initialized',
@@ -588,7 +678,7 @@ export class EmailService {
         };
 
         try {
-          const info: any = await this.transporter!.sendMail(mailOptions);
+          const info: any = await transporter.sendMail(mailOptions);
           
           console.log('✅ Marketing email sent successfully:', {
             to: actualRecipient,
@@ -608,24 +698,43 @@ export class EmailService {
             ['sent', logId]
           );
         } catch (error: any) {
-          console.error('❌ Error sending marketing email:', error);
-          console.error('❌ Error details:', {
-            message: error.message,
-            code: error.code,
-            command: error.command,
-            response: error.response
-          });
+          // Enhanced error logging for SMTP issues
+          const errorCode = error.code || 'UNKNOWN';
+          const isAuthError = errorCode === 'EAUTH' || error.responseCode === 535;
+          const errorMessage = error.message || 'Failed to send email';
+          
+          if (isAuthError) {
+            console.error('❌ SMTP Authentication Error (Marketing Email):', {
+              region,
+              message: 'Invalid SMTP credentials. Please configure SMTP settings in Admin → Settings → SMTP Email Settings for this region.',
+              smtp_host: settings.smtp_host || 'Not configured',
+              smtp_user: settings.smtp_user ? `${settings.smtp_user.substring(0, 3)}***` : 'Not configured',
+              from_email: settings.smtp_from_email || 'Not configured',
+              to: actualRecipient,
+              subject: options.subject
+            });
+          } else {
+            console.error('❌ Error sending marketing email:', {
+              region,
+              message: error.message,
+              code: error.code,
+              command: error.command,
+              response: error.response
+            });
+          }
           
           result = {
             success: false,
-            error: error.message || 'Failed to send email',
+            error: isAuthError 
+              ? 'SMTP authentication failed. Please configure SMTP settings in Admin → Settings → SMTP Email Settings for this region.'
+              : errorMessage,
             logId
           };
 
           // Update log with error
           await client.query(
             'UPDATE email_logs SET status = $1, error_message = $2 WHERE id = $3',
-            ['failed', error.message || 'Failed to send email', logId]
+            ['failed', result.error, logId]
           );
         }
       } else {

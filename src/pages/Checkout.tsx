@@ -53,6 +53,8 @@ const Checkout = () => {
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [quoteRequested, setQuoteRequested] = useState(false);
   const [requestingQuote, setRequestingQuote] = useState(false);
+  // Store cart signature when order is created to detect changes
+  const [orderCartSignature, setOrderCartSignature] = React.useState<string | null>(null);
 
   // Destructure state from context
   const {
@@ -274,6 +276,20 @@ const Checkout = () => {
               selectedShipping: response.data.shippingMethods[0].id 
             });
           }
+          
+          // If user previously selected 'international_quote' but FedEx rates are now available,
+          // auto-select the FedEx option instead
+          if (selectedShipping === 'international_quote') {
+            const fedExOption = response.data.shippingMethods.find(
+              opt => opt.id === 'international_fedex' && !opt.requiresManualQuote
+            );
+            if (fedExOption) {
+              console.log('FedEx rates available, auto-selecting FedEx option instead of quote');
+              updateCheckoutState({ 
+                selectedShipping: fedExOption.id 
+              });
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to fetch shipping rates:', error);
@@ -325,9 +341,31 @@ const Checkout = () => {
           step: 4,
           createdOrder: null 
         });
+        setOrderCartSignature(null);
       }
     }
   }, [step, createdOrder, updateCheckoutState]);
+
+  // Detect cart changes on payment step and invalidate order if cart changed
+  useEffect(() => {
+    if (step === 5 && createdOrder && orderCartSignature) {
+      if (orderCartSignature !== cartItemsSignature) {
+        console.warn('Cart has changed since order was created. Invalidating order.');
+        toast({
+          title: 'Cart has changed',
+          description: 'Your cart contents have changed. Please review your order before proceeding to payment.',
+          variant: 'destructive',
+          duration: 10000
+        });
+        // Invalidate the order and go back to review step
+        updateCheckoutState({ 
+          step: 4,
+          createdOrder: null
+        });
+        setOrderCartSignature(null);
+      }
+    }
+  }, [step, createdOrder, cartItemsSignature, orderCartSignature, updateCheckoutState, toast]);
 
   const handleAddressChange = (field: keyof typeof shippingAddress, value: string) => {
     updateCheckoutState({
@@ -528,6 +566,10 @@ const Checkout = () => {
         const tax = typeof createdOrderData.tax_amount === 'string' ? parseFloat(createdOrderData.tax_amount) : Number(createdOrderData.tax_amount) || 0;
         const total = typeof createdOrderData.total_amount === 'string' ? parseFloat(createdOrderData.total_amount) : Number(createdOrderData.total_amount) || 0;
         const expectedTotal = subtotal - discount + shipping + tax;
+        
+        // Store cart signature when order is created to detect changes
+        setOrderCartSignature(cartItemsSignature);
+        
         updateCheckoutState({ 
           createdOrder: createdOrderData,
           step: 5 // Move to payment step
@@ -561,6 +603,7 @@ const Checkout = () => {
     await refreshCart();
     
     // Reset checkout state after successful payment
+    setOrderCartSignature(null);
     updateCheckoutState({
       step: 1,
       shippingAddress: {
@@ -697,30 +740,35 @@ const Checkout = () => {
     : 0;
   
   // Calculate order total
-  // On step 2 (address step): subtotal - discount only (no shipping, no tax)
-  // On step 3+: subtotal - discount + shipping + tax
-  let orderTotal = step >= 3
-    ? Number((totals.subtotal - totals.discount + shippingCost + floridaTax) || 0)
-    : Number((totals.subtotal - totals.discount) || 0);
+  // CRITICAL: If we have a created order, use its total_amount from the database
+  // This ensures the payment amount matches exactly what's stored in the database
+  // and prevents 402 Payment Required errors due to amount mismatches
+  let orderTotal: number;
   
-  // Ensure we have a valid number
-  if (isNaN(orderTotal) || orderTotal < 0) {
-    console.error('Invalid orderTotal calculated:', orderTotal);
-    // Fallback: use createdOrder total if available, but try to add current shipping
-    if (createdOrder?.total_amount) {
-      const fallbackTotal = typeof createdOrder.total_amount === 'string' 
-        ? parseFloat(createdOrder.total_amount) 
-        : Number(createdOrder.total_amount);
-      
-      // If order has shipping but current shipping is different, adjust
-      const orderShipping = createdOrder?.shipping_amount 
-        ? (typeof createdOrder.shipping_amount === 'string' ? parseFloat(createdOrder.shipping_amount) : Number(createdOrder.shipping_amount))
-        : 0;
-      
-      // Replace old shipping with new shipping
-      orderTotal = fallbackTotal - orderShipping + shippingCost;
-      console.error('Using adjusted fallback total:', orderTotal, '(was', fallbackTotal, 'with shipping', orderShipping, 'now using shipping', shippingCost, ')');
-    } else {
+  if (createdOrder?.total_amount) {
+    // Use the order's actual total from the database
+    orderTotal = typeof createdOrder.total_amount === 'string' 
+      ? parseFloat(createdOrder.total_amount) 
+      : Number(createdOrder.total_amount);
+    
+    // Ensure it's a valid number
+    if (isNaN(orderTotal) || orderTotal < 0) {
+      console.error('Invalid order total from database:', createdOrder.total_amount);
+      orderTotal = 0;
+    }
+    
+    console.log('💰 Using order total from database:', orderTotal);
+  } else {
+    // Calculate order total for display before order is created
+    // On step 2 (address step): subtotal - discount only (no shipping, no tax)
+    // On step 3+: subtotal - discount + shipping + tax
+    orderTotal = step >= 3
+      ? Number((totals.subtotal - totals.discount + shippingCost + floridaTax) || 0)
+      : Number((totals.subtotal - totals.discount) || 0);
+    
+    // Ensure we have a valid number
+    if (isNaN(orderTotal) || orderTotal < 0) {
+      console.error('Invalid orderTotal calculated:', orderTotal);
       orderTotal = 0;
     }
   }
@@ -760,16 +808,16 @@ const Checkout = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-4 md:py-8">
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Checkout</h1>
-            <p className="text-muted-foreground">Complete your purchase</p>
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">Checkout</h1>
+            <p className="text-sm md:text-base text-muted-foreground">Complete your purchase</p>
           </div>
 
 
           {/* Progress Indicator */}
-          <div className="mb-8">
+          <div className="mb-6 md:mb-8">
             <div className="flex items-center max-w-3xl mx-auto">
               {[
                 { num: 1, label: 'Cart' },
@@ -780,10 +828,10 @@ const Checkout = () => {
               ].map((stepInfo, idx) => (
                 <div key={stepInfo.num} className="flex items-center flex-1">
                   <div className="flex flex-col items-center flex-1">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${step >= stepInfo.num ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                      {step > stepInfo.num ? <CheckCircle className="w-6 h-6" /> : stepInfo.num}
+                    <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-semibold text-xs md:text-base ${step >= stepInfo.num ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                      {step > stepInfo.num ? <CheckCircle className="w-4 h-4 md:w-6 md:h-6" /> : stepInfo.num}
                     </div>
-                    <span className="text-xs mt-2 hidden sm:block">{stepInfo.label}</span>
+                    <span className="text-xs mt-1 md:mt-2 hidden sm:block">{stepInfo.label}</span>
                   </div>
                   {/* Add invisible spacer for last item to maintain alignment */}
                   {idx < 4 ? (
@@ -796,7 +844,7 @@ const Checkout = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
             {/* Main Content */}
             <div className="lg:col-span-2">
               {/* Step 1: Cart Review */}
@@ -809,6 +857,13 @@ const Checkout = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {/* Backorder Notice */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                      <p className="text-sm text-yellow-800">
+                        <span className="font-medium">Note:</span> Some items in your order may be available on backorder. 
+                        You will receive an email confirmation with details about any backordered items.
+                      </p>
+                    </div>
                     <div className="space-y-4">
                       {items.map((item: any) => (
                         <div key={item.id} className="flex gap-4 border-b border-border pb-4 last:border-0">
@@ -1237,7 +1292,7 @@ const Checkout = () => {
 
             {/* Order Summary Sidebar */}
             <div className="lg:col-span-1">
-              <Card className="sticky top-4">
+              <Card className="lg:sticky lg:top-4">
                 <CardHeader>
                   <CardTitle>Order Summary</CardTitle>
                 </CardHeader>

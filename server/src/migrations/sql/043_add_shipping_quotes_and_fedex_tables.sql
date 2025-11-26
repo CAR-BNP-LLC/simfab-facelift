@@ -101,3 +101,4 @@ COMMENT ON COLUMN orders.is_international_shipping IS 'Indicates if order uses i
 
 COMMIT;
 
+

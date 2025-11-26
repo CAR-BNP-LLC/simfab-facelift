@@ -45,6 +45,8 @@ const Admin = lazy(() => import("./pages/Admin"));
 const Wishlist = lazy(() => import("./pages/Wishlist"));
 const RacingFlightSeats = lazy(() => import("./pages/RacingFlightSeats"));
 const Accessories = lazy(() => import("./pages/Accessories"));
+const FlightSimAddOnModules = lazy(() => import("./pages/FlightSimAddOnModules"));
+const FlightSimAccessories = lazy(() => import("./pages/FlightSimAccessories"));
 const BStock = lazy(() => import("./pages/BStock"));
 
 // Loading fallback component
@@ -82,6 +84,8 @@ const App = () => {
                           <Route path="/share/:code" element={<ProductDetail />} />
                           <Route path="/admin" element={<Admin />} />
                           <Route path="/flight-sim" element={<FlightSim />} />
+                          <Route path="/flight-sim-add-on-modules" element={<FlightSimAddOnModules />} />
+                          <Route path="/flight-sim-accessories" element={<FlightSimAccessories />} />
                           <Route path="/sim-racing" element={<SimRacing />} />
                           <Route path="/login" element={<Login />} />
                           <Route path="/register" element={<Register />} />

@@ -70,9 +70,10 @@ export class PaymentValidationService {
         }
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
       return {
         valid: false,
-        errors: [`Validation error: ${error.message}`],
+        errors: [`Validation error: ${errorMessage}`],
         warnings: []
       };
     }
@@ -113,9 +114,10 @@ export class PaymentValidationService {
         }
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown validation error';
       return {
         valid: false,
-        errors: [`Validation error: ${error.message}`],
+        errors: [`Validation error: ${errorMessage}`],
         warnings: []
       };
     }

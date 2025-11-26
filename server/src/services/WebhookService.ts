@@ -183,6 +183,8 @@ export class WebhookService {
         }
 
         const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+        // Get region from order (default to 'us' for backward compatibility)
+        const orderRegion = (order.region || 'us') as 'us' | 'eu';
         
         await this.emailService.triggerEvent(
           'order.payment_failed',
@@ -197,7 +199,8 @@ export class WebhookService {
             customerEmail: order.customer_email,
             customerName: customerName,
             adminEmail: 'info@simfab.com'
-          }
+          },
+          orderRegion
         );
       } catch (emailError) {
         console.error('Failed to trigger payment failed email event:', emailError);

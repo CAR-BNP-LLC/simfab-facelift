@@ -84,3 +84,4 @@ export const TimePeriodSelector = memo<TimePeriodSelectorProps>(({
 });
 
 TimePeriodSelector.displayName = 'TimePeriodSelector';
+

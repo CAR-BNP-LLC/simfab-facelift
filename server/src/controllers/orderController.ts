@@ -118,6 +118,9 @@ export class OrderController {
         const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
         const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
 
+        // Get region from order (default to 'us' for backward compatibility)
+        const orderRegion = (order.region || 'us') as 'us' | 'eu';
+
         await this.emailService.triggerEvent(
           'order.created',
           {
@@ -135,7 +138,8 @@ export class OrderController {
             customerEmail: order.customer_email,
             customerName: customerName,
             adminEmail: 'info@simfab.com'
-          }
+          },
+          orderRegion
         );
 
       } catch (emailError) {

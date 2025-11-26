@@ -266,6 +266,8 @@ export class AdminOrderController {
       if (hasNewNote) {
         try {
           const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+          // Get region from order (default to 'us' for backward compatibility)
+          const orderRegion = (order.region || 'us') as 'us' | 'eu';
           
           await this.emailService.triggerEvent(
             'admin.note_added',
@@ -280,7 +282,8 @@ export class AdminOrderController {
               customerEmail: order.customer_email,
               customerName: customerName,
               adminEmail: 'info@simfab.com'
-            }
+            },
+            orderRegion
           );
 
         } catch (emailError) {
@@ -307,7 +310,8 @@ export class AdminOrderController {
         if (triggerEvent) {
           // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
           const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
-
+          // Get region from order (default to 'us' for backward compatibility)
+          const orderRegion = (order.region || 'us') as 'us' | 'eu';
 
           await this.emailService.triggerEvent(
             triggerEvent,
@@ -325,7 +329,8 @@ export class AdminOrderController {
               customerEmail: order.customer_email,
               customerName: customerName,
               adminEmail: 'info@simfab.com'
-            }
+            },
+            orderRegion
           );
 
         }

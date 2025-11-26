@@ -347,6 +347,7 @@ export interface Product {
     inStock: boolean;
     manageStock: boolean;
   };
+  backorders_allowed?: boolean;
   categories?: string[];
   tags?: string[];
   rating?: {

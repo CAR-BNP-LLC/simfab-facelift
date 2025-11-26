@@ -204,7 +204,8 @@ export class OrderService {
           await this.stockReservationService.reserveVariationStock(
             order.id,
             cartItem.configuration,
-            cartItem.quantity
+            cartItem.quantity,
+            client
           );
         }
       }

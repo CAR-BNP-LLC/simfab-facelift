@@ -89,6 +89,7 @@ services:
 
   # Frontend with Hot Reload
   frontend:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: Dockerfile.frontend

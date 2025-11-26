@@ -48,7 +48,13 @@ export class ProductQueryBuilder {
         p.short_description, p.description,
         p.date_sale_price_starts, p.date_sale_price_ends,
         p.tax_status, p.tax_class, p.in_stock, p.stock,
-        p.low_stock_amount, p.backorders_allowed, p.sold_individually,
+        p.low_stock_amount, 
+        CASE 
+          WHEN p.backorders_allowed IS NULL THEN false
+          WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+          ELSE false
+        END as backorders_allowed,
+        p.sold_individually,
         p.weight_lbs, p.length_in, p.width_in, p.height_in,
         p.package_weight, p.package_weight_unit, p.package_length, p.package_width, p.package_height, p.package_dimension_unit,
         p.tariff_code,
@@ -142,7 +148,13 @@ export class ProductQueryBuilder {
         p.short_description, p.description,
         p.date_sale_price_starts, p.date_sale_price_ends,
         p.tax_status, p.tax_class, p.in_stock, p.stock,
-        p.low_stock_amount, p.backorders_allowed, p.sold_individually,
+        p.low_stock_amount, 
+        CASE 
+          WHEN p.backorders_allowed IS NULL THEN false
+          WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+          ELSE false
+        END as backorders_allowed,
+        p.sold_individually,
         p.weight_lbs, p.length_in, p.width_in, p.height_in,
         p.allow_customer_reviews, p.purchase_note,
         p.sale_price, p.regular_price, p.categories, p.tags,
@@ -306,7 +318,13 @@ export class ProductQueryBuilder {
         p.short_description, p.description,
         p.date_sale_price_starts, p.date_sale_price_ends,
         p.tax_status, p.tax_class, p.in_stock, p.stock,
-        p.low_stock_amount, p.backorders_allowed, p.sold_individually,
+        p.low_stock_amount, 
+        CASE 
+          WHEN p.backorders_allowed IS NULL THEN false
+          WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+          ELSE false
+        END as backorders_allowed,
+        p.sold_individually,
         p.weight_lbs, p.length_in, p.width_in, p.height_in,
         p.allow_customer_reviews, p.purchase_note,
         p.sale_price, p.regular_price, p.categories, p.tags,
@@ -376,6 +394,12 @@ export class ProductQueryBuilder {
       UNION ALL
       SELECT 'bundles' as category, COUNT(*)::int as count
       FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"bundles"%' ${regionFilter}
+      UNION ALL
+      SELECT 'flight-sim-add-on-modules' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"flight-sim-add-on-modules"%' ${regionFilter}
+      UNION ALL
+      SELECT 'flight-sim-accessories' as category, COUNT(*)::int as count
+      FROM products WHERE status = 'active' AND deleted_at IS NULL AND categories::text LIKE '%"flight-sim-accessories"%' ${regionFilter}
       ORDER BY count DESC
     `;
 

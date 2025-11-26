@@ -32,9 +32,7 @@ function ensureDataLayer(): void {
 export function initGoogleTagManager(): void {
   // Only initialize if GTM Container ID is provided
   if (!GTM_CONTAINER_ID || GTM_CONTAINER_ID === 'GTM-XXXXXXX' || GTM_CONTAINER_ID === 'your_gtm_container_id_here') {
-    if (import.meta.env.DEV) {
-      console.log('GTM: Container ID not provided, skipping initialization');
-    }
+    // Silently skip initialization if container ID is not provided
     return;
   }
 
@@ -83,6 +81,12 @@ if (typeof window !== 'undefined') {
  * Push data to GTM dataLayer
  */
 export function pushToDataLayer(data: Record<string, any>): void {
+  // Only push to dataLayer if GTM is configured
+  if (!GTM_CONTAINER_ID || GTM_CONTAINER_ID === 'GTM-XXXXXXX' || GTM_CONTAINER_ID === 'your_gtm_container_id_here') {
+    // Silently skip if GTM is not configured
+    return;
+  }
+
   if (!isInitialized) {
     initGoogleTagManager();
   }
@@ -90,7 +94,7 @@ export function pushToDataLayer(data: Record<string, any>): void {
   ensureDataLayer();
   window.dataLayer.push(data);
 
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && isInitialized) {
     console.log('GTM: Pushed to dataLayer:', data);
   }
 }

@@ -70,8 +70,14 @@ const ProductDetail = () => {
     if (!product) return false;
     const stock = product.stock;
     const inStock = product.in_stock;
+    const backordersAllowed = product.backorders_allowed;
+    
     // Primary check: if stock is defined (including 0), use it
     if (stock !== undefined && stock !== null) {
+      // If stock is 0 but backorders are allowed, product is still available
+      if (stock === 0 && backordersAllowed) {
+        return true;
+      }
       return stock > 0;
     }
     // Fallback: if stock is not defined, check in_stock field
@@ -1232,17 +1238,17 @@ const ProductDetail = () => {
       <BreadcrumbSchema items={breadcrumbItems} />
       <Header />
       
-      <main className="container mx-auto px-4 py-8 mt-20">
+      <main className="container mx-auto px-4 py-4 md:py-8 mt-20">
         {/* Breadcrumb */}
-        <nav className="flex items-center space-x-2 text-sm text-muted-foreground mb-8">
-          <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
+        <nav className="flex items-center space-x-2 text-xs md:text-sm text-muted-foreground mb-4 md:mb-8 overflow-x-auto">
+          <Link to="/" className="hover:text-foreground transition-colors whitespace-nowrap">Home</Link>
           <span>/</span>
-          <Link to="/shop" className="hover:text-foreground transition-colors">Shop</Link>
+          <Link to="/shop" className="hover:text-foreground transition-colors whitespace-nowrap">Shop</Link>
           <span>/</span>
-          <span className="text-foreground">{product.name}</span>
+          <span className="text-foreground truncate">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
           {/* Image Gallery */}
           <div className="lg:col-span-8">
             <ProductImageGallery 
@@ -1263,7 +1269,7 @@ const ProductDetail = () => {
                 </div>
               )}
               
-              <h1 className="text-3xl font-bold text-primary mb-2">{product.name}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold text-primary mb-2">{product.name}</h1>
               {((product as any).short_description || (product as any).shortDescription) && (
                 <p className="text-muted-foreground leading-relaxed mb-4">
                   {(product as any).short_description || (product as any).shortDescription}
@@ -1283,11 +1289,11 @@ const ProductDetail = () => {
                 const priceData = getDisplayPrice();
                 const currency = getCurrencySymbol((product as any)?.region);
                 if (priceData.range) {
-                  return (
-                    <div className="flex items-baseline gap-3">
-                      <p className="text-4xl font-bold">
-                        {currency}{priceData.price.toFixed(2)} - {currency}{priceData.original.toFixed(2)}
-                      </p>
+                return (
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <p className="text-2xl md:text-4xl font-bold">
+                      {currency}{priceData.price.toFixed(2)} - {currency}{priceData.original.toFixed(2)}
+                    </p>
                       {calculating && (
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                       )}
@@ -1296,8 +1302,8 @@ const ProductDetail = () => {
                 }
                 return (
                   <div className="space-y-2">
-                    <div className="flex items-baseline gap-3">
-                      <p className={`text-4xl font-bold ${priceData.onSale ? 'text-destructive' : ''}`}>
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                      <p className={`text-2xl md:text-4xl font-bold ${priceData.onSale ? 'text-destructive' : ''}`}>
                         {currency}{priceData.price.toFixed(2)}
                       </p>
                       {priceData.original && (
@@ -1665,11 +1671,33 @@ const ProductDetail = () => {
             )}
 
             {/* Stock Status */}
-            {!(variationStock && !variationStock.available) && (
-              <div className={(product as any).stock > 0 || (product as any).in_stock === '1' ? "text-green-400 font-medium" : "text-destructive font-medium"}>
-                {(product as any).stock > 0 || (product as any).in_stock === '1' ? 'In stock' : 'Out of stock'}
-              </div>
-            )}
+            {!(variationStock && !variationStock.available) && (() => {
+              const stock = (product as any).stock;
+              const inStock = (product as any).in_stock === '1';
+              const backordersAllowed = (product as any).backorders_allowed;
+              const isInStock = stock > 0 || inStock;
+              const isBackorder = stock === 0 && backordersAllowed;
+              
+              if (isInStock) {
+                return (
+                  <div className="text-green-400 font-medium">
+                    In stock
+                  </div>
+                );
+              } else if (isBackorder) {
+                return (
+                  <div className="text-yellow-400 font-medium">
+                    Available on backorder
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="text-destructive font-medium">
+                    Out of stock
+                  </div>
+                );
+              }
+            })()}
             
             {/* Show Out of Stock when variations are out of stock */}
             {variationStock && !variationStock.available && (
@@ -1692,7 +1720,7 @@ const ProductDetail = () => {
               <Button 
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-4 text-lg"
                 disabled={
-                  !((product as any).stock > 0 || (product as any).in_stock === '1') || 
+                  !isProductInStock(product) || 
                   addingToCart ||
                   checkingStock ||
                   // Disable if selected variations are out of stock
@@ -1788,7 +1816,7 @@ const ProductDetail = () => {
         />
 
         {/* Features Section */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="mt-8 md:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {features.map((feature, index) => (
             <div key={index} className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-12 h-12 bg-muted rounded-lg text-muted-foreground">

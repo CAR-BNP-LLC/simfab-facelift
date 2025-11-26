@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { regionSettingsAPI } from '@/services/api';
 
@@ -34,6 +35,15 @@ interface SettingsForm {
   fedex_warehouse_address?: WarehouseAddress;
   paypal_client_id?: string;
   paypal_client_secret?: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_password?: string;
+  smtp_from_email?: string;
+  smtp_from_name?: string;
+  smtp_enabled?: boolean;
+  smtp_test_mode?: boolean;
+  smtp_test_email?: string;
 }
 
 export default function SettingsTab() {
@@ -57,6 +67,15 @@ export default function SettingsTab() {
     },
     paypal_client_id: '',
     paypal_client_secret: '',
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '',
+    smtp_from_email: '',
+    smtp_from_name: 'SimFab',
+    smtp_enabled: true,
+    smtp_test_mode: false,
+    smtp_test_email: '',
   });
   const [euSettings, setEuSettings] = useState<SettingsForm>({
     admin_email: '',
@@ -77,6 +96,15 @@ export default function SettingsTab() {
     },
     paypal_client_id: '',
     paypal_client_secret: '',
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '',
+    smtp_from_email: '',
+    smtp_from_name: 'SimFab EU',
+    smtp_enabled: true,
+    smtp_test_mode: false,
+    smtp_test_email: '',
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -113,6 +141,15 @@ export default function SettingsTab() {
           },
           paypal_client_id: settings.paypal_client_id || '',
           paypal_client_secret: settings.paypal_client_secret || '',
+          smtp_host: settings.smtp_host || '',
+          smtp_port: settings.smtp_port || 587,
+          smtp_user: settings.smtp_user || '',
+          smtp_password: settings.smtp_password || '',
+          smtp_from_email: settings.smtp_from_email || '',
+          smtp_from_name: settings.smtp_from_name || (region === 'eu' ? 'SimFab EU' : 'SimFab'),
+          smtp_enabled: settings.smtp_enabled !== false,
+          smtp_test_mode: settings.smtp_test_mode === true,
+          smtp_test_email: settings.smtp_test_email || '',
         };
 
         if (region === 'us') {
@@ -148,8 +185,8 @@ export default function SettingsTab() {
           } else if (key === 'fedex_warehouse_address') {
             // Keep warehouse address as object for JSON type
             settingsToUpdate[key] = value;
-          } else if (key === 'paypal_client_secret' || key === 'paypal_client_id') {
-            // Only update PayPal credentials if they're not masked values (don't end with xxxxx)
+          } else if (key === 'paypal_client_secret' || key === 'paypal_client_id' || key === 'smtp_password' || key === 'smtp_user') {
+            // Only update sensitive credentials if they're not masked values (don't end with xxxxx)
             // If they end with xxxxx, it means they're the masked version from the server
             // and we should skip updating them unless the user entered a new value
             if (typeof value === 'string' && !value.endsWith('xxxxx')) {
@@ -372,6 +409,116 @@ export default function SettingsTab() {
                 </div>
 
                 <div>
+                  <h3 className="text-lg font-semibold mb-4">SMTP Email Settings</h3>
+                  <CardDescription className="mb-4">
+                    Configure SMTP settings for sending emails from this region. Emails will be sent using these credentials based on the order's region.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="us_smtp_enabled"
+                        checked={usSettings.smtp_enabled !== false}
+                        onCheckedChange={(checked) => setUsSettings({ ...usSettings, smtp_enabled: checked })}
+                      />
+                      <Label htmlFor="us_smtp_enabled" className="cursor-pointer">
+                        Enable Email Sending
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="us_smtp_test_mode"
+                        checked={usSettings.smtp_test_mode === true}
+                        onCheckedChange={(checked) => setUsSettings({ ...usSettings, smtp_test_mode: checked })}
+                      />
+                      <Label htmlFor="us_smtp_test_mode" className="cursor-pointer">
+                        Test Mode (logs emails instead of sending)
+                      </Label>
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_host">SMTP Host</Label>
+                      <Input
+                        id="us_smtp_host"
+                        type="text"
+                        value={usSettings.smtp_host || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_host: e.target.value })}
+                        placeholder="smtp.gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_port">SMTP Port</Label>
+                      <Input
+                        id="us_smtp_port"
+                        type="number"
+                        value={usSettings.smtp_port || 587}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_port: parseInt(e.target.value) || 587 })}
+                        placeholder="587"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        587 for TLS, 465 for SSL
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_user">SMTP Username/Email</Label>
+                      <Input
+                        id="us_smtp_user"
+                        type="text"
+                        value={usSettings.smtp_user || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_user: e.target.value })}
+                        placeholder="your-email@gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_password">SMTP Password</Label>
+                      <Input
+                        id="us_smtp_password"
+                        type="password"
+                        value={usSettings.smtp_password || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_password: e.target.value })}
+                        placeholder={usSettings.smtp_password?.endsWith('xxxxx') ? 'Enter new password to update' : 'Enter SMTP password'}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {usSettings.smtp_password?.endsWith('xxxxx') 
+                          ? 'Password is masked. Enter a new value to update it.'
+                          : 'This value will be masked after saving.'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_from_email">From Email</Label>
+                      <Input
+                        id="us_smtp_from_email"
+                        type="email"
+                        value={usSettings.smtp_from_email || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_from_email: e.target.value })}
+                        placeholder="noreply@simfab.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_from_name">From Name</Label>
+                      <Input
+                        id="us_smtp_from_name"
+                        type="text"
+                        value={usSettings.smtp_from_name || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_from_name: e.target.value })}
+                        placeholder="SimFab"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="us_smtp_test_email">Test Email (optional)</Label>
+                      <Input
+                        id="us_smtp_test_email"
+                        type="email"
+                        value={usSettings.smtp_test_email || ''}
+                        onChange={(e) => setUsSettings({ ...usSettings, smtp_test_email: e.target.value })}
+                        placeholder="test@example.com"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        In test mode, all emails will be redirected to this address
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
                   <h3 className="text-lg font-semibold mb-4">PayPal Configuration</h3>
                   <CardDescription className="mb-4">
                     Configure PayPal payment credentials for the US region. Secrets are masked for security.
@@ -584,6 +731,116 @@ export default function SettingsTab() {
                         placeholder="DE"
                         maxLength={2}
                       />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">SMTP Email Settings</h3>
+                  <CardDescription className="mb-4">
+                    Configure SMTP settings for sending emails from this region. Emails will be sent using these credentials based on the order's region.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="eu_smtp_enabled"
+                        checked={euSettings.smtp_enabled !== false}
+                        onCheckedChange={(checked) => setEuSettings({ ...euSettings, smtp_enabled: checked })}
+                      />
+                      <Label htmlFor="eu_smtp_enabled" className="cursor-pointer">
+                        Enable Email Sending
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="eu_smtp_test_mode"
+                        checked={euSettings.smtp_test_mode === true}
+                        onCheckedChange={(checked) => setEuSettings({ ...euSettings, smtp_test_mode: checked })}
+                      />
+                      <Label htmlFor="eu_smtp_test_mode" className="cursor-pointer">
+                        Test Mode (logs emails instead of sending)
+                      </Label>
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_host">SMTP Host</Label>
+                      <Input
+                        id="eu_smtp_host"
+                        type="text"
+                        value={euSettings.smtp_host || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_host: e.target.value })}
+                        placeholder="smtp.gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_port">SMTP Port</Label>
+                      <Input
+                        id="eu_smtp_port"
+                        type="number"
+                        value={euSettings.smtp_port || 587}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_port: parseInt(e.target.value) || 587 })}
+                        placeholder="587"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        587 for TLS, 465 for SSL
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_user">SMTP Username/Email</Label>
+                      <Input
+                        id="eu_smtp_user"
+                        type="text"
+                        value={euSettings.smtp_user || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_user: e.target.value })}
+                        placeholder="your-email@gmail.com"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_password">SMTP Password</Label>
+                      <Input
+                        id="eu_smtp_password"
+                        type="password"
+                        value={euSettings.smtp_password || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_password: e.target.value })}
+                        placeholder={euSettings.smtp_password?.endsWith('xxxxx') ? 'Enter new password to update' : 'Enter SMTP password'}
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {euSettings.smtp_password?.endsWith('xxxxx') 
+                          ? 'Password is masked. Enter a new value to update it.'
+                          : 'This value will be masked after saving.'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_from_email">From Email</Label>
+                      <Input
+                        id="eu_smtp_from_email"
+                        type="email"
+                        value={euSettings.smtp_from_email || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_from_email: e.target.value })}
+                        placeholder="noreply@simfab.eu"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_from_name">From Name</Label>
+                      <Input
+                        id="eu_smtp_from_name"
+                        type="text"
+                        value={euSettings.smtp_from_name || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_from_name: e.target.value })}
+                        placeholder="SimFab EU"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="eu_smtp_test_email">Test Email (optional)</Label>
+                      <Input
+                        id="eu_smtp_test_email"
+                        type="email"
+                        value={euSettings.smtp_test_email || ''}
+                        onChange={(e) => setEuSettings({ ...euSettings, smtp_test_email: e.target.value })}
+                        placeholder="test@example.com"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        In test mode, all emails will be redirected to this address
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -32,9 +32,15 @@ export class StockReservationService {
         await client.query('BEGIN');
       }
 
-      // Check current stock
+      // Check current stock and backorder setting
       const productResult = await client.query(
-        'SELECT stock FROM products WHERE id = $1',
+        `SELECT stock, 
+         CASE 
+           WHEN backorders_allowed IS NULL THEN false
+           WHEN LOWER(TRIM(backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+           ELSE false
+         END as backorders_allowed
+         FROM products WHERE id = $1`,
         [productId]
       );
 
@@ -43,6 +49,7 @@ export class StockReservationService {
       }
 
       const currentStock = productResult.rows[0].stock;
+      const backordersAllowed = productResult.rows[0].backorders_allowed;
 
       // Check existing reservations
       const reservationResult = await client.query(
@@ -55,7 +62,8 @@ export class StockReservationService {
       const reservedStock = parseInt(reservationResult.rows[0].reserved);
       const availableStock = currentStock - reservedStock;
 
-      if (quantity > availableStock) {
+      // Only throw error if backorders are not allowed and stock is insufficient
+      if (quantity > availableStock && !backordersAllowed) {
         throw new ValidationError(`Insufficient stock. Only ${availableStock} available`, {
           available: availableStock,
           requested: quantity,
@@ -231,7 +239,13 @@ export class StockReservationService {
 
       // Otherwise use product-level stock
       const productResult = await client.query(
-        'SELECT stock FROM products WHERE id = $1',
+        `SELECT stock,
+         CASE 
+           WHEN backorders_allowed IS NULL THEN false
+           WHEN LOWER(TRIM(backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+           ELSE false
+         END as backorders_allowed
+         FROM products WHERE id = $1`,
         [productId]
       );
 
@@ -240,6 +254,7 @@ export class StockReservationService {
       }
 
       const currentStock = productResult.rows[0].stock;
+      const backordersAllowed = productResult.rows[0].backorders_allowed;
 
       // Get reserved stock
       const reservationResult = await client.query(
@@ -250,7 +265,15 @@ export class StockReservationService {
       );
 
       const reservedStock = parseInt(reservationResult.rows[0].reserved);
-      return currentStock - reservedStock;
+      const availableStock = currentStock - reservedStock;
+      
+      // If backorders are allowed and stock is 0 or negative, return 0 to indicate backorder is available
+      // Otherwise return the actual available stock
+      if (backordersAllowed && availableStock <= 0) {
+        return 0; // Indicates backorder is available
+      }
+      
+      return availableStock;
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
@@ -268,7 +291,8 @@ export class StockReservationService {
   async reserveVariationStock(
     orderId: number, 
     configuration: ProductConfiguration, 
-    quantity: number
+    quantity: number,
+    client?: any
   ): Promise<void> {
     // Check if configuration has variation selections
     if (!configuration.variations || Object.keys(configuration.variations).length === 0) {
@@ -280,7 +304,8 @@ export class StockReservationService {
       await this.variationStockService.reserveVariationStock(
         Number(optionId),
         quantity,
-        orderId
+        orderId,
+        client
       );
     }
   }
