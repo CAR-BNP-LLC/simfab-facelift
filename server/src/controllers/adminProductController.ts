@@ -49,6 +49,7 @@ export class AdminProductController {
         page: parseInt(req.query.page as string) || 1,
         limit: parseInt(req.query.limit as string) || 50,
         search: req.query.search as string,
+        category: req.query.category as string,
         status: req.query.status as ProductStatus,
         sortBy: req.query.sortBy as any,
         sortOrder: req.query.sortOrder as any,

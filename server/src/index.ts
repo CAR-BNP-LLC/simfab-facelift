@@ -128,7 +128,7 @@ app.use(session({
   store: sessionStore,
   secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
   resave: false,
-  saveUninitialized: false, // Changed to false - only save sessions that have data (userId)
+  saveUninitialized: true, // Set to true to enable anonymous cart functionality - sessions are needed for guest users to maintain their cart
   name: 'connect.sid', // Explicit cookie name
   cookie: {
     secure: cookieSecure, // true for cross-site cookies or production (HTTPS required)

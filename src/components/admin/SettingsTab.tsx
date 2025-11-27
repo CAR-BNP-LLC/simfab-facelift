@@ -44,6 +44,7 @@ interface SettingsForm {
   smtp_enabled?: boolean;
   smtp_test_mode?: boolean;
   smtp_test_email?: string;
+  region_restrictions_enabled?: boolean;
 }
 
 export default function SettingsTab() {
@@ -105,6 +106,7 @@ export default function SettingsTab() {
     smtp_enabled: true,
     smtp_test_mode: false,
     smtp_test_email: '',
+    region_restrictions_enabled: false,
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -150,6 +152,7 @@ export default function SettingsTab() {
           smtp_enabled: settings.smtp_enabled !== false,
           smtp_test_mode: settings.smtp_test_mode === true,
           smtp_test_email: settings.smtp_test_email || '',
+          region_restrictions_enabled: settings.region_restrictions_enabled === true,
         };
 
         if (region === 'us') {
@@ -178,7 +181,9 @@ export default function SettingsTab() {
       // Prepare settings object (only include defined values)
       const settingsToUpdate: Record<string, any> = {};
       Object.entries(settings).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
+        // Include value if it's defined, not null, and not empty string
+        // Also include boolean false values
+        if (value !== undefined && value !== null && (typeof value === 'boolean' || value !== '')) {
           // Convert numeric strings to numbers where appropriate
           if (key === 'tax_rate' || key === 'free_shipping_threshold') {
             settingsToUpdate[key] = parseFloat(value) || 0;
@@ -842,6 +847,37 @@ export default function SettingsTab() {
                         In test mode, all emails will be redirected to this address
                       </p>
                     </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Region Restrictions</h3>
+                  <CardDescription className="mb-4">
+                    Control region access for EU-only deployment. When enabled, users selecting US region will be redirected to simfab.com.
+                  </CardDescription>
+                  <div className="grid gap-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="eu_region_restrictions_enabled"
+                        checked={euSettings.region_restrictions_enabled === true}
+                        onCheckedChange={(checked) => setEuSettings({ ...euSettings, region_restrictions_enabled: checked })}
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="eu_region_restrictions_enabled" className="cursor-pointer">
+                          Enable EU-Only Mode
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          When enabled, only EU region is available. US region selection redirects to simfab.com. This is for testing phase on simfab.eu.
+                        </p>
+                      </div>
+                    </div>
+                    {euSettings.region_restrictions_enabled && (
+                      <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/10 p-4">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                          <strong>Warning:</strong> EU-only mode is active. Users attempting to switch to US region will be redirected to simfab.com. This setting can be disabled at any time to restore full multi-region access.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

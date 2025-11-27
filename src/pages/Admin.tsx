@@ -351,7 +351,7 @@ const Admin = () => {
       fetchEligibleCount();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, orderRegionFilter, orderCouponFilter]);
+  }, [activeTab, orderRegionFilter, orderCouponFilter, categoryFilter]);
 
   const fetchDashboardStats = async () => {
     try {
@@ -374,7 +374,15 @@ const Admin = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/admin/products?limit=100&includeDeleted=true`, {
+      // Build query params
+      const params = new URLSearchParams();
+      params.append('limit', '100');
+      params.append('includeDeleted', 'true');
+      if (categoryFilter && categoryFilter !== 'all') {
+        params.append('category', categoryFilter);
+      }
+      
+      const response = await fetch(`${API_URL}/api/admin/products?${params.toString()}`, {
         credentials: 'include'
       });
       const data = await response.json();
