@@ -376,7 +376,7 @@ const Admin = () => {
       setLoading(true);
       // Build query params
       const params = new URLSearchParams();
-      params.append('limit', '100');
+      params.append('limit', '1000');
       params.append('includeDeleted', 'true');
       if (categoryFilter && categoryFilter !== 'all') {
         params.append('category', categoryFilter);
@@ -608,7 +608,7 @@ const Admin = () => {
             regular_price: '',
             stock_quantity: '10',
             stock_quantity_eu: '10',
-            categories: 'accessories',
+            categories: ['accessories'],
             tags: '',
             note: '',
             region: 'us'
@@ -659,7 +659,7 @@ const Admin = () => {
             regular_price: '',
             stock_quantity: '10',
             stock_quantity_eu: '10',
-            categories: 'accessories',
+            categories: ['accessories'],
             tags: '',
             note: '',
             region: 'us'
@@ -3227,3 +3227,4 @@ const Admin = () => {
 };
 
 export default Admin;
+

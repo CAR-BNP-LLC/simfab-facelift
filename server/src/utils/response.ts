@@ -102,7 +102,7 @@ export const sendNoContent = (res: Response): void => {
  */
 export const parsePagination = (query: any): { page: number; limit: number; offset: number } => {
   const page = Math.max(1, parseInt(query.page) || 1);
-  const limit = Math.min(100, Math.max(1, parseInt(query.limit) || 20)); // Max 100 items per page
+  const limit = Math.min(1000, Math.max(1, parseInt(query.limit) || 20)); // Max 1000 items per page
   const offset = (page - 1) * limit;
 
   return { page, limit, offset };

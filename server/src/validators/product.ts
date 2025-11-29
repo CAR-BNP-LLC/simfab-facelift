@@ -233,7 +233,7 @@ export const calculatePriceSchema = Joi.object({
 
 export const productQuerySchema = Joi.object({
   page: Joi.number().integer().min(1).optional(),
-  limit: Joi.number().integer().min(1).max(100).optional(),
+  limit: Joi.number().integer().min(1).max(1000).optional(),
   category: Joi.string().optional(),
   search: Joi.string().min(1).optional(),
   minPrice: Joi.number().positive().optional(),

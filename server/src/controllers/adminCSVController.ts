@@ -33,6 +33,8 @@ export class AdminCSVController {
       const csvContent = req.file.buffer.toString('utf-8');
       const mode = (req.body.mode as string) || 'create'; // create, update, skip_duplicates
       const dryRun = req.body.dry_run === 'true' || req.body.dry_run === true;
+      const importAsGroups =
+        req.body.import_as_groups === 'true' || req.body.import_as_groups === true;
 
       if (!['create', 'update', 'skip_duplicates'].includes(mode)) {
         throw new ValidationError('Invalid mode. Must be: create, update, or skip_duplicates');
@@ -40,7 +42,8 @@ export class AdminCSVController {
 
       const options: ImportOptions = {
         mode: mode as any,
-        dryRun
+        dryRun,
+        importAsGroups
       };
 
       const result = await this.importService.importProducts(csvContent, options);
@@ -62,9 +65,12 @@ export class AdminCSVController {
       }
 
       const csvContent = req.file.buffer.toString('utf-8');
+      const importAsGroups =
+        req.body.import_as_groups === 'true' || req.body.import_as_groups === true;
       const result = await this.importService.importProducts(csvContent, {
         mode: 'create',
-        validateOnly: true
+        validateOnly: true,
+        importAsGroups
       });
 
       res.json(successResponse(result, 'Validation completed'));

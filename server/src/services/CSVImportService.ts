@@ -6,6 +6,7 @@
 import { Pool } from 'pg';
 import csv from 'csv-parser';
 import { Readable } from 'stream';
+import { randomUUID } from 'crypto';
 import {
   CSVProductRow,
   ParsedProductData,
@@ -485,20 +486,17 @@ export class CSVImportService {
         (product as any).region = region;
       }
     }
-    // Only set product_group_id if explicitly provided AND not empty
-    // When importing, if a product is single-region, product_group_id should be null
-    // We'll validate that the group actually has products in both regions elsewhere
-    if (row.product_group_id) {
+    // Only set product_group_id if explicitly provided.
+    // If it's not present, leave it undefined so higher-level logic (e.g. importAsGroups)
+    // can decide whether to assign a group id.
+    if (row.product_group_id !== undefined) {
       const groupId = row.product_group_id.trim();
-      if (groupId && groupId.toLowerCase() !== 'null' && groupId.toLowerCase() !== '') {
+      if (groupId && groupId.toLowerCase() !== 'null') {
         (product as any).product_group_id = groupId;
       } else {
-        // Explicitly set to null for single-region products
+        // Explicitly treat empty or \"null\" as \"no group\"
         (product as any).product_group_id = null;
       }
-    } else {
-      // No product_group_id in CSV = single-region product
-      (product as any).product_group_id = null;
     }
 
     const parsed: ParsedProductData = { product };
@@ -574,6 +572,272 @@ export class CSVImportService {
   }
 
   /**
+   * Create all relationships (images, variations, bundles, FAQs, manuals, additional info)
+   * for a given product, based on parsed CSV data.
+   * This helper is reused for both the primary-region product and any
+   * auto-created opposite-region product.
+   */
+  private async createRelationshipsForProduct(
+    rowNumber: number,
+    data: ParsedProductData,
+    productId: number,
+    parentRegion: 'us' | 'eu',
+    skuToProductId: Map<string, number>,
+    result: ImportResult
+  ): Promise<void> {
+    // Create images
+    if (data.images && data.images.length > 0) {
+      for (const image of data.images) {
+        await this.imageService.addImage(
+          productId,
+          image.image_url,
+          image.alt_text,
+          image.is_primary
+        );
+      }
+    }
+
+    // Create variations
+    if (data.variations && data.variations.length > 0) {
+      for (const variation of data.variations) {
+        // Map old variation types to new ones (migration 017)
+        let variationType = variation.variation_type;
+        if (variationType === 'model') variationType = 'image';
+        if (variationType === 'radio') variationType = 'boolean';
+        if (variationType === 'select') variationType = 'dropdown';
+
+        // Validate and convert sort_order
+        const sortOrder = typeof variation.sort_order === 'number' && !isNaN(variation.sort_order)
+          ? variation.sort_order
+          : (variation.sort_order ? parseInt(String(variation.sort_order), 10) : 0);
+        const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
+
+        const createdVariation = await this.variationService.createVariation({
+          product_id: productId,
+          variation_type: variationType as any,
+          name: variation.name,
+          description: variation.description || undefined,
+          is_required: variation.is_required ?? true,
+          tracks_stock: variation.tracks_stock || false,
+          sort_order: validatedSortOrder,
+          options: variation.options.map(opt => {
+            // Validate and convert price_adjustment
+            let priceAdj = 0;
+            if (opt.price_adjustment !== undefined && opt.price_adjustment !== null) {
+              const parsed = typeof opt.price_adjustment === 'number'
+                ? opt.price_adjustment
+                : parseFloat(String(opt.price_adjustment));
+              if (!isNaN(parsed)) priceAdj = parsed;
+            }
+
+            return {
+              option_name: opt.option_name,
+              option_value: opt.option_value,
+              price_adjustment: priceAdj,
+              image_url: opt.image_url || undefined,
+              is_default: opt.is_default || false
+            };
+          })
+        });
+
+        // Update option stock fields if provided
+        if (variation.options && variation.options.length > 0) {
+          const variationOptions = await this.pool.query(
+            'SELECT id, option_name FROM variation_options WHERE variation_id = $1 ORDER BY sort_order',
+            [createdVariation.id]
+          );
+
+          for (let i = 0; i < variation.options.length && i < variationOptions.rows.length; i++) {
+            const csvOption = variation.options[i];
+            const dbOption = variationOptions.rows[i];
+
+            if (
+              csvOption.stock_quantity !== undefined ||
+              csvOption.low_stock_threshold !== undefined ||
+              csvOption.reserved_quantity !== undefined ||
+              csvOption.is_available !== undefined
+            ) {
+              const updateFields: string[] = [];
+              const updateValues: any[] = [];
+              let paramCounter = 1;
+
+              if (csvOption.stock_quantity !== undefined && csvOption.stock_quantity !== null) {
+                const parsed = typeof csvOption.stock_quantity === 'number'
+                  ? csvOption.stock_quantity
+                  : parseInt(String(csvOption.stock_quantity), 10);
+                if (!isNaN(parsed)) {
+                  updateFields.push(`stock_quantity = $${paramCounter++}`);
+                  updateValues.push(parsed);
+                }
+              }
+              if (csvOption.low_stock_threshold !== undefined && csvOption.low_stock_threshold !== null) {
+                const parsed = typeof csvOption.low_stock_threshold === 'number'
+                  ? csvOption.low_stock_threshold
+                  : parseInt(String(csvOption.low_stock_threshold), 10);
+                if (!isNaN(parsed)) {
+                  updateFields.push(`low_stock_threshold = $${paramCounter++}`);
+                  updateValues.push(parsed);
+                }
+              }
+              if (csvOption.reserved_quantity !== undefined && csvOption.reserved_quantity !== null) {
+                const parsed = typeof csvOption.reserved_quantity === 'number'
+                  ? csvOption.reserved_quantity
+                  : parseInt(String(csvOption.reserved_quantity), 10);
+                if (!isNaN(parsed)) {
+                  updateFields.push(`reserved_quantity = $${paramCounter++}`);
+                  updateValues.push(parsed);
+                }
+              }
+              if (csvOption.is_available !== undefined && csvOption.is_available !== null) {
+                updateFields.push(`is_available = $${paramCounter++}`);
+                updateValues.push(csvOption.is_available);
+              }
+
+              if (updateFields.length > 0) {
+                updateValues.push(dbOption.id);
+                await this.pool.query(
+                  `UPDATE variation_options SET ${updateFields.join(', ')} WHERE id = $${paramCounter}`,
+                  updateValues
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Create bundle items
+    if (data.bundleItems && data.bundleItems.length > 0) {
+      for (const bundleItem of data.bundleItems) {
+        // First try to find in same region as parent product
+        let itemProductId: number | undefined = skuToProductId.get(`${bundleItem.item_sku}:${parentRegion}`);
+        // Fallback: try to find in any region (for cross-region bundles, if needed)
+        if (!itemProductId) {
+          // Try to find the item by querying database (might be in different region or not yet imported)
+          const itemProduct = await this.pool.query(
+            'SELECT id FROM products WHERE sku = $1 AND region = $2',
+            [bundleItem.item_sku, parentRegion]
+          );
+          if (itemProduct.rows.length > 0) {
+            itemProductId = itemProduct.rows[0].id;
+            if (itemProductId !== undefined) {
+              skuToProductId.set(`${bundleItem.item_sku}:${parentRegion}`, itemProductId);
+            }
+          }
+        }
+        if (!itemProductId) {
+          result.errors.push({
+            row: rowNumber,
+            sku: data.product.sku,
+            field: 'product_bundle_items',
+            message: `Bundle item SKU "${bundleItem.item_sku}" not found in region "${parentRegion}"`,
+            severity: 'critical'
+          });
+          continue;
+        }
+
+        // Validate and convert quantity
+        let quantity = 1;
+        if (bundleItem.quantity !== undefined && bundleItem.quantity !== null) {
+          const parsed = typeof bundleItem.quantity === 'number'
+            ? bundleItem.quantity
+            : parseInt(String(bundleItem.quantity), 10);
+          if (!isNaN(parsed) && parsed > 0) quantity = parsed;
+        }
+
+        // Validate and convert price_adjustment
+        let priceAdjustment = 0;
+        if (bundleItem.price_adjustment !== undefined && bundleItem.price_adjustment !== null) {
+          const parsed = typeof bundleItem.price_adjustment === 'number'
+            ? bundleItem.price_adjustment
+            : parseFloat(String(bundleItem.price_adjustment));
+          if (!isNaN(parsed)) priceAdjustment = parsed;
+        }
+
+        await this.bundleService.addBundleItem(productId, itemProductId, {
+          quantity,
+          item_type: bundleItem.item_type,
+          is_configurable: bundleItem.is_configurable || false,
+          price_adjustment: priceAdjustment,
+          display_name: bundleItem.display_name,
+          description: bundleItem.description
+        });
+      }
+    }
+
+    // Create FAQs
+    if (data.faqs && data.faqs.length > 0) {
+      for (const faq of data.faqs) {
+        const sortOrder = typeof faq.sort_order === 'number' && !isNaN(faq.sort_order)
+          ? faq.sort_order
+          : (faq.sort_order ? parseInt(String(faq.sort_order), 10) : 0);
+        const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
+
+        await this.pool.query(
+          'INSERT INTO product_faqs (product_id, question, answer, sort_order) VALUES ($1, $2, $3, $4)',
+          [productId, faq.question, faq.answer, validatedSortOrder]
+        );
+      }
+    }
+
+    // Create assembly manuals
+    if (data.assemblyManuals && data.assemblyManuals.length > 0) {
+      for (const manual of data.assemblyManuals) {
+        // Validate file_size and sort_order
+        const fileSize = manual.file_size !== undefined && manual.file_size !== null
+          ? (typeof manual.file_size === 'number' && !isNaN(manual.file_size)
+            ? manual.file_size
+            : (parseInt(String(manual.file_size), 10) || null))
+          : null;
+        const fileSizeValid = fileSize !== null && !isNaN(fileSize) ? fileSize : null;
+
+        const sortOrder = typeof manual.sort_order === 'number' && !isNaN(manual.sort_order)
+          ? manual.sort_order
+          : (manual.sort_order ? parseInt(String(manual.sort_order), 10) : 0);
+        const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
+
+        await this.pool.query(
+          `INSERT INTO assembly_manuals (product_id, name, description, file_url, file_type, file_size, image_url, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            productId,
+            manual.name,
+            manual.description || null,
+            manual.file_url,
+            manual.file_type || null,
+            fileSizeValid,
+            manual.image_url || null,
+            validatedSortOrder
+          ]
+        );
+      }
+    }
+
+    // Create additional info
+    if (data.additionalInfo && data.additionalInfo.length > 0) {
+      for (const info of data.additionalInfo) {
+        const sortOrder = typeof info.sort_order === 'number' && !isNaN(info.sort_order)
+          ? info.sort_order
+          : (info.sort_order ? parseInt(String(info.sort_order), 10) : 0);
+        const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
+
+        await this.pool.query(
+          `INSERT INTO product_additional_info (product_id, title, description, content_type, content_data, sort_order)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            productId,
+            info.title,
+            info.description || null,
+            info.content_type || 'text',
+            JSON.stringify(info.content_data || {}),
+            validatedSortOrder
+          ]
+        );
+      }
+    }
+  }
+
+  /**
    * Import products from CSV
    */
   async importProducts(csvContent: string, options: ImportOptions = { mode: 'create' }): Promise<ImportResult> {
@@ -626,6 +890,31 @@ export class CSVImportService {
           });
         }
       });
+
+      // If requested, assign a product_group_id for each product that does not
+      // already have a meaningful one from the CSV. This is purely about
+      // cross-region grouping and does not affect variations/bundles.
+      if (options.importAsGroups) {
+        for (const item of parsedData) {
+          const product: any = item.data.product;
+          if (!product) continue;
+
+          const currentGroupId = product.product_group_id;
+
+          // Preserve any explicit non-empty group id from CSV.
+          if (
+            currentGroupId !== undefined &&
+            currentGroupId !== null &&
+            String(currentGroupId).trim().toLowerCase() !== '' &&
+            String(currentGroupId).trim().toLowerCase() !== 'null'
+          ) {
+            continue;
+          }
+
+          // For undefined, empty string, or explicit null, assign a new group id.
+          product.product_group_id = randomUUID();
+        }
+      }
 
       // Build SKU map for bundle resolution (key: "sku:region" to handle same SKU in different regions)
       const skuToProductId = new Map<string, number>();
@@ -705,7 +994,7 @@ export class CSVImportService {
         return result;
       }
 
-      // Pass 2: Create relationships
+      // Pass 2: Create relationships for primary-region products
       for (const { rowNumber, data, errors } of parsedData) {
         if (errors.length > 0) continue;
 
@@ -719,253 +1008,14 @@ export class CSVImportService {
             continue;
           }
 
-          // Create images
-          if (data.images && data.images.length > 0) {
-            for (const image of data.images) {
-              await this.imageService.addImage(
-                productId,
-                image.image_url,
-                image.alt_text,
-                image.is_primary
-              );
-            }
-          }
-
-          // Create variations
-          if (data.variations && data.variations.length > 0) {
-            for (const variation of data.variations) {
-              // Map old variation types to new ones (migration 017)
-              let variationType = variation.variation_type;
-              if (variationType === 'model') variationType = 'image';
-              if (variationType === 'radio') variationType = 'boolean';
-              if (variationType === 'select') variationType = 'dropdown';
-              
-              // Validate and convert sort_order
-              const sortOrder = typeof variation.sort_order === 'number' && !isNaN(variation.sort_order)
-                ? variation.sort_order
-                : (variation.sort_order ? parseInt(String(variation.sort_order), 10) : 0);
-              const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
-
-              const createdVariation = await this.variationService.createVariation({
-                product_id: productId,
-                variation_type: variationType as any,
-                name: variation.name,
-                description: variation.description || undefined,
-                is_required: variation.is_required ?? true,
-                tracks_stock: variation.tracks_stock || false,
-                sort_order: validatedSortOrder,
-                options: variation.options.map(opt => {
-                  // Validate and convert price_adjustment
-                  let priceAdj = 0;
-                  if (opt.price_adjustment !== undefined && opt.price_adjustment !== null) {
-                    const parsed = typeof opt.price_adjustment === 'number'
-                      ? opt.price_adjustment
-                      : parseFloat(String(opt.price_adjustment));
-                    if (!isNaN(parsed)) priceAdj = parsed;
-                  }
-                  
-                  return {
-                    option_name: opt.option_name,
-                    option_value: opt.option_value,
-                    price_adjustment: priceAdj,
-                    image_url: opt.image_url || undefined,
-                    is_default: opt.is_default || false
-                  };
-                })
-              });
-
-              // Update option stock fields if provided
-              if (variation.options && variation.options.length > 0) {
-                const variationOptions = await this.pool.query(
-                  'SELECT id, option_name FROM variation_options WHERE variation_id = $1 ORDER BY sort_order',
-                  [createdVariation.id]
-                );
-
-                for (let i = 0; i < variation.options.length && i < variationOptions.rows.length; i++) {
-                  const csvOption = variation.options[i];
-                  const dbOption = variationOptions.rows[i];
-                  
-                  if (csvOption.stock_quantity !== undefined || csvOption.low_stock_threshold !== undefined || csvOption.reserved_quantity !== undefined) {
-                    const updateFields: string[] = [];
-                    const updateValues: any[] = [];
-                    let paramCounter = 1;
-
-                    if (csvOption.stock_quantity !== undefined && csvOption.stock_quantity !== null) {
-                      const parsed = typeof csvOption.stock_quantity === 'number'
-                        ? csvOption.stock_quantity
-                        : parseInt(String(csvOption.stock_quantity), 10);
-                      if (!isNaN(parsed)) {
-                        updateFields.push(`stock_quantity = $${paramCounter++}`);
-                        updateValues.push(parsed);
-                      }
-                    }
-                    if (csvOption.low_stock_threshold !== undefined && csvOption.low_stock_threshold !== null) {
-                      const parsed = typeof csvOption.low_stock_threshold === 'number'
-                        ? csvOption.low_stock_threshold
-                        : parseInt(String(csvOption.low_stock_threshold), 10);
-                      if (!isNaN(parsed)) {
-                        updateFields.push(`low_stock_threshold = $${paramCounter++}`);
-                        updateValues.push(parsed);
-                      }
-                    }
-                    if (csvOption.reserved_quantity !== undefined && csvOption.reserved_quantity !== null) {
-                      const parsed = typeof csvOption.reserved_quantity === 'number'
-                        ? csvOption.reserved_quantity
-                        : parseInt(String(csvOption.reserved_quantity), 10);
-                      if (!isNaN(parsed)) {
-                        updateFields.push(`reserved_quantity = $${paramCounter++}`);
-                        updateValues.push(parsed);
-                      }
-                    }
-                    if (csvOption.is_available !== undefined && csvOption.is_available !== null) {
-                      updateFields.push(`is_available = $${paramCounter++}`);
-                      updateValues.push(csvOption.is_available);
-                    }
-
-                    if (updateFields.length > 0) {
-                      updateValues.push(dbOption.id);
-                      await this.pool.query(
-                        `UPDATE variation_options SET ${updateFields.join(', ')} WHERE id = $${paramCounter}`,
-                        updateValues
-                      );
-                    }
-                  }
-                }
-              }
-            }
-          }
-
-          // Create bundle items
-          if (data.bundleItems && data.bundleItems.length > 0) {
-            // Resolve bundle items - use same region as the parent product
-            const parentRegion = (data.product as any).region || 'us';
-            for (const bundleItem of data.bundleItems) {
-              // First try to find in same region as parent product
-              let itemProductId: number | undefined = skuToProductId.get(`${bundleItem.item_sku}:${parentRegion}`);
-              // Fallback: try to find in any region (for cross-region bundles, if needed)
-              if (!itemProductId) {
-                // Try to find the item by querying database (might be in different region or not yet imported)
-                const itemProduct = await this.pool.query(
-                  'SELECT id FROM products WHERE sku = $1 AND region = $2',
-                  [bundleItem.item_sku, parentRegion]
-                );
-                if (itemProduct.rows.length > 0) {
-                  itemProductId = itemProduct.rows[0].id;
-                  if (itemProductId !== undefined) {
-                    skuToProductId.set(`${bundleItem.item_sku}:${parentRegion}`, itemProductId);
-                  }
-                }
-              }
-              if (!itemProductId) {
-                result.errors.push({
-                  row: rowNumber,
-                  sku: data.product.sku,
-                  field: 'product_bundle_items',
-                  message: `Bundle item SKU "${bundleItem.item_sku}" not found in region "${parentRegion}"`,
-                  severity: 'critical'
-                });
-                continue;
-              }
-
-              // Validate and convert quantity
-              let quantity = 1;
-              if (bundleItem.quantity !== undefined && bundleItem.quantity !== null) {
-                const parsed = typeof bundleItem.quantity === 'number'
-                  ? bundleItem.quantity
-                  : parseInt(String(bundleItem.quantity), 10);
-                if (!isNaN(parsed) && parsed > 0) quantity = parsed;
-              }
-
-              // Validate and convert price_adjustment
-              let priceAdjustment = 0;
-              if (bundleItem.price_adjustment !== undefined && bundleItem.price_adjustment !== null) {
-                const parsed = typeof bundleItem.price_adjustment === 'number'
-                  ? bundleItem.price_adjustment
-                  : parseFloat(String(bundleItem.price_adjustment));
-                if (!isNaN(parsed)) priceAdjustment = parsed;
-              }
-
-              await this.bundleService.addBundleItem(productId, itemProductId, {
-                quantity,
-                item_type: bundleItem.item_type,
-                is_configurable: bundleItem.is_configurable || false,
-                price_adjustment: priceAdjustment,
-                display_name: bundleItem.display_name,
-                description: bundleItem.description
-              });
-            }
-          }
-
-          // Create FAQs
-          if (data.faqs && data.faqs.length > 0) {
-            for (const faq of data.faqs) {
-              const sortOrder = typeof faq.sort_order === 'number' && !isNaN(faq.sort_order)
-                ? faq.sort_order
-                : (faq.sort_order ? parseInt(String(faq.sort_order), 10) : 0);
-              const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
-              
-              await this.pool.query(
-                'INSERT INTO product_faqs (product_id, question, answer, sort_order) VALUES ($1, $2, $3, $4)',
-                [productId, faq.question, faq.answer, validatedSortOrder]
-              );
-            }
-          }
-
-          // Create assembly manuals
-          if (data.assemblyManuals && data.assemblyManuals.length > 0) {
-            for (const manual of data.assemblyManuals) {
-              // Validate file_size and sort_order
-              const fileSize = manual.file_size !== undefined && manual.file_size !== null
-                ? (typeof manual.file_size === 'number' && !isNaN(manual.file_size)
-                  ? manual.file_size
-                  : (parseInt(String(manual.file_size), 10) || null))
-                : null;
-              const fileSizeValid = fileSize !== null && !isNaN(fileSize) ? fileSize : null;
-              
-              const sortOrder = typeof manual.sort_order === 'number' && !isNaN(manual.sort_order)
-                ? manual.sort_order
-                : (manual.sort_order ? parseInt(String(manual.sort_order), 10) : 0);
-              const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
-
-              await this.pool.query(
-                `INSERT INTO assembly_manuals (product_id, name, description, file_url, file_type, file_size, image_url, sort_order)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [
-                  productId,
-                  manual.name,
-                  manual.description || null,
-                  manual.file_url,
-                  manual.file_type || null,
-                  fileSizeValid,
-                  manual.image_url || null,
-                  validatedSortOrder
-                ]
-              );
-            }
-          }
-
-          // Create additional info
-          if (data.additionalInfo && data.additionalInfo.length > 0) {
-            for (const info of data.additionalInfo) {
-              const sortOrder = typeof info.sort_order === 'number' && !isNaN(info.sort_order)
-                ? info.sort_order
-                : (info.sort_order ? parseInt(String(info.sort_order), 10) : 0);
-              const validatedSortOrder = !isNaN(sortOrder) ? sortOrder : 0;
-
-              await this.pool.query(
-                `INSERT INTO product_additional_info (product_id, title, description, content_type, content_data, sort_order)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [
-                  productId,
-                  info.title,
-                  info.description || null,
-                  info.content_type || 'text',
-                  JSON.stringify(info.content_data || {}),
-                  validatedSortOrder
-                ]
-              );
-            }
-          }
+          await this.createRelationshipsForProduct(
+            rowNumber,
+            data,
+            productId,
+            (data.product as any).region === 'eu' ? 'eu' : 'us',
+            skuToProductId,
+            result
+          );
         } catch (error) {
           result.errors.push({
             row: rowNumber,
@@ -973,6 +1023,158 @@ export class CSVImportService {
             message: error instanceof Error ? error.message : 'Unknown error creating relationships',
             severity: 'critical'
           });
+        }
+      }
+
+      // Pass 3: Ensure opposite-region products exist for grouped products when requested
+      // Split into two sub-passes to ensure all products exist before cloning relationships
+      if (options.importAsGroups) {
+        // Pass 3A: Create all opposite-region products (without relationships yet)
+        // This ensures bundle child products exist in both regions before we try to link bundles
+        for (const { rowNumber, data, errors } of parsedData) {
+          if (errors.length > 0) continue;
+
+          const product: any = data.product;
+          if (!product || !product.sku) continue;
+
+          const groupId = product.product_group_id;
+          if (
+            !groupId ||
+            String(groupId).trim().toLowerCase() === '' ||
+            String(groupId).trim().toLowerCase() === 'null'
+          ) {
+            continue; // Not part of a group
+          }
+
+          const productRegion: 'us' | 'eu' =
+            (product.region === 'eu' ? 'eu' : 'us');
+          const oppositeRegion: 'us' | 'eu' =
+            productRegion === 'us' ? 'eu' : 'us';
+
+          const sku = product.sku as string;
+
+          // First, check if opposite-region product already exists in the same group
+          const oppositeExisting = await this.pool.query(
+            'SELECT id FROM products WHERE product_group_id = $1 AND region = $2',
+            [groupId, oppositeRegion]
+          );
+          if (oppositeExisting.rows.length > 0) {
+            const oppositeId = oppositeExisting.rows[0].id as number;
+            skuToProductId.set(`${sku}:${oppositeRegion}`, oppositeId);
+            continue; // Pair already exists
+          }
+
+          // Second, check if a product with the same SKU already exists in the opposite region
+          const oppositeBySku = await this.pool.query(
+            'SELECT id, product_group_id FROM products WHERE sku = $1 AND region = $2',
+            [sku, oppositeRegion]
+          );
+          if (oppositeBySku.rows.length > 0) {
+            const existingOpposite = oppositeBySku.rows[0];
+
+            // If the existing opposite has no group, or a blank/\"null\" group, link it to this group
+            if (
+              !existingOpposite.product_group_id ||
+              String(existingOpposite.product_group_id).trim().toLowerCase() === '' ||
+              String(existingOpposite.product_group_id).trim().toLowerCase() === 'null'
+            ) {
+              await this.pool.query(
+                'UPDATE products SET product_group_id = $1 WHERE id = $2',
+                [groupId, existingOpposite.id]
+              );
+            } else if (String(existingOpposite.product_group_id) !== String(groupId)) {
+              // Conflict: same SKU in opposite region already belongs to a different group.
+              // Log as warning but do not try to re-link automatically.
+              result.errors.push({
+                row: rowNumber,
+                sku,
+                message: `Product with SKU "${sku}" already exists in ${oppositeRegion.toUpperCase()} region with a different product_group_id. Skipping automatic linking.`,
+                severity: 'warning'
+              });
+            }
+
+            // Track existing opposite product in SKU map for bundle resolution
+            skuToProductId.set(`${sku}:${oppositeRegion}`, existingOpposite.id);
+            continue;
+          }
+
+          try {
+            // Create opposite-region product using the same base product data
+            const createdOpposite = await this.productService.createProduct({
+              ...product,
+              sku,
+              name: product.name!,
+              regular_price: product.regular_price!,
+              type: product.type || 'simple',
+              status: product.status || ProductStatus.ACTIVE,
+              region: oppositeRegion,
+              product_group_id: groupId
+            } as any);
+
+            const oppositeProductId = createdOpposite.id as number;
+
+            // Track opposite product in SKU map for bundle resolution
+            // This ensures all products exist before Pass 3B tries to resolve bundle items
+            skuToProductId.set(`${sku}:${oppositeRegion}`, oppositeProductId);
+          } catch (error) {
+            result.errors.push({
+              row: rowNumber,
+              sku,
+              message: error instanceof Error
+                ? error.message
+                : 'Unknown error creating opposite-region grouped product',
+              severity: 'critical'
+            });
+          }
+        }
+
+        // Pass 3B: Clone relationships for all opposite-region products
+        // Now that all products exist (including bundle children), we can safely clone bundles
+        for (const { rowNumber, data, errors } of parsedData) {
+          if (errors.length > 0) continue;
+
+          const product: any = data.product;
+          if (!product || !product.sku) continue;
+
+          const groupId = product.product_group_id;
+          if (
+            !groupId ||
+            String(groupId).trim().toLowerCase() === '' ||
+            String(groupId).trim().toLowerCase() === 'null'
+          ) {
+            continue; // Not part of a group
+          }
+
+          const productRegion: 'us' | 'eu' =
+            (product.region === 'eu' ? 'eu' : 'us');
+          const oppositeRegion: 'us' | 'eu' =
+            productRegion === 'us' ? 'eu' : 'us';
+
+          const sku = product.sku as string;
+          const oppositeProductId = skuToProductId.get(`${sku}:${oppositeRegion}`);
+
+          // Only clone relationships if we have an opposite-region product
+          if (oppositeProductId) {
+            try {
+              await this.createRelationshipsForProduct(
+                rowNumber,
+                data,
+                oppositeProductId,
+                oppositeRegion,
+                skuToProductId,
+                result
+              );
+            } catch (error) {
+              result.errors.push({
+                row: rowNumber,
+                sku,
+                message: error instanceof Error
+                  ? `Failed to clone relationships for ${oppositeRegion.toUpperCase()} product: ${error.message}`
+                  : `Unknown error cloning relationships for ${oppositeRegion.toUpperCase()} product`,
+                severity: 'critical'
+              });
+            }
+          }
         }
       }
 

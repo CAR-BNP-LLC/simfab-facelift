@@ -32,6 +32,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { productsAPI, ImportResult } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface CSVImportExportDialogProps {
   open: boolean;
@@ -58,6 +59,7 @@ const CSVImportExportDialog = ({
     category: '',
     region: 'all' as 'us' | 'eu' | 'all'
   });
+  const [importAsGroups, setImportAsGroups] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -131,7 +133,7 @@ const CSVImportExportDialog = ({
     setImportResult(null);
 
     try {
-      const response = await productsAPI.importCSV(file, importMode, false);
+      const response = await productsAPI.importCSV(file, importMode, false, importAsGroups);
       setImportResult(response.data);
 
       if (response.data.success) {
@@ -271,6 +273,23 @@ const CSVImportExportDialog = ({
                       <SelectItem value="skip_duplicates">Skip Duplicates</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="import-as-groups"
+                      checked={importAsGroups}
+                      onCheckedChange={(checked) => setImportAsGroups(!!checked)}
+                    />
+                    <Label htmlFor="import-as-groups" className="text-sm leading-none">
+                      Import products as groups
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Assigns a group ID (`product_group_id`) for each product to enable safe
+                    cross-region pairing. Variations and add-ons remain unchanged.
+                  </p>
                 </div>
 
                 <div className="flex gap-2">
