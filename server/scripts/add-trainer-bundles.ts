@@ -17,15 +17,6 @@ const bundleItems = [
     sort_order: 0,
   },
   {
-    item_sku: 'single-monitor-stand',
-    quantity: 1,
-    item_type: 'optional',
-    is_configurable: false,
-    price_adjustment: 0,
-    display_name: 'SimFab Single Monitor Mount Stand for Flight Sim & Sim Racing',
-    sort_order: 1,
-  },
-  {
     item_sku: 'triple-monitor-stand',
     quantity: 1,
     item_type: 'optional',

@@ -1298,7 +1298,14 @@ export class ProductService {
         bi.*,
         p.name as item_product_name,
         p.slug as item_product_slug,
-        p.regular_price as item_product_price
+        p.regular_price as item_product_price,
+        (
+          SELECT pi.image_url
+          FROM product_images pi
+          WHERE pi.product_id = p.id
+          ORDER BY pi.sort_order ASC
+          LIMIT 1
+        ) as item_product_main_image_url
       FROM product_bundle_items bi
       JOIN products p ON p.id = bi.item_product_id
       WHERE bi.bundle_product_id = $1

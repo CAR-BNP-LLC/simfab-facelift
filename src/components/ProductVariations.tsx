@@ -76,6 +76,20 @@ const ProductVariations = ({
   variationStock = [],
   productRegion
 }: ProductVariationsProps) => {
+  // Derive selected "model" option name from image variations (used for conditional add-on visibility)
+  const selectedModelName = (() => {
+    for (const variation of imageVariations) {
+      const selectedOptionId = selectedImageValues[variation.id];
+      if (selectedOptionId) {
+        const option = variation.options.find((o) => o.id === selectedOptionId);
+        if (option?.name) {
+          return String(option.name);
+        }
+      }
+    }
+    return undefined;
+  })();
+
   return (
     <div className="space-y-4">
       {/* Image Variations (visual options first) */}
@@ -160,6 +174,24 @@ const ProductVariations = ({
         <div className="space-y-3">
           <h3 className="text-lg font-bold text-primary">Selection Options</h3>
           {dropdownVariations.map((variation) => {
+            const varName = (variation.name || '').toLowerCase();
+            const modelName = (selectedModelName || '').toLowerCase();
+
+            const isLdComponents =
+              varName.includes('add ld components');
+            const isHdComponents =
+              varName.includes('add hd components');
+
+            // For single monitor stand:
+            // - If LD model is selected, hide "Add LD components..."
+            // - If HD model is selected, hide "Add HD components..."
+            if (modelName.includes('model ld') && isLdComponents) {
+              return null;
+            }
+            if (modelName.includes('model hd') && isHdComponents) {
+              return null;
+            }
+
             const yesOption = variation.options.find((o) => o.name === 'Yes');
             const noOption = variation.options.find((o) => o.name === 'No');
             const isYesNoAddon = yesOption && noOption && variation.options.length === 2;

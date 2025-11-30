@@ -1487,8 +1487,9 @@ const ProductDetail = () => {
                   
                   return (
                     <div key={item.id} className="space-y-2">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-start space-x-3">
                         <Checkbox
+                          className="mt-1"
                           checked={isSelected}
                           disabled={!isAvailable && !isSelected}
                           onCheckedChange={(checked) => {
@@ -1509,8 +1510,16 @@ const ProductDetail = () => {
                             }
                           }}
                         />
-                        <div className="flex-1 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                        {item.item_product_main_image_url && (
+                          <img
+                            src={item.item_product_main_image_url}
+                            alt={item.display_name || item.item_product_name}
+                            className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 flex-wrap">
                             <h4 className={`text-lg font-medium ${!isAvailable ? 'text-muted-foreground line-through' : ''}`}>
                               {item.display_name || item.item_product_name}
                             </h4>
@@ -1537,11 +1546,12 @@ const ProductDetail = () => {
                               </div>
                             </div>
                           )}
-                        </div>
                       </div>
                       {item.description && (
-                        <p className="text-sm text-muted-foreground ml-8">{item.description}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                       )}
+                        </div>
+                      </div>
 
                       {/* Show variations when checked */}
                       {isSelected && itemVariations && (
