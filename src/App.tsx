@@ -37,6 +37,7 @@ const Backorders = lazy(() => import("./pages/Backorders"));
 const InternationalShipping = lazy(() => import("./pages/InternationalShipping"));
 const IntellectualProperties = lazy(() => import("./pages/IntellectualProperties"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -110,6 +111,7 @@ const App = () => {
                           <Route path="/international-shipping" element={<InternationalShipping />} />
                           <Route path="/intellectual-properties" element={<IntellectualProperties />} />
                           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                          <Route path="/cookie-policy" element={<CookiePolicy />} />
                           <Route path="/faq" element={<FAQ />} />
                           <Route path="/unsubscribe" element={<Unsubscribe />} />
                           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

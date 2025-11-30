@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const CookieNotice = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -36,13 +37,13 @@ const CookieNotice = () => {
             <p className="text-xs text-muted-foreground">
               This website uses cookies to improve your browsing experience, analyze site traffic, and provide personalized content. 
               By continuing to use this site, you consent to our use of cookies. You can manage your preferences in our 
-              <button className="text-primary hover:underline mx-1">
+              <Link to="/cookie-policy" className="text-primary hover:underline mx-1">
                 Cookie Policy
-              </button>
+              </Link>
               and 
-              <button className="text-primary hover:underline mx-1">
+              <Link to="/privacy-policy" className="text-primary hover:underline mx-1">
                 Privacy Policy
-              </button>
+              </Link>
               .
             </p>
           </div>
