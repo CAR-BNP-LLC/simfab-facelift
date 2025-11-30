@@ -1087,7 +1087,8 @@ const ProductDetail = () => {
           options: Array.isArray(v.options) ? v.options.map((o: any) => ({
             id: o.id.toString(),
             name: o.option_name || o.name,
-            price: o.price_adjustment || 0
+            price: o.price_adjustment || 0,
+            image: o.image_url || undefined
           })) : []
         }))
       : []),

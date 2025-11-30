@@ -90,15 +90,31 @@ function toCsvValue(value: string | undefined): string {
   return s;
 }
 
-async function main() {
-  const csvPath = path.resolve(__dirname, '..', '..', 'products-transformed.csv');
-
+async function readTrainerVariations(csvPath: string): Promise<string | undefined> {
   if (!fs.existsSync(csvPath)) {
-    console.error(`products-transformed.csv not found at ${csvPath}`);
-    process.exit(1);
+    return undefined;
   }
 
-  const fileContents = fs.readFileSync(csvPath, 'utf8');
+  return new Promise<string | undefined>((resolve, reject) => {
+    let found: string | undefined;
+
+    fs.createReadStream(csvPath)
+      .pipe(csv())
+      .on('data', (data: Row) => {
+        if (!found && data.sku === TARGET_SKU && typeof data.product_variations === 'string') {
+          found = data.product_variations;
+        }
+      })
+      .on('end', () => resolve(found))
+      .on('error', (err: Error) => reject(err));
+  });
+}
+
+async function updateCsvFile(csvPath: string, fileName: string, trainerVariations?: string) {
+  if (!fs.existsSync(csvPath)) {
+    console.warn(`${fileName} not found at ${csvPath}, skipping...`);
+    return 0;
+  }
 
   const rows: Row[] = [];
   const headers: string[] = [];
@@ -119,27 +135,36 @@ async function main() {
   });
 
   if (!headers.length || !rows.length) {
-    console.error('No data read from products-transformed.csv');
-    process.exit(1);
+    console.warn(`No data read from ${fileName}`);
+    return 0;
   }
 
-  if (!headers.includes('sku') || !headers.includes('product_bundle_items')) {
-    console.error('Expected columns "sku" and "product_bundle_items" not found in CSV header');
-    process.exit(1);
+  if (!headers.includes('sku')) {
+    console.warn(`Expected column "sku" not found in ${fileName}, skipping...`);
+    return 0;
   }
 
   let updatedCount = 0;
 
   for (const row of rows) {
     if (row.sku === TARGET_SKU) {
-      row.product_bundle_items = JSON.stringify(bundleItems);
+      // Always update bundle items if the column exists
+      if (headers.includes('product_bundle_items')) {
+        row.product_bundle_items = JSON.stringify(bundleItems);
+      }
+
+      // If we have a source of truth for variations, mirror it into this file
+      if (trainerVariations && headers.includes('product_variations')) {
+        row.product_variations = trainerVariations;
+      }
+
       updatedCount += 1;
     }
   }
 
   if (updatedCount === 0) {
-    console.warn(`No rows found with sku "${TARGET_SKU}". No changes made.`);
-    return;
+    console.warn(`No rows found with sku "${TARGET_SKU}" in ${fileName}.`);
+    return 0;
   }
 
   const outLines: string[] = [];
@@ -152,7 +177,31 @@ async function main() {
 
   fs.writeFileSync(csvPath, outLines.join('\n'), 'utf8');
 
-  console.log(`Updated product_bundle_items for ${updatedCount} row(s) with sku "${TARGET_SKU}".`);
+  console.log(`Updated product_bundle_items for ${updatedCount} row(s) with sku "${TARGET_SKU}" in ${fileName}.`);
+  return updatedCount;
+}
+
+async function main() {
+  const csvPath1 = path.resolve(__dirname, '..', '..', 'products-transformed.csv');
+  const csvPath2 = path.resolve(__dirname, '..', '..', 'temp', 'wc-product-export-transformed.csv');
+
+  // Read the canonical trainer-station variations from products-transformed.csv
+  const trainerVariations = await readTrainerVariations(csvPath1);
+  if (!trainerVariations) {
+    console.warn(
+      `Could not find product_variations for sku "${TARGET_SKU}" in products-transformed.csv. Variations will not be synced.`
+    );
+  }
+
+  const count1 = await updateCsvFile(csvPath1, 'products-transformed.csv', trainerVariations);
+  const count2 = await updateCsvFile(csvPath2, 'temp/wc-product-export-transformed.csv', trainerVariations);
+
+  const total = count1 + count2;
+  if (total === 0) {
+    console.warn(`No rows found with sku "${TARGET_SKU}" in any file.`);
+  } else {
+    console.log(`\nTotal: Updated ${total} row(s) across all files.`);
+  }
 }
 
 main().catch((err) => {
