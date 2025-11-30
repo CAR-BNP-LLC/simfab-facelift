@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ProductImage {
   url: string;
@@ -49,6 +50,16 @@ const ProductImageGallery = ({ images, productName, selectedColorImageUrl }: Pro
     }
   }, [selectedColorImageUrl, displayImages]);
 
+  const handleNext = () => {
+    if (!displayImages || displayImages.length === 0) return;
+    setSelectedImage((prev) => (prev + 1) % displayImages.length);
+  };
+
+  const handlePrev = () => {
+    if (!displayImages || displayImages.length === 0) return;
+    setSelectedImage((prev) => (prev - 1 + displayImages.length) % displayImages.length);
+  };
+
   // Handle no images case
   if (!displayImages || displayImages.length === 0) {
     return (
@@ -63,9 +74,9 @@ const ProductImageGallery = ({ images, productName, selectedColorImageUrl }: Pro
   }
 
   return (
-    <div className="flex gap-4">
-      {/* Thumbnails */}
-      <div className="flex flex-col space-y-2">
+    <div className="flex gap-4 w-full">
+      {/* Thumbnails (desktop only) */}
+      <div className="hidden md:flex flex-col space-y-2">
         {displayImages.map((image, index) => (
           <button
             key={`${image.url}-${index}`}
@@ -85,11 +96,40 @@ const ProductImageGallery = ({ images, productName, selectedColorImageUrl }: Pro
 
       {/* Main Image */}
       <div className="flex-1">
-        <div className="bg-black rounded-lg overflow-hidden flex items-center justify-center">
-          <img 
-            src={displayImages[selectedImage]?.url} 
+        <div
+          className="relative bg-black rounded-lg overflow-hidden flex items-center justify-center cursor-pointer"
+          onClick={handleNext}
+        >
+          {/* Prev / Next arrows (visible especially on mobile where thumbnails are hidden) */}
+          {displayImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrev();
+                }}
+                className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNext();
+                }}
+                className="absolute right-3 md:right-4 top-1/2 -translate-y-1/2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full transition-colors"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+
+          <img
+            src={displayImages[selectedImage]?.url}
             alt={displayImages[selectedImage]?.alt || productName}
-            className="w-full h-auto max-h-[600px] object-contain"
+            className="w-full h-auto max-h-[420px] md:max-h-[720px] object-contain"
           />
         </div>
       </div>

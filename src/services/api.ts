@@ -383,6 +383,13 @@ export interface ProductWithDetails extends Product {
     fileUrl: string;
     thumbnailUrl?: string;
   }>;
+  additionalInfo?: Array<{
+    id: number;
+    title: string;
+    description?: string | null;
+    content_type?: string;
+    content_data?: Record<string, any>;
+  }>;
 }
 
 export interface ProductConfiguration {
