@@ -1485,6 +1485,14 @@ const ProductDetail = () => {
                   const isAvailable = stockInfo ? stockInfo.available > 0 : true; // Default to available if not checked yet
                   const stockLabel = stockInfo ? (stockInfo.available > 0 ? `${stockInfo.available} available` : 'Out of Stock') : '';
                   
+                  // Compute a reliable product slug for "Open in new tab" link.
+                  // Prefer backend-provided slug, but fall back to a slugified name if needed.
+                  const slugSource = (item.item_product_slug || item.display_name || item.item_product_name || '').toString();
+                  const productSlug = slugSource
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                  
                   return (
                     <div key={item.id} className="space-y-2">
                       <div className="flex items-start space-x-3">
@@ -1520,21 +1528,32 @@ const ProductDetail = () => {
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className={`text-lg font-medium ${!isAvailable ? 'text-muted-foreground line-through' : ''}`}>
-                              {item.display_name || item.item_product_name}
-                            </h4>
-                            <span className="text-sm text-muted-foreground">
-                              (${basePrice.toFixed(2)})
-                            </span>
-                            {!isAvailable && (
-                              <Badge variant="destructive" className="ml-2">Out of Stock</Badge>
-                            )}
-                            {isAvailable && stockInfo && stockInfo.available > 0 && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {stockInfo.available} available
-                              </Badge>
-                            )}
-                          </div>
+                              <h4 className={`text-lg font-medium ${!isAvailable ? 'text-muted-foreground line-through' : ''}`}>
+                                {item.display_name || item.item_product_name}
+                              </h4>
+                              <span className="text-sm text-muted-foreground">
+                                (${basePrice.toFixed(2)})
+                              </span>
+                              {!isAvailable && (
+                                <Badge variant="destructive" className="ml-2">Out of Stock</Badge>
+                              )}
+                              {isAvailable && stockInfo && stockInfo.available > 0 && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {stockInfo.available} available
+                                </Badge>
+                              )}
+                              {productSlug && (
+                                <a
+                                  href={`/product/${productSlug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary underline ml-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Open in new tab
+                                </a>
+                              )}
+                            </div>
                           {isSelected && variationPriceAdjustment !== 0 && (
                             <div className="text-right">
                               <div className="font-semibold">
