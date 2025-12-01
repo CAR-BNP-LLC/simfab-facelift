@@ -18,8 +18,8 @@ const Footer = () => {
   ];
 
   const usefulLinks = [
-    'SimFab Intellectual Properties', 'Cookie Policy (EU)', 'Terms & Conditions', 
-    'Backorders Terms & Conditions', 'International Shipping Information', 'Privacy Policy', 'FAQs'
+  'SimFab Intellectual Properties', 'Cookie Policy (EU)', 'Terms & Conditions', 
+  'Backorders Terms & Conditions', 'International Shipping Information', 'Privacy Policy', 'FAQs'
   ];
 
   const paymentMethods = [
@@ -130,6 +130,7 @@ const Footer = () => {
                            link === 'International Shipping Information' ? '/international-shipping' :
                            link === 'SimFab Intellectual Properties' ? '/intellectual-properties' :
                            link === 'Privacy Policy' ? '/privacy-policy' :
+                           link === 'Cookie Policy (EU)' ? '/cookie-policy' :
                            link === 'FAQs' ? '/faq' : '#';
                 return (
                   <li key={index}>

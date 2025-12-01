@@ -220,24 +220,41 @@ const Checkout = () => {
   // Fetch shipping rates when address is complete
   useEffect(() => {
     const fetchShippingRates = async () => {
-      // Only fetch if we have a complete shipping address
-      // City is optional for countries without city lists (like UK)
+      // Check if city is actually enterable/available
+      // City is enterable if:
+      // 1. State is selected (for countries with states), OR
+      // 2. Country doesn't require states (city is always enterable as text input)
+      const countryHasStates = shippingAddress.country && ['US', 'CA', 'AU'].includes(shippingAddress.country);
+      const stateSelected = !!shippingAddress.state && shippingAddress.state.trim() !== '';
+      const cityIsEnterable = !countryHasStates || stateSelected;
+      
+      // Only fetch if we have a complete shipping address AND city is enterable
       const hasCompleteAddress = 
         shippingAddress.addressLine1 &&
-        shippingAddress.state &&
         shippingAddress.postalCode &&
-        shippingAddress.country;
+        shippingAddress.country &&
+        shippingAddress.city && // City is required by backend
+        cityIsEnterable; // And city field is actually enterable
+
+      // Also need state if country requires it
+      const hasRequiredState = !countryHasStates || stateSelected;
 
       // Fetch shipping rates on step 3+ (shipping, review, payment steps)
       // Also fetch if we're on review/payment step and don't have shipping options loaded yet (page reload scenario)
       const needsShippingOptions = step >= 4 && selectedShipping && 
         !shippingOptions.find(opt => opt.id === selectedShipping);
-      const shouldFetch = hasCompleteAddress && (
+      const shouldFetch = hasCompleteAddress && hasRequiredState && (
         step === 3 || 
         needsShippingOptions
       );
 
       if (!shouldFetch) {
+        // Clear shipping selection if address becomes incomplete
+        if (selectedShipping && (!hasCompleteAddress || !hasRequiredState)) {
+          updateCheckoutState({ selectedShipping: '' });
+          setShippingOptions([]);
+          setQuoteRequested(false);
+        }
         return;
       }
 
@@ -270,8 +287,27 @@ const Checkout = () => {
 
         if (response.success && response.data.shippingMethods) {
           setShippingOptions(response.data.shippingMethods);
-          // Auto-select first option if none selected or if shipping was cleared
-          if (!selectedShipping && response.data.shippingMethods.length > 0) {
+          
+          // Auto-select first valid (non-quote) option if:
+          // 1. No shipping selected, OR
+          // 2. Previously selected quote option but valid options are now available
+          const validOptions = response.data.shippingMethods.filter(
+            opt => !opt.requiresManualQuote && opt.id !== 'international_quote'
+          );
+          
+          if (validOptions.length > 0) {
+            // If user had quote selected or no selection, auto-select first valid option
+            if (!selectedShipping || 
+                selectedShipping === 'international_quote' || 
+                response.data.shippingMethods.find(opt => opt.id === selectedShipping)?.requiresManualQuote) {
+              console.log('Valid shipping options available, auto-selecting first option');
+              updateCheckoutState({ 
+                selectedShipping: validOptions[0].id 
+              });
+              setQuoteRequested(false); // Clear quote requested state
+            }
+          } else if (!selectedShipping && response.data.shippingMethods.length > 0) {
+            // Only quote options available, select first one
             updateCheckoutState({ 
               selectedShipping: response.data.shippingMethods[0].id 
             });
@@ -288,16 +324,20 @@ const Checkout = () => {
               updateCheckoutState({ 
                 selectedShipping: fedExOption.id 
               });
+              setQuoteRequested(false);
             }
           }
         }
       } catch (error) {
         console.error('Failed to fetch shipping rates:', error);
-        toast({
-          title: 'Shipping calculation failed',
-          description: 'Please try again or contact support',
-          variant: 'destructive'
-        });
+        // Only show error if we're on shipping step, otherwise it might be expected
+        if (step === 3) {
+          toast({
+            title: 'Shipping calculation failed',
+            description: 'Please check your address and try again',
+            variant: 'destructive'
+          });
+        }
       } finally {
         setLoadingShipping(false);
       }
@@ -368,15 +408,37 @@ const Checkout = () => {
   }, [step, createdOrder, cartItemsSignature, orderCartSignature, updateCheckoutState, toast]);
 
   const handleAddressChange = (field: keyof typeof shippingAddress, value: string) => {
+    // Clear shipping selection when critical address fields change
+    // This ensures shipping recalculates with new address
+    const criticalFields: (keyof typeof shippingAddress)[] = ['country', 'state', 'city', 'postalCode', 'addressLine1'];
+    const shouldClearShipping = criticalFields.includes(field) && selectedShipping;
+    
     updateCheckoutState({
-      shippingAddress: { ...shippingAddress, [field]: value }
+      shippingAddress: { ...shippingAddress, [field]: value },
+      ...(shouldClearShipping ? { selectedShipping: '' } : {})
     });
+    
+    // Clear quote requested state when address changes
+    if (criticalFields.includes(field) && quoteRequested) {
+      setQuoteRequested(false);
+    }
   };
 
   const handleAddressBatchChange = (updates: Partial<typeof shippingAddress>) => {
+    // Clear shipping selection when batch address changes occur (e.g., country change)
+    // This ensures shipping recalculates with new address
+    const criticalFields: (keyof typeof shippingAddress)[] = ['country', 'state', 'city', 'postalCode', 'addressLine1'];
+    const hasCriticalChanges = Object.keys(updates).some(key => criticalFields.includes(key as keyof typeof shippingAddress));
+    
     updateCheckoutState({
-      shippingAddress: { ...shippingAddress, ...updates }
+      shippingAddress: { ...shippingAddress, ...updates },
+      ...(hasCriticalChanges && selectedShipping ? { selectedShipping: '' } : {})
     });
+    
+    // Clear quote requested state when critical address fields change
+    if (hasCriticalChanges && quoteRequested) {
+      setQuoteRequested(false);
+    }
   };
 
   const handleBillingAddressChange = (field: keyof typeof billingAddress, value: string) => {
@@ -415,6 +477,29 @@ const Checkout = () => {
         return false;
       }
     }
+
+    // City validation - conditional based on whether it's enterable
+    // City is required by backend, but only validate if:
+    // 1. State is selected (city dropdown becomes enabled), OR
+    // 2. State is not required for this country (city is always enterable as text input)
+    // If state is required but not selected, don't require city yet (user needs to select state first)
+    const stateSelected = !!shippingAddress.state && shippingAddress.state.trim() !== '';
+    const countryHasStates = shippingAddress.country && ['US', 'CA', 'AU'].includes(shippingAddress.country);
+    
+    // If country requires state and state is not selected, city field is disabled - don't require it yet
+    // Otherwise, city is always enterable and required
+    if (!countryHasStates || stateSelected) {
+      if (!shippingAddress.city || shippingAddress.city.trim() === '') {
+        toast({
+          title: 'Missing information',
+          description: 'Please enter city',
+          variant: 'destructive'
+        });
+        return false;
+      }
+    }
+    // If country has states but state not selected, city will be required after state is selected
+    // (validation will catch it on next attempt)
 
     // Email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(shippingAddress.email)) {

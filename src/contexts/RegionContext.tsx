@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, ReactNode } from 'react';
-import { setRegionGetter as setApiRegionGetter } from '@/services/api';
+import { setRegionGetter as setApiRegionGetter, regionSettingsAPI } from '@/services/api';
 
 type Region = 'us' | 'eu';
 
@@ -12,25 +12,29 @@ interface RegionContextType {
   region: Region;
   setRegion: (region: Region) => void;
   toggleRegion: () => void;
+  restrictionsEnabled: boolean;
 }
 
 const RegionContext = createContext<RegionContextType | undefined>(undefined);
 
 const REGION_STORAGE_KEY = 'simfab_region';
+const OLD_SITE_URL = 'https://simfab.com';
 
 export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Initialize region from localStorage, hostname, or default to 'us'
+  const [restrictionsEnabled, setRestrictionsEnabled] = useState(false);
+  
+  // Initialize region from hostname, localStorage, query param, or default to 'eu'
   const [region, setRegionState] = useState<Region>(() => {
-    // 1. Check localStorage first
+    // 1. Check hostname first (production - highest priority)
+    const hostname = window.location.hostname;
+    if (hostname === 'simfab.eu' || hostname.endsWith('.simfab.eu') || hostname.startsWith('eu.') || hostname.includes('.eu.')) {
+      return 'eu';
+    }
+    
+    // 2. Check localStorage
     const stored = localStorage.getItem(REGION_STORAGE_KEY);
     if (stored === 'us' || stored === 'eu') {
       return stored;
-    }
-    
-    // 2. Check hostname (production)
-    const hostname = window.location.hostname;
-    if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
-      return 'eu';
     }
     
     // 3. Check query param (for initial load)
@@ -40,13 +44,32 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       return queryRegion;
     }
     
-    // 4. Default to US
-    return 'us';
+    // 4. Default to EU (changed from US for EU-only deployment)
+    return 'eu';
   });
 
   // Use ref to always have the latest region value for the getter function
   // Initialize ref with initial region value
   const regionRef = useRef(region);
+
+  // Fetch region restrictions on mount
+  useEffect(() => {
+    const fetchRestrictions = async () => {
+      try {
+        const response = await regionSettingsAPI.getPublicSettings('eu');
+        if (response.success && response.data.settings) {
+          const restrictions = response.data.settings.region_restrictions_enabled === true;
+          setRestrictionsEnabled(restrictions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch region restrictions:', error);
+        // Default to false if fetch fails
+        setRestrictionsEnabled(false);
+      }
+    };
+    
+    fetchRestrictions();
+  }, []);
 
   // Register getter IMMEDIATELY (synchronously) before first paint
   // This ensures API requests made during initial render use the correct region
@@ -83,31 +106,51 @@ export const RegionProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   }, [region]);
 
   const setRegion = useCallback((newRegion: Region) => {
+    // Check if restrictions are enabled and user is trying to switch to US
+    if (restrictionsEnabled && newRegion === 'us') {
+      // Redirect to old site, preserving current path
+      const currentPath = window.location.pathname + window.location.search;
+      const redirectUrl = `${OLD_SITE_URL}${currentPath}`;
+      window.location.href = redirectUrl;
+      return;
+    }
+    
     // Update ref synchronously BEFORE state update
     regionRef.current = newRegion;
     setApiRegionGetter(() => regionRef.current);
     setRegionState(newRegion);
-  }, []);
+  }, [restrictionsEnabled]);
 
   const toggleRegion = useCallback(() => {
     setRegionState(current => {
       const newRegion = current === 'us' ? 'eu' : 'us';
+      
+      // Check if restrictions are enabled and user is trying to switch to US
+      if (restrictionsEnabled && newRegion === 'us') {
+        // Redirect to old site, preserving current path
+        const currentPath = window.location.pathname + window.location.search;
+        const redirectUrl = `${OLD_SITE_URL}${currentPath}`;
+        window.location.href = redirectUrl;
+        return current; // Return current region since we're redirecting
+      }
+      
       // Update ref synchronously BEFORE state update
       regionRef.current = newRegion;
       setApiRegionGetter(() => regionRef.current);
       
       return newRegion;
     });
-  }, []);
+  }, [restrictionsEnabled]);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => {
     return {
       region,
       setRegion,
-      toggleRegion
+      toggleRegion,
+      restrictionsEnabled
     };
-  }, [region, setRegion, toggleRegion]);
+  }, [region, setRegion, toggleRegion, restrictionsEnabled]);
 
   return (
     <RegionContext.Provider value={contextValue}>

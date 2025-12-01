@@ -932,28 +932,7 @@ const ProductDetail = () => {
     }
   };
 
-  const features = [
-    {
-      icon: <Shield className="w-6 h-6" />,
-      title: "Lifetime warranty",
-      description: "On all metal parts"
-    },
-    {
-      icon: <Clock className="w-6 h-6" />,
-      title: "Money-back guarantee", 
-      description: "Extended holiday return"
-    },
-    {
-      icon: <Truck className="w-6 h-6" />,
-      title: "Same day shipping",
-      description: "1-6 days fast delivery"
-    },
-    {
-      icon: <Headphones className="w-6 h-6" />,
-      title: "Real person support",
-      description: "We are here to assist you"
-    }
-  ];
+  // Removed per-product feature badges (lifetime warranty, money-back, etc.)
 
   // Loading state
   if (loading) {
@@ -1087,7 +1066,8 @@ const ProductDetail = () => {
           options: Array.isArray(v.options) ? v.options.map((o: any) => ({
             id: o.id.toString(),
             name: o.option_name || o.name,
-            price: o.price_adjustment || 0
+            price: o.price_adjustment || 0,
+            image: o.image_url || undefined
           })) : []
         }))
       : []),
@@ -1183,11 +1163,17 @@ const ProductDetail = () => {
   ];
 
   const additionalDescriptions = Array.isArray(product.additionalInfo)
-    ? product.additionalInfo.map((info: any) => ({
-        title: info.title,
-        images: [],
-        description: info.description || ''
-      }))
+    ? product.additionalInfo.map((info: any) => {
+        const imagesFromContent =
+          info.content_data && Array.isArray((info as any).content_data.images)
+            ? ((info as any).content_data.images as string[]).filter(Boolean)
+            : [];
+        return {
+          title: info.title,
+          images: imagesFromContent,
+          description: info.description || ''
+        };
+      })
     : [];
 
 
@@ -1249,17 +1235,17 @@ const ProductDetail = () => {
         </nav>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8">
-          {/* Image Gallery */}
-          <div className="lg:col-span-8">
-            <ProductImageGallery 
-              images={images} 
+          {/* Image Gallery - stick in view while details scroll */}
+          <div className="lg:col-span-8 lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)] flex items-center">
+            <ProductImageGallery
+              images={images}
               productName={product.name}
               selectedColorImageUrl={selectedColorImageUrl}
             />
           </div>
 
           {/* Product Info */}
-          <div className="lg:col-span-4 lg:sticky lg:top-8 lg:pr-4">
+          <div className="lg:col-span-4 lg:pr-4">
             <div className="space-y-6">
             <div>
               {/* Sale Badge */}
@@ -1484,10 +1470,19 @@ const ProductDetail = () => {
                   const isAvailable = stockInfo ? stockInfo.available > 0 : true; // Default to available if not checked yet
                   const stockLabel = stockInfo ? (stockInfo.available > 0 ? `${stockInfo.available} available` : 'Out of Stock') : '';
                   
+                  // Compute a reliable product slug for "Open in new tab" link.
+                  // Prefer backend-provided slug, but fall back to a slugified name if needed.
+                  const slugSource = (item.item_product_slug || item.display_name || item.item_product_name || '').toString();
+                  const productSlug = slugSource
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-|-$/g, '');
+                  
                   return (
                     <div key={item.id} className="space-y-2">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-start space-x-3">
                         <Checkbox
+                          className="mt-1"
                           checked={isSelected}
                           disabled={!isAvailable && !isSelected}
                           onCheckedChange={(checked) => {
@@ -1508,23 +1503,42 @@ const ProductDetail = () => {
                             }
                           }}
                         />
-                        <div className="flex-1 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <h4 className={`text-lg font-medium ${!isAvailable ? 'text-muted-foreground line-through' : ''}`}>
-                              {item.display_name || item.item_product_name}
-                            </h4>
-                            <span className="text-sm text-muted-foreground">
-                              (${basePrice.toFixed(2)})
-                            </span>
-                            {!isAvailable && (
-                              <Badge variant="destructive" className="ml-2">Out of Stock</Badge>
-                            )}
-                            {isAvailable && stockInfo && stockInfo.available > 0 && (
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {stockInfo.available} available
-                              </Badge>
-                            )}
-                          </div>
+                        {item.item_product_main_image_url && (
+                          <img
+                            src={item.item_product_main_image_url}
+                            alt={item.display_name || item.item_product_name}
+                            className="w-16 h-16 rounded-md object-cover flex-shrink-0"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className={`text-lg font-medium ${!isAvailable ? 'text-muted-foreground line-through' : ''}`}>
+                                {item.display_name || item.item_product_name}
+                              </h4>
+                              <span className="text-sm text-muted-foreground">
+                                (${basePrice.toFixed(2)})
+                              </span>
+                              {!isAvailable && (
+                                <Badge variant="destructive" className="ml-2">Out of Stock</Badge>
+                              )}
+                              {isAvailable && stockInfo && stockInfo.available > 0 && (
+                                <Badge variant="outline" className="ml-2 text-xs">
+                                  {stockInfo.available} available
+                                </Badge>
+                              )}
+                              {productSlug && (
+                                <a
+                                  href={`/product/${productSlug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary underline ml-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  Open in new tab
+                                </a>
+                              )}
+                            </div>
                           {isSelected && variationPriceAdjustment !== 0 && (
                             <div className="text-right">
                               <div className="font-semibold">
@@ -1536,11 +1550,12 @@ const ProductDetail = () => {
                               </div>
                             </div>
                           )}
-                        </div>
                       </div>
                       {item.description && (
-                        <p className="text-sm text-muted-foreground ml-8">{item.description}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{item.description}</p>
                       )}
+                        </div>
+                      </div>
 
                       {/* Show variations when checked */}
                       {isSelected && itemVariations && (
@@ -1815,18 +1830,15 @@ const ProductDetail = () => {
           assemblyManuals={assemblyManuals}
         />
 
-        {/* Features Section */}
-        <div className="mt-8 md:mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {features.map((feature, index) => (
-            <div key={index} className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-muted rounded-lg text-muted-foreground">
-                {feature.icon}
-              </div>
-              <h3 className="font-semibold">{feature.title}</h3>
-              <p className="text-sm text-muted-foreground">{feature.description}</p>
-            </div>
-          ))}
-        </div>
+        {/* Main Product Description (legacy/CSV description field) */}
+        {(product as any)?.description && (
+          <section className="mt-12 md:mt-16 space-y-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-primary">Description</h2>
+            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+              {(product as any).description}
+            </p>
+          </section>
+        )}
 
         {/* Product Description Builder */}
         <ProductDescriptionBuilder productId={product.id} />

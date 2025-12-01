@@ -99,15 +99,45 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const data = await response.json();
 
+      // Debug logging in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🛒 Cart refresh response:', {
+          success: data.success,
+          hasData: !!data.data,
+          dataKeys: data.data ? Object.keys(data.data) : [],
+          cartNull: data.data?.cart === null,
+          hasItems: !!data.data?.items,
+          itemsLength: data.data?.items?.length || 0
+        });
+      }
+
       if (data.success && data.data) {
-        // Check if cart is actually empty (no items)
-        if (data.data.items && data.data.items.length === 0) {
+        // Backend returns different structures:
+        // - Empty cart: { success: true, data: { cart: null, message: 'Cart is empty' } }
+        // - Cart with items: { success: true, data: { id, items, totals, ... } }
+        
+        // Check if API explicitly returned null cart (empty cart response)
+        if (data.data.cart === null) {
           setCart(null);
-        } else if (data.data.cart === null) {
-          // API explicitly returned null cart
-          setCart(null);
-        } else {
+        } 
+        // Check if this is a cart object with items
+        else if (data.data.items && Array.isArray(data.data.items)) {
+          // Cart has items - set the cart object
+          if (data.data.items.length > 0) {
+            setCart(data.data);
+          } else {
+            // Cart object exists but has no items
+            setCart(null);
+          }
+        }
+        // Check if this is a cart object (might not have items property yet)
+        else if (data.data.id && (data.data.items === undefined || Array.isArray(data.data.items))) {
+          // It's a cart object - set it (items might be empty array or undefined)
           setCart(data.data);
+        } else {
+          // Unknown structure - set to null
+          console.warn('Unknown cart response structure:', data.data);
+          setCart(null);
         }
       } else {
         setCart(null);
@@ -188,12 +218,29 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         body: JSON.stringify(requestData)
       });
 
-      const data = await response.json();
+      // Handle non-JSON responses (network errors, etc.)
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error('Server error: Invalid response format');
+      }
 
       if (!response.ok || !data.success) {
         // Check for specific error codes
         const errorCode = data.error?.code;
         const errorMessage = data.error?.message || 'Failed to add to cart';
+        
+        // Log error for debugging (especially session-related issues)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Add to cart error:', {
+            status: response.status,
+            errorCode,
+            errorMessage,
+            fullError: data.error
+          });
+        }
         
         // Show specific error message for region mismatch
         if (errorCode === 'REGION_MISMATCH') {
@@ -203,6 +250,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Show specific error message for stock issues
         if (errorCode === 'BUNDLE_REQUIRED_ITEM_OUT_OF_STOCK' || errorMessage.includes('out of stock')) {
           throw new Error(errorMessage);
+        }
+        
+        // Check for session-related errors
+        if (errorMessage.includes('Session ID') || errorMessage.includes('session')) {
+          console.error('Session error detected - this may indicate session configuration issues');
+          throw new Error('Unable to add to cart. Please refresh the page and try again.');
         }
         
         throw new Error(errorMessage);
@@ -249,11 +302,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
       }
 
-      // Refresh cart
+      // Refresh cart to get updated state
       await refreshCart();
       
       // Clear shipping selection when cart items change (use event to avoid re-render loops)
       window.dispatchEvent(new CustomEvent('cartUpdated'));
+      
+      // Debug: Log cart state after refresh (in development)
+      if (process.env.NODE_ENV === 'development') {
+        // Use setTimeout to log after state update
+        setTimeout(() => {
+          console.log('🛒 Cart state after add:', {
+            cartId: cart?.id,
+            itemCount: cart?.items?.length || 0,
+            totalsItemCount: cart?.totals?.itemCount || 0
+          });
+        }, 100);
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -264,7 +329,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } finally {
       setLoading(false);
     }
-  }, [region, refreshCart, toast]);
+  }, [region, refreshCart, toast, cart]);
 
   /**
    * Update item quantity

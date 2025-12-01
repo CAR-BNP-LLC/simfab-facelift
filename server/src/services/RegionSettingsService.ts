@@ -176,6 +176,23 @@ export class RegionSettingsService {
   }
 
   /**
+   * Get region restrictions settings
+   * @param region - Region code ('us' or 'eu')
+   * @returns Region restrictions configuration
+   */
+  async getRegionRestrictions(region: 'us' | 'eu'): Promise<{
+    region_restrictions_enabled: boolean;
+    default_region: string;
+  }> {
+    const settings = await this.getPublicSettings(region);
+    
+    return {
+      region_restrictions_enabled: settings.region_restrictions_enabled === true,
+      default_region: settings.default_region || (region === 'eu' ? 'eu' : 'us')
+    };
+  }
+
+  /**
    * Update a single setting
    */
   async updateSetting(

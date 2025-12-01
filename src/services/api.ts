@@ -383,6 +383,13 @@ export interface ProductWithDetails extends Product {
     fileUrl: string;
     thumbnailUrl?: string;
   }>;
+  additionalInfo?: Array<{
+    id: number;
+    title: string;
+    description?: string | null;
+    content_type?: string;
+    content_data?: Record<string, any>;
+  }>;
 }
 
 export interface ProductConfiguration {
@@ -692,12 +699,20 @@ export const productsAPI = {
   /**
    * Import products from CSV
    */
-  async importCSV(file: File, mode: 'create' | 'update' | 'skip_duplicates' = 'create', dryRun: boolean = false) {
+  async importCSV(
+    file: File,
+    mode: 'create' | 'update' | 'skip_duplicates' = 'create',
+    dryRun: boolean = false,
+    importAsGroups: boolean = false
+  ) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mode', mode);
     if (dryRun) {
       formData.append('dry_run', 'true');
+    }
+    if (importAsGroups) {
+      formData.append('import_as_groups', 'true');
     }
 
     const response = await fetch(`${API_BASE_URL}/api/admin/products/import`, {

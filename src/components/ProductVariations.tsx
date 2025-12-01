@@ -2,6 +2,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { getCurrencySymbol } from "@/utils/currency";
 
 interface VariationOption {
@@ -75,80 +76,23 @@ const ProductVariations = ({
   variationStock = [],
   productRegion
 }: ProductVariationsProps) => {
+  // Derive selected "model" option name from image variations (used for conditional add-on visibility)
+  const selectedModelName = (() => {
+    for (const variation of imageVariations) {
+      const selectedOptionId = selectedImageValues[variation.id];
+      if (selectedOptionId) {
+        const option = variation.options.find((o) => o.id === selectedOptionId);
+        if (option?.name) {
+          return String(option.name);
+        }
+      }
+    }
+    return undefined;
+  })();
+
   return (
     <div className="space-y-4">
-      {/* Text Variations */}
-      {textVariations.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-bold text-primary">Text Input Options</h3>
-          {textVariations.map((variation) => (
-            <div key={variation.id} className="space-y-2">
-              <Label className="text-lg font-medium">
-                {variation.name}
-                {variation.isRequired && <span className="text-primary ml-1">*</span>}
-              </Label>
-              {variation.description && (
-                <p className="text-sm text-muted-foreground">{variation.description}</p>
-              )}
-              <Input
-                placeholder={`Enter ${variation.name.toLowerCase()}...`}
-                value={selectedTextValues[variation.id] || ''}
-                onChange={(e) => onTextChange?.(variation.id, e.target.value)}
-                required={variation.isRequired}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Dropdown Variations */}
-      {dropdownVariations.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-lg font-bold text-primary">Selection Options</h3>
-          {dropdownVariations.map((variation) => (
-            <div key={variation.id} className="space-y-2">
-              <Label className="text-lg font-medium">
-                {variation.name}
-                {variation.isRequired && <span className="text-primary ml-1">*</span>}
-              </Label>
-              {variation.description && (
-                <p className="text-sm text-muted-foreground">{variation.description}</p>
-              )}
-              <Select 
-                value={selectedDropdownValues[variation.id] || ""} 
-                onValueChange={(value) => onDropdownChange?.(variation.id, value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {variation.options.map((option) => {
-                    const price = option.price ?? 0;
-                    const hasPrice = price !== 0 && price !== null && price !== undefined;
-                    return (
-                      <SelectItem key={option.id} value={option.id}>
-                        <div className="flex items-center justify-between w-full">
-                          <span>{option.name}</span>
-                          {hasPrice && (() => {
-                            const currency = getCurrencySymbol(productRegion);
-                            return (
-                              <span className="ml-2 font-bold">
-                                {price > 0 ? '+' : ''}{currency}{Math.abs(price).toFixed(2)}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Image Variations */}
+      {/* Image Variations (visual options first) */}
       {imageVariations.length > 0 && (
         <div className="space-y-3">
           <h3 className="text-lg font-bold text-primary">Visual Options</h3>
@@ -198,6 +142,159 @@ const ProductVariations = ({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Text Variations */}
+      {textVariations.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-bold text-primary">Text Input Options</h3>
+          {textVariations.map((variation) => (
+            <div key={variation.id} className="space-y-2">
+              <Label className="text-lg font-medium">
+                {variation.name}
+                {variation.isRequired && <span className="text-primary ml-1">*</span>}
+              </Label>
+              {variation.description && (
+                <p className="text-sm text-muted-foreground">{variation.description}</p>
+              )}
+              <Input
+                placeholder={`Enter ${variation.name.toLowerCase()}...`}
+                value={selectedTextValues[variation.id] || ''}
+                onChange={(e) => onTextChange?.(variation.id, e.target.value)}
+                required={variation.isRequired}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown Variations */}
+      {dropdownVariations.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-bold text-primary">Selection Options</h3>
+          {dropdownVariations.map((variation) => {
+            const varName = (variation.name || '').toLowerCase();
+            const modelName = (selectedModelName || '').toLowerCase();
+
+            const isLdComponents =
+              varName.includes('add ld components');
+            const isHdComponents =
+              varName.includes('add hd components');
+
+            // For single monitor stand:
+            // - If LD model is selected, hide "Add LD components..."
+            // - If HD model is selected, hide "Add HD components..."
+            if (modelName.includes('model ld') && isLdComponents) {
+              return null;
+            }
+            if (modelName.includes('model hd') && isHdComponents) {
+              return null;
+            }
+
+            const yesOption = variation.options.find((o) => o.name === 'Yes');
+            const noOption = variation.options.find((o) => o.name === 'No');
+            const isYesNoAddon = yesOption && noOption && variation.options.length === 2;
+            const selectedId = selectedDropdownValues[variation.id];
+
+            if (isYesNoAddon && yesOption && noOption) {
+              const isChecked = selectedId === yesOption.id;
+              const price = yesOption.price ?? 0;
+              const hasPrice = price !== 0 && price !== null && price !== undefined;
+
+              return (
+                <div key={variation.id} className="space-y-2">
+                  <Label className="text-lg font-medium">
+                    {variation.name}
+                    {variation.isRequired && <span className="text-primary ml-1">*</span>}
+                  </Label>
+                  {variation.description && (
+                    <p className="text-sm text-muted-foreground">{variation.description}</p>
+                  )}
+                  <div className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center space-x-3">
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) =>
+                          onDropdownChange?.(variation.id, checked ? yesOption.id : noOption.id)
+                        }
+                      />
+                      <div className="flex items-center space-x-2">
+                        {yesOption.image && (
+                          <img
+                            src={yesOption.image}
+                            alt={variation.name}
+                            className="w-10 h-10 rounded object-cover"
+                          />
+                        )}
+                        <span className="font-medium">
+                          {variation.name}
+                        </span>
+                      </div>
+                    </div>
+                    {hasPrice && (() => {
+                      const currency = getCurrencySymbol(productRegion);
+                      return (
+                        <span className="ml-2 font-bold">
+                          {price > 0 ? '+' : ''}{currency}{Math.abs(price).toFixed(2)}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={variation.id} className="space-y-2">
+                <Label className="text-lg font-medium">
+                  {variation.name}
+                  {variation.isRequired && <span className="text-primary ml-1">*</span>}
+                </Label>
+                {variation.description && (
+                  <p className="text-sm text-muted-foreground">{variation.description}</p>
+                )}
+                <Select
+                  value={selectedDropdownValues[variation.id] || ""}
+                  onValueChange={(value) => onDropdownChange?.(variation.id, value)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {variation.options.map((option) => {
+                      const price = option.price ?? 0;
+                      const hasPrice = price !== 0 && price !== null && price !== undefined;
+                      return (
+                        <SelectItem key={option.id} value={option.id}>
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center space-x-2">
+                              {option.image && (
+                                <img
+                                  src={option.image}
+                                  alt={option.name}
+                                  className="w-10 h-10 rounded object-cover"
+                                />
+                              )}
+                              <span>{option.name}</span>
+                            </div>
+                            {hasPrice && (() => {
+                              const currency = getCurrencySymbol(productRegion);
+                              return (
+                                <span className="ml-2 font-bold">
+                                  {price > 0 ? '+' : ''}{currency}{Math.abs(price).toFixed(2)}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            );
+          })}
         </div>
       )}
 

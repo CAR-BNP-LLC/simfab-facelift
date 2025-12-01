@@ -180,5 +180,6 @@ export interface ImportOptions {
   mode: 'create' | 'update' | 'skip_duplicates';
   dryRun?: boolean;
   validateOnly?: boolean;
+  importAsGroups?: boolean;
 }
 

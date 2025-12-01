@@ -466,7 +466,7 @@ const Header = () => {
               </>
             )}
             <a href="/international-shipping" className="text-primary hover:underline">
-              We ship worldwide
+              Shipping outside Europe
             </a>
           </span>
           
@@ -1107,7 +1107,7 @@ const Header = () => {
                       href="/international-shipping" 
                       className="text-gray-300 hover:text-white transition-colors"
                     >
-                      We ship worldwide
+                      Shipping outside Europe
                     </a>
                   </div>
                   <div className="flex items-center space-x-3">

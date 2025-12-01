@@ -110,41 +110,49 @@ export class OrderController {
       }
 
       // Trigger order.created event - automatically sends emails for all templates registered for this event
-      try {
-        // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
-        const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
-        const subtotal = typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : Number(order.subtotal) || 0;
-        const taxAmount = typeof order.tax_amount === 'string' ? parseFloat(order.tax_amount) : Number(order.tax_amount) || 0;
-        const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
-        const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
+      // IMPORTANT: Only send emails if payment is NOT pending (emails will be sent when payment is confirmed)
+      // Exception: Shipping quote emails are sent immediately (handled separately above)
+      const isPaymentPending = order.payment_status === 'pending' || order.payment_method === 'pending';
+      
+      if (!isPaymentPending) {
+        try {
+          // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
+          const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+          const subtotal = typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : Number(order.subtotal) || 0;
+          const taxAmount = typeof order.tax_amount === 'string' ? parseFloat(order.tax_amount) : Number(order.tax_amount) || 0;
+          const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
+          const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
 
-        // Get region from order (default to 'us' for backward compatibility)
-        const orderRegion = (order.region || 'us') as 'us' | 'eu';
+          // Get region from order (default to 'us' for backward compatibility)
+          const orderRegion = (order.region || 'us') as 'us' | 'eu';
 
-        await this.emailService.triggerEvent(
-          'order.created',
-          {
-            order_number: order.order_number,
-            customer_name: customerName,
-            customer_email: order.customer_email,
-            order_total: `$${totalAmount.toFixed(2)}`,
-            order_date: new Date(order.created_at).toLocaleDateString(),
-            subtotal: `$${subtotal.toFixed(2)}`,
-            tax_amount: `$${taxAmount.toFixed(2)}`,
-            shipping_amount: `$${shippingAmount.toFixed(2)}`,
-            discount_amount: `$${discountAmount.toFixed(2)}`
-          },
-          {
-            customerEmail: order.customer_email,
-            customerName: customerName,
-            adminEmail: 'info@simfab.com'
-          },
-          orderRegion
-        );
+          await this.emailService.triggerEvent(
+            'order.created',
+            {
+              order_number: order.order_number,
+              customer_name: customerName,
+              customer_email: order.customer_email,
+              order_total: `$${totalAmount.toFixed(2)}`,
+              order_date: new Date(order.created_at).toLocaleDateString(),
+              subtotal: `$${subtotal.toFixed(2)}`,
+              tax_amount: `$${taxAmount.toFixed(2)}`,
+              shipping_amount: `$${shippingAmount.toFixed(2)}`,
+              discount_amount: `$${discountAmount.toFixed(2)}`
+            },
+            {
+              customerEmail: order.customer_email,
+              customerName: customerName,
+              adminEmail: 'info@simfab.com'
+            },
+            orderRegion
+          );
 
-      } catch (emailError) {
-        console.error('❌ [DEBUG] Failed to trigger order.created event emails:', emailError);
-        console.error('Error stack:', emailError instanceof Error ? emailError.stack : 'No stack trace');
+        } catch (emailError) {
+          console.error('❌ [DEBUG] Failed to trigger order.created event emails:', emailError);
+          console.error('Error stack:', emailError instanceof Error ? emailError.stack : 'No stack trace');
+        }
+      } else {
+        console.log('📧 Skipping order.created emails - payment is pending. Emails will be sent when payment is confirmed.');
       }
 
       res.status(201).json(successResponse({

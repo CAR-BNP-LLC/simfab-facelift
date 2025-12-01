@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export const RegionToggle = () => {
-  const { region, setRegion } = useRegion();
+  const { region, setRegion, restrictionsEnabled } = useRegion();
 
   const handleRegionChange = (newRegion: 'us' | 'eu') => {
     console.log('🔄 Changing region from', region, 'to', newRegion);
@@ -37,8 +37,15 @@ export const RegionToggle = () => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuRadioGroup value={region} onValueChange={(value) => handleRegionChange(value as 'us' | 'eu')}>
-          <DropdownMenuRadioItem value="us">
+          <DropdownMenuRadioItem 
+            value="us" 
+            disabled={restrictionsEnabled}
+            className={restrictionsEnabled ? 'opacity-50 cursor-not-allowed' : ''}
+          >
             US
+            {restrictionsEnabled && (
+              <span className="ml-2 text-xs text-muted-foreground">(Redirects to simfab.com)</span>
+            )}
           </DropdownMenuRadioItem>
           <DropdownMenuRadioItem value="eu">
             EU

@@ -97,7 +97,6 @@ const Services = () => {
                     className="w-full h-full object-cover"
                     autoPlay
                     loop
-                    muted
                     playsInline
                   >
                     <source src="/services-video.mp4" type="video/mp4" />
