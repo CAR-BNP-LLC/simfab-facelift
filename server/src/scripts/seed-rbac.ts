@@ -7,6 +7,7 @@
  */
 
 import { Pool } from 'pg';
+import bcrypt from 'bcrypt';
 import RBACModel from '../models/rbac';
 import UserModel from '../models/user';
 
@@ -65,6 +66,18 @@ async function seedRBAC() {
       // Email management authorities
       { resource: 'emails', action: 'view', description: 'View email templates and logs' },
       { resource: 'emails', action: 'manage', description: 'Create, edit, and manage email templates' },
+      
+      // Coupon authorities
+      { resource: 'coupons', action: 'view', description: 'View coupons' },
+      { resource: 'coupons', action: 'create', description: 'Create new coupons' },
+      { resource: 'coupons', action: 'edit', description: 'Edit existing coupons' },
+      { resource: 'coupons', action: 'delete', description: 'Delete coupons' },
+      
+      // Marketing campaign authorities
+      { resource: 'marketing', action: 'view', description: 'View marketing campaigns' },
+      { resource: 'marketing', action: 'create', description: 'Create new marketing campaigns' },
+      { resource: 'marketing', action: 'edit', description: 'Edit existing marketing campaigns' },
+      { resource: 'marketing', action: 'send', description: 'Send marketing campaigns' },
     ];
 
     console.log('📋 Creating authorities...');
@@ -133,27 +146,79 @@ async function seedRBAC() {
       console.log(`  ⚠️  Customer role already exists`);
     }
 
-    // Assign admin role to specific user
-    console.log('🔗 Assigning admin role to user...');
-    try {
-      const targetEmail = 'svetoslav2806@gmail.com';
-      const user = await userModel.getUserByEmail(targetEmail);
-      
-      if (user && user.id) {
-        await rbacModel.assignRoleToUser(user.id, adminRole.id);
-        console.log(`  ✅ Assigned admin role to user: ${user.email}`);
-      } else {
-        console.log(`  ⚠️  User with email ${targetEmail} not found. Please create the user first.`);
+    // Create admin users if they don't exist
+    console.log('👤 Creating admin users...');
+    const adminPassword = 'SimFabSimFab#@2025';
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
+    
+    const adminUsers = [
+      { email: 'info@simfab.com', firstName: 'Info', lastName: 'SimFab' },
+      { email: 'd@simfab.com', firstName: 'D', lastName: 'SimFab' },
+      { email: 'd.vasilev@simfab.com', firstName: 'D', lastName: 'Vasilev' },
+      { email: 'SimFabSimFab#@2025', firstName: 'SimFab', lastName: 'Admin' },
+    ];
+    
+    const createdUsers = [];
+    for (const userData of adminUsers) {
+      try {
+        let user = await userModel.getUserByEmail(userData.email);
+        
+        if (!user) {
+          // Create user if it doesn't exist
+          user = await userModel.createUser({
+            email: userData.email,
+            password: hashedPassword,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+          });
+          console.log(`  ✅ Created user: ${userData.email}`);
+          createdUsers.push(user);
+        } else {
+          console.log(`  ⚠️  User ${userData.email} already exists`);
+          createdUsers.push(user);
+        }
+      } catch (error: any) {
+        console.error(`  ❌ Failed to create user ${userData.email}:`, error.message);
       }
-    } catch (error: any) {
-      console.error('  ❌ Failed to assign admin role to user:', error.message);
+    }
+
+    // Assign admin role to users
+    console.log('🔗 Assigning admin role to users...');
+    const usersToAssign = [
+      'svetoslav2806@gmail.com',
+      ...adminUsers.map(u => u.email),
+    ];
+    
+    for (const targetEmail of usersToAssign) {
+      try {
+        const user = await userModel.getUserByEmail(targetEmail);
+        
+        if (user && user.id) {
+          // Check if role is already assigned
+          const userRoles = await rbacModel.getUserRoles(user.id);
+          const hasAdminRole = userRoles.some(role => role.name === 'admin');
+          
+          if (!hasAdminRole) {
+            await rbacModel.assignRoleToUser(user.id, adminRole.id);
+            console.log(`  ✅ Assigned admin role to user: ${user.email}`);
+          } else {
+            console.log(`  ⚠️  User ${user.email} already has admin role`);
+          }
+        } else {
+          console.log(`  ⚠️  User with email ${targetEmail} not found`);
+        }
+      } catch (error: any) {
+        console.error(`  ❌ Failed to assign admin role to ${targetEmail}:`, error.message);
+      }
     }
 
     console.log('🎉 RBAC seed completed successfully!');
     console.log('\n📊 Summary:');
     console.log(`  - Created ${createdAuthorities.length} authorities`);
     console.log(`  - Created 3 roles (admin, staff, customer)`);
-    console.log('  - Attempted to assign admin role to svetoslav2806@gmail.com');
+    console.log(`  - Created/verified ${createdUsers.length} admin users`);
+    console.log(`  - Assigned admin role to ${usersToAssign.length} users`);
     
     console.log('\n🔑 Available Authorities:');
     authorities.forEach(auth => {
