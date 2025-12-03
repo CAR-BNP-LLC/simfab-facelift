@@ -7,6 +7,7 @@ import PayPalButton from '@/components/PayPalButton';
 interface PaymentStepProps {
   orderTotal: number;
   orderId: number;
+  currency?: string;
   billingAddress?: {
     firstName: string;
     lastName: string;
@@ -38,6 +39,7 @@ interface PaymentStepProps {
 export const PaymentStep: React.FC<PaymentStepProps> = ({
   orderTotal,
   orderId,
+  currency = 'USD',
   billingAddress,
   shippingAddress,
   onPaymentSuccess,
@@ -92,7 +94,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
             <div className="flex justify-between items-center">
               <span className="font-medium">Total Amount</span>
               <span className="text-2xl font-bold text-primary">
-                ${orderTotal.toFixed(2)}
+                {currency === 'EUR' ? '€' : '$'}{orderTotal.toFixed(2)}
               </span>
             </div>
           </div>
@@ -121,6 +123,7 @@ export const PaymentStep: React.FC<PaymentStepProps> = ({
                 key={`paypal-${orderId}-${orderTotal}-${key}`}
                 amount={orderTotal}
                 orderId={orderId}
+                currency={currency}
                 paymentMethod="paypal_account"
                 billingAddress={billingAddress}
                 shippingAddress={shippingAddress}

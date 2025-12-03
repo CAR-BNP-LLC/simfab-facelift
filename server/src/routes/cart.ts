@@ -32,6 +32,16 @@ export const createCartRoutes = (pool: Pool): Router => {
   );
 
   /**
+   * @route   GET /api/cart/validate
+   * @desc    Validate cart for checkout (check stock, etc.)
+   * @access  Public
+   */
+  router.get(
+    '/validate',
+    controller.validateCart
+  );
+
+  /**
    * @route   GET /api/cart/count
    * @desc    Get cart item count
    * @access  Public

@@ -7,6 +7,7 @@ import { Pool } from 'pg';
 import { FedExService } from './FedExService';
 import { FedExAddress } from '../types/fedex';
 import { ShippingMethod } from '../types/cart';
+import { isEuropeanCountry } from '../utils/europeanCountries';
 
 export interface ShippingCalculation {
   method: string;
@@ -110,6 +111,89 @@ export class ShippingService {
       estimatedDays: '7-14 business days',
       isAvailable: true,
       carrier: 'USPS'
+    }];
+  }
+
+  /**
+   * Calculate total weight in kg from cart items
+   * Default weight for items without weight is 1 kg
+   */
+  private async calculateTotalWeightInKg(cartItems?: CartItem[]): Promise<number> {
+    if (!cartItems || cartItems.length === 0) {
+      return 0;
+    }
+
+    const client = await this.pool.connect();
+    try {
+      const productIds = cartItems.map(item => item.productId);
+      
+      const result = await client.query(
+        `SELECT id, package_weight, package_weight_unit
+         FROM products 
+         WHERE id = ANY($1::int[])`,
+        [productIds]
+      );
+
+      const productsMap = new Map(
+        result.rows.map(row => [row.id, row])
+      );
+
+      let totalWeightKg = 0;
+
+      for (const item of cartItems) {
+        const product = productsMap.get(item.productId);
+        let itemWeightKg = 1; // Default 1 kg
+
+        if (product && product.package_weight) {
+          if (product.package_weight_unit === 'kg') {
+            itemWeightKg = parseFloat(product.package_weight);
+          } else if (product.package_weight_unit === 'lb' || product.package_weight_unit === 'lbs') {
+            itemWeightKg = parseFloat(product.package_weight) * 0.453592;
+          } else {
+             // Assume lbs if no unit or unknown unit, as per standard
+             itemWeightKg = parseFloat(product.package_weight) * 0.453592;
+          }
+        }
+
+        totalWeightKg += itemWeightKg * item.quantity;
+      }
+
+      return totalWeightKg;
+    } catch (error) {
+      console.error('Error calculating weight:', error);
+      // Fallback: assume 1 kg per item
+      return cartItems.reduce((total, item) => total + (1 * item.quantity), 0);
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Calculate shipping for European countries based on weight
+   */
+  private async calculateEuropeanShipping(cartItems?: CartItem[]): Promise<ShippingCalculation[]> {
+    const totalWeightKg = await this.calculateTotalWeightInKg(cartItems);
+    let price = 0;
+
+    if (totalWeightKg < 5) {
+      price = 15;
+    } else if (totalWeightKg < 15) {
+      price = 40;
+    } else if (totalWeightKg < 30) {
+      price = 50;
+    } else if (totalWeightKg < 60) {
+      price = 70;
+    } else {
+      // >= 60 kg (includes >= 200 kg capped at same price)
+      price = 100;
+    }
+
+    return [{
+      method: 'europe_weight_based',
+      price: price,
+      estimatedDays: '',
+      isAvailable: true,
+      carrier: 'SimFab EU'
     }];
   }
 
@@ -352,6 +436,11 @@ export class ShippingService {
       return this.calculateCanada(packageSize);
     }
 
+    // Europe (Weight based)
+    if (isEuropeanCountry(country)) {
+      return this.calculateEuropeanShipping(cartItems);
+    }
+
     // International - Use FedEx API
     if (shippingAddress) {
       // For international addresses, FedEx may not require state field
@@ -420,6 +509,7 @@ export class ShippingService {
       'canada_s': 'Canada - Small Package',
       'canada_m': 'Canada - Medium Package',
       'canada_l': 'Canada - Large Package',
+      'europe_weight_based': 'Standard Shipping',
       'international_fedex': 'International Shipping (FedEx)',
       'international_quote': 'International Shipping - Quote Required'
     };

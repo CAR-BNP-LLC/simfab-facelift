@@ -214,6 +214,30 @@ export class CartController {
   };
 
   /**
+   * Validate cart
+   * GET /api/cart/validate
+   */
+  validateCart = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const sessionId = req.sessionID;
+      const userId = req.session?.userId;
+      const region = req.region;
+
+      const cart = await this.cartService.getOrCreateCart(sessionId, userId, region);
+      
+      if (!cart) {
+        return res.json(successResponse({ valid: true, errors: [] }));
+      }
+
+      const validation = await this.cartService.validateCartForCheckout(cart.id);
+      
+      res.json(successResponse(validation));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Get cart item count
    * GET /api/cart/count
    */

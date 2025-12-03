@@ -56,13 +56,30 @@ export class VariationStockService {
     quantity: number, 
     orderId: number,
     client?: any
-  ): Promise<VariationStockReservation> {
+  ): Promise<VariationStockReservation | null> {
     const useProvidedClient = !!client;
     const dbClient = client || await this.pool.connect();
     
     try {
       if (!useProvidedClient) {
         await dbClient.query('BEGIN');
+      }
+
+      // Check if this variation tracks stock
+      const tracksStockResult = await dbClient.query(
+        `SELECT v.tracks_stock 
+         FROM product_variations v 
+         JOIN variation_options vo ON vo.variation_id = v.id 
+         WHERE vo.id = $1`,
+        [optionId]
+      );
+
+      if (!tracksStockResult.rows[0]?.tracks_stock) {
+        // If not tracking stock, don't reserve anything
+        if (!useProvidedClient) {
+            await dbClient.query('COMMIT');
+        }
+        return null;
       }
 
       // Check available stock

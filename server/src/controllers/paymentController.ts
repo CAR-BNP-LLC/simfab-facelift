@@ -1,15 +1,37 @@
 import { Request, Response, NextFunction } from 'express';
 import { Pool } from 'pg';
 import { PaymentService } from '../services/PaymentService';
+import { getPayPalConfigForRegion } from '../config/paypal';
 import { successResponse, errorResponse } from '../utils/response';
 import { ValidationError } from '../utils/errors';
 
 export class PaymentController {
   private paymentService: PaymentService;
+  private pool: Pool;
 
   constructor(pool: Pool) {
+    this.pool = pool;
     this.paymentService = new PaymentService(pool);
   }
+
+  getPaymentConfig = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const region = req.params.region as 'us' | 'eu';
+      
+      if (region !== 'us' && region !== 'eu') {
+        throw new ValidationError('Invalid region. Must be "us" or "eu"');
+      }
+
+      const config = await getPayPalConfigForRegion(this.pool, region);
+      
+      res.json(successResponse({
+        clientId: config.clientId,
+        currency: region === 'eu' ? 'EUR' : 'USD'
+      }));
+    } catch (error) {
+      next(error);
+    }
+  };
 
   createPayment = async (req: Request, res: Response, next: NextFunction) => {
     try {
