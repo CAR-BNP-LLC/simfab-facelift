@@ -239,17 +239,37 @@ export class RegionSettingsService {
     settings: Record<string, any>,
     adminId: number
   ): Promise<void> {
+    console.log('🔧 [RegionSettingsService] updateSettings called:', {
+      region,
+      adminId,
+      settingsCount: Object.keys(settings).length,
+      settingKeys: Object.keys(settings)
+    });
+
     // Validate region
     if (region !== 'us' && region !== 'eu') {
+      console.error('❌ [RegionSettingsService] Invalid region:', region);
       throw new ValidationError('Invalid region. Must be "us" or "eu"');
     }
 
     const client = await this.pool.connect();
+    console.log('🔧 [RegionSettingsService] Database client acquired');
     
     try {
       await client.query('BEGIN');
+      console.log('🔧 [RegionSettingsService] Transaction started');
+
+      let createdCount = 0;
+      let updatedCount = 0;
 
       for (const [key, value] of Object.entries(settings)) {
+        console.log(`🔧 [RegionSettingsService] Processing setting: ${key}`, {
+          valueType: typeof value,
+          value: key.includes('password') || key.includes('secret') ? '[REDACTED]' : value,
+          isNull: value === null,
+          isUndefined: value === undefined
+        });
+
         // Get existing setting type
         const existing = await client.query(
           `SELECT setting_type FROM region_settings 
@@ -269,35 +289,69 @@ export class RegionSettingsService {
             settingType = 'json';
           }
 
+          const stringValue = this.stringifySettingValue(value, settingType);
+          console.log(`🔧 [RegionSettingsService] Creating new setting: ${key}`, {
+            settingType,
+            stringValue: key.includes('password') || key.includes('secret') ? '[REDACTED]' : stringValue
+          });
+
           await client.query(
             `INSERT INTO region_settings 
              (region, setting_key, setting_value, setting_type, is_public, updated_by, updated_at)
              VALUES ($1, $2, $3, $4, false, $5, CURRENT_TIMESTAMP)`,
-            [region, key, this.stringifySettingValue(value, settingType), settingType, adminId]
+            [region, key, stringValue, settingType, adminId]
           );
+          createdCount++;
+          console.log(`✅ [RegionSettingsService] Created setting: ${key}`);
           continue;
         }
 
         const settingType = existing.rows[0].setting_type;
         const stringValue = this.stringifySettingValue(value, settingType);
+        console.log(`🔧 [RegionSettingsService] Updating existing setting: ${key}`, {
+          settingType,
+          stringValue: key.includes('password') || key.includes('secret') ? '[REDACTED]' : stringValue
+        });
 
-        await client.query(
+        const updateResult = await client.query(
           `UPDATE region_settings 
            SET setting_value = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP
            WHERE region = $3 AND setting_key = $4`,
           [stringValue, adminId, region, key]
         );
+        
+        console.log(`✅ [RegionSettingsService] Updated setting: ${key}`, {
+          rowsAffected: updateResult.rowCount
+        });
+        updatedCount++;
       }
 
+      console.log(`🔧 [RegionSettingsService] All settings processed: ${createdCount} created, ${updatedCount} updated`);
       await client.query('COMMIT');
+      console.log('✅ [RegionSettingsService] Transaction committed');
       
       // Clear cache
       this.clearCache(region);
-    } catch (error) {
+      console.log('✅ [RegionSettingsService] Cache cleared for region:', region);
+    } catch (error: any) {
+      console.error('❌ [RegionSettingsService] Error in updateSettings:', {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint,
+        table: error.table,
+        column: error.column,
+        region,
+        adminId,
+        settingsKeys: Object.keys(settings)
+      });
       await client.query('ROLLBACK');
+      console.error('❌ [RegionSettingsService] Transaction rolled back');
       throw error;
     } finally {
       client.release();
+      console.log('🔧 [RegionSettingsService] Database client released');
     }
   }
 
@@ -342,18 +396,34 @@ export class RegionSettingsService {
    * Stringify setting value for storage
    */
   private stringifySettingValue(value: any, type: string): string {
-    if (value === null || value === undefined) return '';
+    if (value === null || value === undefined) {
+      console.log('⚠️ [RegionSettingsService] stringifySettingValue: null/undefined value, returning empty string');
+      return '';
+    }
 
+    let result: string;
     switch (type) {
       case 'number':
-        return String(value);
+        result = String(value);
+        break;
       case 'boolean':
-        return value ? 'true' : 'false';
+        result = value ? 'true' : 'false';
+        break;
       case 'json':
-        return typeof value === 'string' ? value : JSON.stringify(value);
+        result = typeof value === 'string' ? value : JSON.stringify(value);
+        break;
       default:
-        return String(value);
+        result = String(value);
     }
+    
+    console.log(`🔧 [RegionSettingsService] stringifySettingValue:`, {
+      type,
+      inputType: typeof value,
+      resultLength: result.length,
+      resultPreview: result.substring(0, 50)
+    });
+    
+    return result;
   }
 }
 
