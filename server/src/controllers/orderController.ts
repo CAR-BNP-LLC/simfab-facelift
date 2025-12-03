@@ -10,6 +10,7 @@ import { EmailService } from '../services/EmailService';
 import { ShippingQuoteService } from '../services/ShippingQuoteService';
 import { CreateOrderData } from '../types/cart';
 import { successResponse, paginatedResponse } from '../utils/response';
+import { formatCurrency } from '../utils/currency';
 
 export class OrderController {
   private orderService: OrderService;
@@ -91,8 +92,8 @@ export class OrderController {
                   customer_email: order.customer_email,
                   shipping_address: `${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}, ${shippingAddress.country}`,
                   package_size: order.package_size || 'M',
-                  fedex_list_rate: `$${fedexData.listRate.toFixed(2)}`,
-                  fedex_applied_rate: `$${(fedexData.listRate * (1 - (fedexData.discountPercent! / 100))).toFixed(2)}`,
+                  fedex_list_rate: formatCurrency(fedexData.listRate, (order.region || 'us') as 'us' | 'eu'),
+                  fedex_applied_rate: formatCurrency(fedexData.listRate * (1 - (fedexData.discountPercent! / 100)), (order.region || 'us') as 'us' | 'eu'),
                   discount_percent: `${fedexData.discountPercent}%`
                 },
                 {
@@ -132,12 +133,12 @@ export class OrderController {
               order_number: order.order_number,
               customer_name: customerName,
               customer_email: order.customer_email,
-              order_total: `$${totalAmount.toFixed(2)}`,
+              order_total: formatCurrency(totalAmount, orderRegion, 'total'),
               order_date: new Date(order.created_at).toLocaleDateString(),
-              subtotal: `$${subtotal.toFixed(2)}`,
-              tax_amount: `$${taxAmount.toFixed(2)}`,
-              shipping_amount: `$${shippingAmount.toFixed(2)}`,
-              discount_amount: `$${discountAmount.toFixed(2)}`
+              subtotal: formatCurrency(subtotal, orderRegion),
+              tax_amount: formatCurrency(taxAmount, orderRegion),
+              shipping_amount: formatCurrency(shippingAmount, orderRegion),
+              discount_amount: formatCurrency(discountAmount, orderRegion)
             },
             {
               customerEmail: order.customer_email,

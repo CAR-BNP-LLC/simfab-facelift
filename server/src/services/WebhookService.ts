@@ -3,6 +3,7 @@ import { getPayPalClientForRegion } from '../config/paypal';
 import * as paypal from '@paypal/checkout-server-sdk';
 import { OrderService } from './OrderService';
 import { EmailService } from './EmailService';
+import { formatCurrency } from '../utils/currency';
 
 export interface PayPalWebhookEvent {
   id: string;
@@ -192,7 +193,7 @@ export class WebhookService {
             order_number: order.order_number,
             customer_name: customerName,
             customer_email: order.customer_email,
-            order_total: `$${totalAmount.toFixed(2)}`,
+            order_total: formatCurrency(totalAmount, orderRegion, 'total'),
             error_message: failureReason
           },
           {

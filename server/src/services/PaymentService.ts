@@ -5,6 +5,7 @@ import { PaymentError } from '../utils/errors';
 import { OrderService } from './OrderService';
 import { CartService } from './CartService';
 import { EmailService } from './EmailService';
+import { formatCurrency } from '../utils/currency';
 
 export interface CreatePaymentData {
   orderId: number;
@@ -501,7 +502,7 @@ export class PaymentService {
                 order_number: order.order_number,
                 customer_name: customerName,
                 customer_email: order.customer_email,
-                order_total: `$${totalAmount.toFixed(2)}`,
+                order_total: formatCurrency(totalAmount, orderRegion, 'total'),
                 error_message: capture?.status || 'Unknown PayPal error'
               },
               {
@@ -580,12 +581,12 @@ export class PaymentService {
               order_number: order.order_number,
               customer_name: customerName,
               customer_email: order.customer_email,
-              order_total: `$${totalAmount.toFixed(2)}`,
+              order_total: formatCurrency(totalAmount, orderRegion, 'total'),
               order_date: new Date(order.created_at).toLocaleDateString(),
-              subtotal: `$${subtotal.toFixed(2)}`,
-              tax_amount: `$${taxAmount.toFixed(2)}`,
-              shipping_amount: `$${shippingAmount.toFixed(2)}`,
-              discount_amount: `$${discountAmount.toFixed(2)}`
+              subtotal: formatCurrency(subtotal, orderRegion),
+              tax_amount: formatCurrency(taxAmount, orderRegion),
+              shipping_amount: formatCurrency(shippingAmount, orderRegion),
+              discount_amount: formatCurrency(discountAmount, orderRegion)
             },
             {
               customerEmail: order.customer_email,
@@ -660,7 +661,7 @@ export class PaymentService {
                 order_number: order.order_number,
                 customer_name: customerName,
                 customer_email: order.customer_email,
-                order_total: `$${totalAmount.toFixed(2)}`,
+                order_total: formatCurrency(totalAmount, orderRegion, 'total'),
                 error_message: failureReason
               },
               {
