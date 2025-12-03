@@ -363,7 +363,7 @@ const Header = () => {
     const categoryMap: Record<string, string> = {
       'FLIGHT SIM': 'flight-sim',
       'SIM RACING': 'sim-racing',
-      'RACING & FLIGHT SEATS': 'cockpits',
+      'RACING & FLIGHT SEATS': 'racing-flight-seats',
       'MONITOR STANDS': 'monitor-stands',
       'ACCESSORIES': 'accessories'
     };
