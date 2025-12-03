@@ -90,6 +90,20 @@ const ProductVariations = ({
     return undefined;
   })();
 
+  // Helper to check stock status for a specific variation option
+  const isOptionOutOfStock = (variationName: string, optionName: string): boolean => {
+    // If no stock info is available, assume in stock (or not checked yet)
+    if (!variationStock || variationStock.length === 0) return false;
+    
+    // Find the stock entry for this variation and option
+    const stockEntry = variationStock.find(
+      (entry) => entry.variationName === variationName && entry.optionName === optionName
+    );
+    
+    // If we found an entry and available is <= 0, it's out of stock
+    return !!stockEntry && stockEntry.available <= 0;
+  };
+
   return (
     <div className="space-y-4">
       {/* Image Variations (visual options first) */}
@@ -106,39 +120,46 @@ const ProductVariations = ({
                 <p className="text-sm text-muted-foreground">{variation.description}</p>
               )}
               <div className="grid grid-cols-2 gap-3">
-                {variation.options.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => onImageChange?.(variation.id, option.id)}
-                    className={`relative p-2 rounded-lg border-2 transition-colors text-left ${
-                      selectedImageValues[variation.id] === option.id
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-muted-foreground'
-                    }`}
-                  >
-                    <div className="aspect-square rounded-lg overflow-hidden mb-1">
-                      <img 
-                        src={option.image || '/api/placeholder/80/80'} 
-                        alt={option.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="text-center">
-                      <span className="text-xs font-medium">{String(option.name)}</span>
-                      {option.price !== undefined && option.price !== null && option.price !== 0 && (() => {
-                        const currency = getCurrencySymbol(productRegion);
-                        return (
-                          <p className="text-xs text-muted-foreground">
-                            {option.price > 0 ? '+' : ''}{currency}{option.price.toFixed(2)}
-                          </p>
-                        );
-                      })()}
-                    </div>
-                    {selectedImageValues[variation.id] === option.id && (
-                      <div className="absolute top-2 right-2 w-4 h-4 bg-primary rounded-full"></div>
-                    )}
-                  </button>
-                ))}
+                {variation.options.map((option) => {
+                  const outOfStock = isOptionOutOfStock(variation.name, option.name);
+                  
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => onImageChange?.(variation.id, option.id)}
+                      className={`relative p-2 rounded-lg border-2 transition-colors text-left ${
+                        selectedImageValues[variation.id] === option.id
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-muted-foreground'
+                      } ${outOfStock ? 'opacity-60 grayscale' : ''}`}
+                    >
+                      <div className="aspect-square rounded-lg overflow-hidden mb-1">
+                        <img 
+                          src={option.image || '/api/placeholder/80/80'} 
+                          alt={option.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="text-center">
+                        <span className="text-xs font-medium block">
+                          {String(option.name)}
+                          {outOfStock && <span className="text-destructive block text-[10px] uppercase font-bold">(Out of Stock)</span>}
+                        </span>
+                        {option.price !== undefined && option.price !== null && option.price !== 0 && (() => {
+                          const currency = getCurrencySymbol(productRegion);
+                          return (
+                            <p className="text-xs text-muted-foreground">
+                              {option.price > 0 ? '+' : ''}{currency}{option.price.toFixed(2)}
+                            </p>
+                          );
+                        })()}
+                      </div>
+                      {selectedImageValues[variation.id] === option.id && (
+                        <div className="absolute top-2 right-2 w-4 h-4 bg-primary rounded-full"></div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -201,6 +222,9 @@ const ProductVariations = ({
               const isChecked = selectedId === yesOption.id;
               const price = yesOption.price ?? 0;
               const hasPrice = price !== 0 && price !== null && price !== undefined;
+              
+              // Check stock for Yes option (No option usually doesn't have stock constraints)
+              const yesOutOfStock = isOptionOutOfStock(variation.name, 'Yes');
 
               return (
                 <div key={variation.id} className="space-y-2">
@@ -211,7 +235,7 @@ const ProductVariations = ({
                   {variation.description && (
                     <p className="text-sm text-muted-foreground">{variation.description}</p>
                   )}
-                  <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className={`flex items-center justify-between rounded-lg border p-3 ${yesOutOfStock && isChecked ? 'border-destructive bg-destructive/5' : ''}`}>
                     <div className="flex items-center space-x-3">
                       <Checkbox
                         checked={isChecked}
@@ -227,9 +251,16 @@ const ProductVariations = ({
                             className="w-10 h-10 rounded object-cover"
                           />
                         )}
-                        <span className="font-medium">
-                          {variation.name}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {variation.name}
+                          </span>
+                          {yesOutOfStock && (
+                            <span className="text-xs text-destructive font-medium">
+                              Out of Stock
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     {hasPrice && (() => {
@@ -265,8 +296,10 @@ const ProductVariations = ({
                     {variation.options.map((option) => {
                       const price = option.price ?? 0;
                       const hasPrice = price !== 0 && price !== null && price !== undefined;
+                      const outOfStock = isOptionOutOfStock(variation.name, option.name);
+                      
                       return (
-                        <SelectItem key={option.id} value={option.id}>
+                        <SelectItem key={option.id} value={option.id} disabled={false /* We allow selection but warn */}>
                           <div className="flex items-center justify-between w-full">
                             <div className="flex items-center space-x-2">
                               {option.image && (
@@ -276,7 +309,10 @@ const ProductVariations = ({
                                   className="w-10 h-10 rounded object-cover"
                                 />
                               )}
-                              <span>{option.name}</span>
+                              <span>
+                                {option.name} 
+                                {outOfStock && <span className="text-destructive ml-2 text-xs font-bold">(OUT OF STOCK)</span>}
+                              </span>
                             </div>
                             {hasPrice && (() => {
                               const currency = getCurrencySymbol(productRegion);
@@ -305,11 +341,16 @@ const ProductVariations = ({
           {booleanVariations.map((variation) => {
             // Check if this variation's selected option is out of stock
             const isYesSelected = selectedBooleanValues[variation.id] === true;
+            
+            // For checking specifically if YES option is out of stock (common case)
+            const yesOutOfStock = isOptionOutOfStock(variation.name, 'Yes');
+            
+            // Check current selection status
             const stockInfo = variationStock.find(
               (item) => item.variationName === variation.name && 
               ((isYesSelected && item.optionName === 'Yes') || (!isYesSelected && item.optionName === 'No'))
             );
-            const isOutOfStock = stockInfo && stockInfo.available <= 0;
+            const isSelectionOutOfStock = stockInfo && stockInfo.available <= 0;
             
             return (
               <div key={variation.id} className="space-y-3">
@@ -335,8 +376,11 @@ const ProductVariations = ({
                       {selectedBooleanValues[variation.id] ? 'Yes' : 'No'}
                     </Label>
                   </div>
+                  {yesOutOfStock && !selectedBooleanValues[variation.id] && (
+                    <span className="text-xs text-destructive font-medium">(Yes option out of stock)</span>
+                  )}
                 </div>
-                {isOutOfStock && (
+                {isSelectionOutOfStock && (
                   <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 mt-2">
                     <p className="text-sm text-destructive font-medium">
                       The selected option "{isYesSelected ? 'Yes' : 'No'}" is out of stock

@@ -1787,9 +1787,21 @@ const ProductDetail = () => {
               
               {/* Show message if disabled due to variation stock */}
               {variationStock && !variationStock.available && validationErrors.length === 0 && (
-                <p className="text-sm text-destructive text-center font-medium">
-                  Cannot add to cart: Selected option is out of stock
-                </p>
+                <div className="space-y-1 text-center">
+                  <p className="text-sm text-destructive font-medium">
+                    Cannot add to cart: Selected option is out of stock
+                  </p>
+                  {variationStock.variationStock && variationStock.variationStock.map((stockInfo, idx) => {
+                    if (stockInfo.available <= 0) {
+                      return (
+                        <p key={idx} className="text-sm text-destructive font-medium">
+                          ({stockInfo.variationName}: {stockInfo.optionName})
+                        </p>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
               )}
               
               {/* Show message if disabled due to bundle stock */}

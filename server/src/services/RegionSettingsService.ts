@@ -39,7 +39,6 @@ export class RegionSettingsService {
   private isSensitiveKey(key: string): boolean {
     const sensitiveKeys = [
       'paypal_client_secret', 
-      'paypal_client_id', 
       'client_secret', 
       'client_id',
       'secret', 

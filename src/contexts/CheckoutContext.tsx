@@ -22,6 +22,7 @@ interface CheckoutState {
   orderNotes: string;
   createdOrder: any;
   isBillingSameAsShipping: boolean;
+  orderCartSignature: string | null;
 }
 
 interface CheckoutContextType {
@@ -64,7 +65,8 @@ const defaultCheckoutState: CheckoutState = {
   selectedShipping: '',
   orderNotes: '',
   createdOrder: null,
-  isBillingSameAsShipping: true
+  isBillingSameAsShipping: true,
+  orderCartSignature: null
 };
 
 export const CheckoutContext = createContext<CheckoutContextType | undefined>(undefined);

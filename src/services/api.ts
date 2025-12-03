@@ -931,6 +931,19 @@ export const cartAPI = {
       method: 'POST',
     });
   },
+
+  /**
+   * Validate cart for checkout
+   */
+  validateCart: () => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        valid: boolean;
+        errors: string[];
+      };
+    }>('/api/cart/validate');
+  },
 };
 
 // ==========================================
@@ -1020,6 +1033,19 @@ export const orderAPI = {
 // ==========================================
 
 export const paymentAPI = {
+  /**
+   * Get PayPal configuration for region
+   */
+  getPaymentConfig: (region: 'us' | 'eu') => {
+    return apiRequest<{
+      success: boolean;
+      data: {
+        clientId: string;
+        currency: string;
+      };
+    }>(`/api/payments/config/${region}`);
+  },
+
   /**
    * Create PayPal payment
    */

@@ -28,7 +28,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCheckout } from '@/contexts/CheckoutContext';
 import { useRegion } from '@/contexts/RegionContext';
-import { orderAPI, shippingAPI, ShippingMethod } from '@/services/api';
+import { orderAPI, shippingAPI, ShippingMethod, cartAPI } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import PayPalProvider from '@/components/PayPalProvider';
 import { AddressForm } from '@/components/checkout/AddressForm';
@@ -46,6 +46,7 @@ const Checkout = () => {
   const { region } = useRegion();
   const { toast } = useToast();
 
+  const [validatingCart, setValidatingCart] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
@@ -53,8 +54,6 @@ const Checkout = () => {
   const [loadingShipping, setLoadingShipping] = useState(false);
   const [quoteRequested, setQuoteRequested] = useState(false);
   const [requestingQuote, setRequestingQuote] = useState(false);
-  // Store cart signature when order is created to detect changes
-  const [orderCartSignature, setOrderCartSignature] = React.useState<string | null>(null);
 
   // Destructure state from context
   const {
@@ -64,7 +63,8 @@ const Checkout = () => {
     selectedShipping,
     orderNotes = '',
     createdOrder,
-    isBillingSameAsShipping
+    isBillingSameAsShipping,
+    orderCartSignature
   } = checkoutState;
 
   // Sync step with URL query parameter for browser navigation
@@ -80,6 +80,37 @@ const Checkout = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]); // Only depend on searchParams to detect URL changes (contextStep and updateCheckoutState intentionally excluded)
+
+  // Validate cart on load
+  useEffect(() => {
+    const validateCart = async () => {
+      // Skip if cart is empty or loading
+      if (cartLoading || !cart || cart.items.length === 0) return;
+      
+      try {
+        setValidatingCart(true);
+        const response = await cartAPI.validateCart();
+        
+        if (response.success && !response.data.valid) {
+          // If validation fails, show error and redirect to cart
+          toast({
+            title: 'Cart Update Required',
+            description: response.data.errors[0] || 'Some items in your cart are no longer available.',
+            variant: 'destructive',
+            duration: 5000
+          });
+          navigate('/cart');
+        }
+      } catch (error) {
+        console.error('Cart validation failed:', error);
+        // Don't block checkout on network error, server will validate anyway
+      } finally {
+        setValidatingCart(false);
+      }
+    };
+
+    validateCart();
+  }, [cart, cartLoading, navigate, toast]);
 
   // Update URL when step changes from context (for cases where step changes programmatically)
   // This won't run when URL already matches, avoiding loops
@@ -108,7 +139,17 @@ const Checkout = () => {
 
   // Track Facebook Pixel InitiateCheckout when user reaches checkout (step 1)
   useEffect(() => {
-    if (step === 1 && cart && cart.items.length > 0) {
+    if (step === 1) {
+      // Clear created order when starting fresh at step 1
+      if (createdOrder || orderCartSignature) {
+        console.log('Starting fresh checkout at step 1, clearing previous order state');
+        updateCheckoutState({
+          createdOrder: null,
+          orderCartSignature: null
+        });
+      }
+      
+      if (cart && cart.items.length > 0) {
       const contentIds = cart.items.map(item => item.product_id.toString());
       const currency = totals.currency || 'USD';
       
@@ -134,6 +175,7 @@ const Checkout = () => {
 
       trackBeginCheckout(cartItems, currency, totals.total);
     }
+  }
   }, [step, cart, totals]);
 
   // Track Facebook Pixel AddPaymentInfo and GTM add_payment_info when user reaches payment step (step 4)
@@ -379,33 +421,35 @@ const Checkout = () => {
         console.warn('Invalid createdOrder in state, resetting to review step');
         updateCheckoutState({ 
           step: 4,
-          createdOrder: null 
+          createdOrder: null,
+          orderCartSignature: null
         });
-        setOrderCartSignature(null);
       }
     }
   }, [step, createdOrder, updateCheckoutState]);
 
-  // Detect cart changes on payment step and invalidate order if cart changed
+  // Detect cart changes and invalidate order if cart changed (regardless of step)
   useEffect(() => {
-    if (step === 5 && createdOrder && orderCartSignature) {
+    if (!cartLoading && createdOrder && orderCartSignature) {
       if (orderCartSignature !== cartItemsSignature) {
         console.warn('Cart has changed since order was created. Invalidating order.');
         toast({
           title: 'Cart has changed',
-          description: 'Your cart contents have changed. Please review your order before proceeding to payment.',
+          description: 'Your cart contents have changed. The order has been updated.',
           variant: 'destructive',
-          duration: 10000
+          duration: 5000
         });
-        // Invalidate the order and go back to review step
+        // Invalidate the order and go back to review step if past step 4
+        // Or just clear order if on earlier steps
         updateCheckoutState({ 
-          step: 4,
-          createdOrder: null
+          // Only reset step if we're past review
+          ...(step > 4 ? { step: 4 } : {}),
+          createdOrder: null,
+          orderCartSignature: null
         });
-        setOrderCartSignature(null);
       }
     }
-  }, [step, createdOrder, cartItemsSignature, orderCartSignature, updateCheckoutState, toast]);
+  }, [step, createdOrder, cartItemsSignature, orderCartSignature, updateCheckoutState, toast, cartLoading]);
 
   const handleAddressChange = (field: keyof typeof shippingAddress, value: string) => {
     // Clear shipping selection when critical address fields change
@@ -652,12 +696,11 @@ const Checkout = () => {
         const total = typeof createdOrderData.total_amount === 'string' ? parseFloat(createdOrderData.total_amount) : Number(createdOrderData.total_amount) || 0;
         const expectedTotal = subtotal - discount + shipping + tax;
         
-        // Store cart signature when order is created to detect changes
-        setOrderCartSignature(cartItemsSignature);
-        
         updateCheckoutState({ 
           createdOrder: createdOrderData,
-          step: 5 // Move to payment step
+          step: 5, // Move to payment step
+          // Store cart signature when order is created to detect changes
+          orderCartSignature: cartItemsSignature
         });
       } else {
         console.error('Order creation failed:', response);
@@ -688,7 +731,6 @@ const Checkout = () => {
     await refreshCart();
     
     // Reset checkout state after successful payment
-    setOrderCartSignature(null);
     updateCheckoutState({
       step: 1,
       shippingAddress: {
@@ -720,7 +762,8 @@ const Checkout = () => {
       selectedShipping: '',
       orderNotes: '',
       createdOrder: null,
-      isBillingSameAsShipping: true
+      isBillingSameAsShipping: true,
+      orderCartSignature: null
     });
     
     if (orderNumber) {
@@ -825,12 +868,16 @@ const Checkout = () => {
     : 0;
   
   // Calculate order total
-  // CRITICAL: If we have a created order, use its total_amount from the database
+  // CRITICAL: If we have a created order AND the cart signature matches, use its total_amount
   // This ensures the payment amount matches exactly what's stored in the database
   // and prevents 402 Payment Required errors due to amount mismatches
   let orderTotal: number;
   
-  if (createdOrder?.total_amount) {
+  // Only use createdOrder total if it exists AND cart hasn't changed
+  const isOrderValid = createdOrder?.total_amount && 
+    (!orderCartSignature || orderCartSignature === cartItemsSignature);
+
+  if (isOrderValid) {
     // Use the order's actual total from the database
     orderTotal = typeof createdOrder.total_amount === 'string' 
       ? parseFloat(createdOrder.total_amount) 
@@ -877,12 +924,15 @@ const Checkout = () => {
     return '/placeholder.svg';
   };
 
-  if (cartLoading) {
+  if (cartLoading || validatingCart) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+            {validatingCart && <p className="text-muted-foreground">Validating cart...</p>}
+          </div>
         </div>
         <Footer />
       </div>
@@ -1359,6 +1409,7 @@ const Checkout = () => {
                     <PaymentStep
                       orderTotal={orderTotal}
                       orderId={createdOrder.id}
+                      currency={totals.currency}
                       billingAddress={isBillingSameAsShipping ? shippingAddress : billingAddress}
                       shippingAddress={shippingAddress}
                       onPaymentSuccess={handlePaymentSuccess}

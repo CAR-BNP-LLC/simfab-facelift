@@ -1,5 +1,7 @@
 import { PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { useEffect, useState, useMemo } from 'react';
+import { useRegion } from '@/contexts/RegionContext';
+import { paymentAPI } from '@/services/api';
 
 interface PayPalProviderProps {
   children: React.ReactNode;
@@ -8,7 +10,29 @@ interface PayPalProviderProps {
 export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
   // Defer PayPal script loading to avoid blocking initial render
   const [shouldLoadPayPal, setShouldLoadPayPal] = useState(false);
+  const [clientId, setClientId] = useState<string | null>(null);
+  const { region } = useRegion();
   
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const response = await paymentAPI.getPaymentConfig(region);
+        if (response.success && response.data.clientId) {
+          setClientId(response.data.clientId);
+        } else {
+          // Fallback to env var
+          setClientId(import.meta.env.VITE_PAYPAL_CLIENT_ID);
+        }
+      } catch (error) {
+        console.error('Failed to fetch PayPal config:', error);
+        // Fallback to env var
+        setClientId(import.meta.env.VITE_PAYPAL_CLIENT_ID);
+      }
+    };
+
+    fetchConfig();
+  }, [region]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setShouldLoadPayPal(true);
@@ -70,31 +94,6 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Memoize region detection to avoid recalculating on every render
-  const region = useMemo(() => {
-    // Detect region from hostname/query params (same logic as api.ts)
-    const hostname = window.location.hostname;
-    const urlParams = new URLSearchParams(window.location.search);
-    const queryRegion = urlParams.get('region');
-    
-    let detectedRegion: string = 'us';
-    
-    // 1. Check hostname (production: eu.simfab.com -> 'eu')
-    if (hostname.startsWith('eu.') || hostname.includes('.eu.')) {
-      detectedRegion = 'eu';
-    }
-    // 2. Check query parameter
-    else if (queryRegion === 'eu' || queryRegion === 'us') {
-      detectedRegion = queryRegion;
-    }
-    // 3. Check env var (development)
-    else if (import.meta.env.VITE_DEFAULT_REGION) {
-      detectedRegion = import.meta.env.VITE_DEFAULT_REGION;
-    }
-    
-    return detectedRegion;
-  }, []); // Empty deps - only calculate once
-
   // Memoize PayPal options to avoid recreating on every render
   const paypalOptions = useMemo(() => {
     const currency = region === 'eu' ? 'EUR' : 'USD';
@@ -118,7 +117,7 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
     const enableFunding = baseFunding + walletFunding;
 
     return {
-      clientId: import.meta.env.VITE_PAYPAL_CLIENT_ID,
+      clientId: clientId || import.meta.env.VITE_PAYPAL_CLIENT_ID,
       currency,
       intent: 'capture',
       components, // Conditionally include wallet payment components
@@ -127,10 +126,10 @@ export const PayPalProvider: React.FC<PayPalProviderProps> = ({ children }) => {
       merchantId: import.meta.env.VITE_PAYPAL_MERCHANT_ID || undefined,
       dataClientToken: import.meta.env.VITE_PAYPAL_CLIENT_TOKEN || undefined
     };
-  }, [region]);
+  }, [region, clientId]);
   
-  // Don't load PayPal script until after initial render
-  if (!shouldLoadPayPal) {
+  // Don't load PayPal script until after initial render and clientId is available
+  if (!shouldLoadPayPal || !clientId) {
     return <>{children}</>;
   }
 

@@ -18,17 +18,20 @@ import {
 import { PriceCalculatorService } from './PriceCalculatorService';
 import { StockReservationService } from './StockReservationService';
 import { BundleService } from './BundleService';
+import { VariationStockService } from './VariationStockService';
 import { NotFoundError, ValidationError } from '../utils/errors';
 
 export class CartService {
   private priceCalculator: PriceCalculatorService;
   private stockReservationService: StockReservationService;
   private bundleService: BundleService;
+  private variationStockService: VariationStockService;
 
   constructor(private pool: Pool) {
     this.priceCalculator = new PriceCalculatorService(pool);
     this.stockReservationService = new StockReservationService(pool);
     this.bundleService = new BundleService(pool);
+    this.variationStockService = new VariationStockService(pool);
   }
 
   /**
@@ -1087,8 +1090,76 @@ export class CartService {
 
         // Check stock - only fail if stock is insufficient AND backorders are not allowed
         const backordersAllowed = item.backorders_allowed || false;
+        
+        // 1. Check main product stock
         if (item.stock < item.quantity && !backordersAllowed) {
           errors.push(`Insufficient stock for "${item.name}". Only ${item.stock} available`);
+        }
+
+        // 2. Check variation stock if configured
+        if (item.configuration && item.configuration.variations) {
+          const variations = item.configuration.variations;
+          // Iterate through selected variation options
+          for (const [variationId, optionId] of Object.entries(variations)) {
+            // Skip if optionId is falsy
+            if (!optionId) continue;
+            
+            const numericVariationId = Number(variationId);
+            if (isNaN(numericVariationId)) continue;
+
+            // Check if this variation tracks stock
+            const variationCheck = await this.pool.query(
+              'SELECT tracks_stock FROM product_variations WHERE id = $1',
+              [numericVariationId]
+            );
+            
+            // If variation doesn't track stock, skip validation
+            if (!variationCheck.rows[0]?.tracks_stock) {
+              continue;
+            }
+
+            const numericOptionId = Number(optionId);
+            if (!isNaN(numericOptionId) && numericOptionId > 0) {
+              const available = await this.variationStockService.getVariationOptionStock(numericOptionId);
+              
+              // We need to know if this specific option/variation combination allows backorders.
+              // VariationStockService.reserveVariationStock checks this.
+              // We'll mimic that check here.
+              // For simplicity, we check available stock. If < quantity, we should check backorders logic.
+              // Since getVariationOptionStock returns just a number, we might need a richer check.
+              
+              if (available < item.quantity) {
+                 // Double check backorders allowed for this variation product
+                 // This query matches what's in VariationStockService
+                 const productResult = await this.pool.query(
+                  `SELECT 
+                   CASE 
+                     WHEN p.backorders_allowed IS NULL THEN false
+                     WHEN LOWER(TRIM(p.backorders_allowed)) IN ('yes', '1', 'true', 'on') THEN true
+                     ELSE false
+                   END as backorders_allowed
+                   FROM products p
+                   JOIN product_variations v ON v.product_id = p.id
+                   JOIN variation_options vo ON vo.variation_id = v.id
+                   WHERE vo.id = $1`,
+                  [numericOptionId]
+                );
+                const variationBackordersAllowed = productResult.rows[0]?.backorders_allowed || false;
+
+                if (!variationBackordersAllowed) {
+                   // Get option name for better error message
+                   const optionResult = await this.pool.query(
+                     'SELECT option_name, v.name as variation_name FROM variation_options vo JOIN product_variations v ON v.id = vo.variation_id WHERE vo.id = $1',
+                     [numericOptionId]
+                   );
+                   const optionName = optionResult.rows[0]?.option_name || 'Option';
+                   const variationName = optionResult.rows[0]?.variation_name || 'Variation';
+                   
+                   errors.push(`Insufficient stock for "${item.name}" - ${variationName}: ${optionName}. Only ${available} available.`);
+                }
+              }
+            }
+          }
         }
       }
 

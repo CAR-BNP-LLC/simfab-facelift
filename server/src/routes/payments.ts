@@ -11,6 +11,13 @@ export const createPaymentRoutes = (pool: Pool): Router => {
   router.use(apiRateLimiter);
 
   /**
+   * @route   GET /api/payments/config/:region
+   * @desc    Get PayPal configuration for region
+   * @access  Public
+   */
+  router.get('/config/:region', controller.getPaymentConfig);
+
+  /**
    * @route   POST /api/payments/create
    * @desc    Create PayPal payment
    * @access  Public (with order validation)
