@@ -5,6 +5,7 @@
 
 import { Pool } from 'pg';
 import { EmailService } from './EmailService';
+import { formatCurrency } from '../utils/currency';
 
 interface CartWithUser {
   id: number;
@@ -96,7 +97,7 @@ export class CartReminderService {
             'cart.reminder_1day',
             {
               customer_name: cart.user_name || 'Customer',
-              cart_total: `$${cartTotal.toFixed(2)}`,
+              cart_total: formatCurrency(cartTotal, cartRegion, 'total'),
               item_count: itemCount.toString(),
               cart_url: cartUrl,
               cart_id: cart.id.toString()
@@ -203,7 +204,7 @@ export class CartReminderService {
             'cart.reminder_7days',
             {
               customer_name: cart.user_name || 'Customer',
-              cart_total: `$${cartTotal.toFixed(2)}`,
+              cart_total: formatCurrency(cartTotal, cartRegion, 'total'),
               item_count: itemCount.toString(),
               cart_url: cartUrl,
               cart_id: cart.id.toString()

@@ -10,6 +10,7 @@ import { ShippingQuoteService } from '../services/ShippingQuoteService';
 import { EmailService } from '../services/EmailService';
 import { successResponse } from '../utils/response';
 import { cartValidation } from '../middleware/validation';
+import { formatCurrency } from '../utils/currency';
 
 export class ShippingController {
   private shippingService: ShippingService;
@@ -134,7 +135,7 @@ export class ShippingController {
             shipping_address: `${shippingAddress.city || ''}, ${shippingAddress.state || ''} ${shippingAddress.postalCode || ''}, ${shippingAddress.country}`,
             package_size: packageSize,
             cart_items: cartItems ? cartItems.map((item: any) => 
-              `${item.productName} x ${item.quantity} - $${item.unitPrice.toFixed(2)}`
+              `${item.productName} x ${item.quantity} - ${formatCurrency(item.unitPrice, region)}`
             ).join('\n') : 'N/A'
           },
           {

@@ -9,6 +9,7 @@ import { OrderService } from '../services/OrderService';
 import { EmailService } from '../services/EmailService';
 import { OrderStatus } from '../types/cart';
 import { successResponse, paginatedResponse } from '../utils/response';
+import { formatCurrency } from '../utils/currency';
 
 export class AdminOrderController {
   private orderService: OrderService;
@@ -262,7 +263,7 @@ export class AdminOrderController {
         console.warn('Could not parse billing address for customer name:', error);
       }
 
-      // Trigger admin note event if a new note was added
+          // Trigger admin note event if a new note was added
       if (hasNewNote) {
         try {
           const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
@@ -275,7 +276,7 @@ export class AdminOrderController {
               order_number: order.order_number,
               customer_name: customerName,
               customer_email: order.customer_email,
-              order_total: `$${totalAmount.toFixed(2)}`,
+              order_total: formatCurrency(totalAmount, orderRegion, 'total'),
               note: notes
             },
             {
@@ -319,7 +320,7 @@ export class AdminOrderController {
               order_number: order.order_number,
               customer_name: customerName,
               customer_email: order.customer_email,
-              order_total: `$${totalAmount.toFixed(2)}`,
+              order_total: formatCurrency(totalAmount, orderRegion, 'total'),
               order_date: new Date(order.created_at).toLocaleDateString(),
               tracking_number: trackingNumber || '',
               carrier: carrier || '',
