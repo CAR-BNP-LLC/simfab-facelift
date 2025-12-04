@@ -65,8 +65,8 @@ INSERT INTO region_settings (region, setting_key, setting_value, setting_type, d
 -- EU Region Default Settings
 INSERT INTO region_settings (region, setting_key, setting_value, setting_type, description, is_public) VALUES
   ('eu', 'admin_email', 'info@simfab.eu', 'string', 'Administrative contact email', true),
-  ('eu', 'phone_number', '+49-XXX-XXXXXXX', 'string', 'Phone number', true),
-  ('eu', 'phone_display', 'EU Support: +49-XXX-XXXXXXX', 'string', 'Display text for phone', true),
+  ('eu', 'phone_number', '+359 88 930 6855', 'string', 'Phone number', true),
+  ('eu', 'phone_display', 'EU Support: +359 88 930 6855', 'string', 'Display text for phone', true),
   ('eu', 'company_name', 'SimFab EU', 'string', 'Company name for EU region', true),
   ('eu', 'address', 'Business Address, City, Country', 'string', 'Business address', false),
   ('eu', 'currency', 'EUR', 'string', 'Default currency', true),

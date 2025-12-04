@@ -76,7 +76,7 @@ const ProductImageGallery = ({ images, productName, selectedColorImageUrl }: Pro
   return (
     <div className="flex gap-4 w-full">
       {/* Thumbnails (desktop only) */}
-      <div className="hidden md:flex flex-col space-y-2">
+      <div className="hidden md:flex flex-col space-y-2 max-h-[70vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         {displayImages.map((image, index) => (
           <button
             key={`${image.url}-${index}`}
