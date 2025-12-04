@@ -132,11 +132,42 @@ export const PayPalButton: React.FC<PayPalButtonProps> = ({
       } else {
         throw new Error('Payment execution failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment execution failed:', error);
+      
+      // Check for timeout or network errors
+      const errorMessage = error.message || 'Failed to process payment. Please try again.';
+      const isTimeout = errorMessage.includes('timeout') || errorMessage.includes('Network Error');
+      
+      if (isTimeout) {
+        // If it's a timeout, check payment status before failing
+        // The backend might have processed it successfully but response timed out
+        try {
+          console.log('Checking payment status after timeout...');
+          const statusResponse = await paymentAPI.getPaymentStatus(data.orderID);
+          
+          if (statusResponse.success && (statusResponse.data.status === 'COMPLETED' || statusResponse.data.status === 'completed')) {
+             console.log('Payment was actually successful despite timeout');
+             toast({
+               title: 'Payment Successful!',
+               description: 'Your payment was processed successfully.',
+             });
+             
+             if (onSuccess) {
+               onSuccess(data.orderID);
+             }
+             return;
+          }
+        } catch (checkError) {
+          console.error('Failed to check payment status:', checkError);
+        }
+      }
+
       toast({
         title: 'Payment Failed',
-        description: 'Failed to process payment. Please try again.',
+        description: isTimeout 
+          ? 'Payment response timed out. Please check your order history or contact support.' 
+          : 'Failed to process payment. Please try again.',
         variant: 'destructive'
       });
       

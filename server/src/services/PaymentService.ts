@@ -549,58 +549,61 @@ export class PaymentService {
       // Send order confirmation emails now that payment is confirmed
       // (Emails were skipped during order creation when payment was pending)
       if (order) {
-        try {
-          // Get customer name from billing address
-          let customerName = order.customer_email;
+        // Run email sending asynchronously to prevent blocking the response
+        (async () => {
           try {
-            const billingAddress = typeof order.billing_address === 'string' 
-              ? JSON.parse(order.billing_address) 
-              : order.billing_address;
-            if (billingAddress?.firstName && billingAddress?.lastName) {
-              customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+            // Get customer name from billing address
+            let customerName = order.customer_email;
+            try {
+              const billingAddress = typeof order.billing_address === 'string' 
+                ? JSON.parse(order.billing_address) 
+                : order.billing_address;
+              if (billingAddress?.firstName && billingAddress?.lastName) {
+                customerName = `${billingAddress.firstName} ${billingAddress.lastName}`;
+              }
+            } catch (error) {
+              // If parsing fails, use email as fallback
+              console.warn('Could not parse billing address for customer name:', error);
             }
-          } catch (error) {
-            // If parsing fails, use email as fallback
-            console.warn('Could not parse billing address for customer name:', error);
+
+            // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
+            const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
+            const subtotal = typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : Number(order.subtotal) || 0;
+            const taxAmount = typeof order.tax_amount === 'string' ? parseFloat(order.tax_amount) : Number(order.tax_amount) || 0;
+            const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
+            const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
+
+            // Get region from order (default to 'us' for backward compatibility)
+            const orderRegion = (order.region || 'us') as 'us' | 'eu';
+
+            // Trigger order.created event - sends confirmation emails to customer and admin
+            await this.emailService.triggerEvent(
+              'order.created',
+              {
+                order_number: order.order_number,
+                customer_name: customerName,
+                customer_email: order.customer_email,
+                order_total: formatCurrency(totalAmount, orderRegion, 'total'),
+                order_date: new Date(order.created_at).toLocaleDateString(),
+                subtotal: formatCurrency(subtotal, orderRegion),
+                tax_amount: formatCurrency(taxAmount, orderRegion),
+                shipping_amount: formatCurrency(shippingAmount, orderRegion),
+                discount_amount: formatCurrency(discountAmount, orderRegion)
+              },
+              {
+                customerEmail: order.customer_email,
+                customerName: customerName,
+                adminEmail: 'info@simfab.com'
+              },
+              orderRegion
+            );
+
+            console.log(`✅ Order confirmation emails sent for order ${order.order_number} after payment confirmation`);
+          } catch (emailError) {
+            console.error('❌ Failed to send order confirmation emails after payment:', emailError);
+            // Don't fail payment if emails fail - payment is already confirmed
           }
-
-          // Convert string amounts to numbers (PostgreSQL returns numeric types as strings)
-          const totalAmount = typeof order.total_amount === 'string' ? parseFloat(order.total_amount) : Number(order.total_amount) || 0;
-          const subtotal = typeof order.subtotal === 'string' ? parseFloat(order.subtotal) : Number(order.subtotal) || 0;
-          const taxAmount = typeof order.tax_amount === 'string' ? parseFloat(order.tax_amount) : Number(order.tax_amount) || 0;
-          const shippingAmount = typeof order.shipping_amount === 'string' ? parseFloat(order.shipping_amount) : Number(order.shipping_amount) || 0;
-          const discountAmount = typeof order.discount_amount === 'string' ? parseFloat(order.discount_amount) : Number(order.discount_amount) || 0;
-
-          // Get region from order (default to 'us' for backward compatibility)
-          const orderRegion = (order.region || 'us') as 'us' | 'eu';
-
-          // Trigger order.created event - sends confirmation emails to customer and admin
-          await this.emailService.triggerEvent(
-            'order.created',
-            {
-              order_number: order.order_number,
-              customer_name: customerName,
-              customer_email: order.customer_email,
-              order_total: formatCurrency(totalAmount, orderRegion, 'total'),
-              order_date: new Date(order.created_at).toLocaleDateString(),
-              subtotal: formatCurrency(subtotal, orderRegion),
-              tax_amount: formatCurrency(taxAmount, orderRegion),
-              shipping_amount: formatCurrency(shippingAmount, orderRegion),
-              discount_amount: formatCurrency(discountAmount, orderRegion)
-            },
-            {
-              customerEmail: order.customer_email,
-              customerName: customerName,
-              adminEmail: 'info@simfab.com'
-            },
-            orderRegion
-          );
-
-          console.log(`✅ Order confirmation emails sent for order ${order.order_number} after payment confirmation`);
-        } catch (emailError) {
-          console.error('❌ Failed to send order confirmation emails after payment:', emailError);
-          // Don't fail payment if emails fail - payment is already confirmed
-        }
+        })();
       }
 
       return {
