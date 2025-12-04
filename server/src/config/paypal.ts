@@ -24,8 +24,11 @@ export const getPayPalConfigForRegion = async (
     throw new Error(`PayPal credentials not configured for region: ${region}. Please configure them in the admin dashboard.`);
   }
   
-  // Determine environment based on NODE_ENV
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Determine environment based on PAYPAL_MODE or NODE_ENV
+  const explicitMode = process.env.PAYPAL_MODE;
+  const isProduction = explicitMode 
+    ? explicitMode === 'live' || explicitMode === 'production'
+    : process.env.NODE_ENV === 'production';
   
   return {
     clientId: paypalClientId,
