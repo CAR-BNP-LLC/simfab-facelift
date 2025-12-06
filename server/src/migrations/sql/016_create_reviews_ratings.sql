@@ -48,10 +48,17 @@ CREATE INDEX IF NOT EXISTS idx_review_votes_review_id ON review_votes(review_id)
 CREATE INDEX IF NOT EXISTS idx_review_images_review_id ON review_images(review_id);
 
 -- Trigger for reviews updated_at
-CREATE TRIGGER update_product_reviews_updated_at
-    BEFORE UPDATE ON product_reviews
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_product_reviews_updated_at'
+  ) THEN
+    CREATE TRIGGER update_product_reviews_updated_at
+        BEFORE UPDATE ON product_reviews
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Function to update helpful counts
 CREATE OR REPLACE FUNCTION update_review_vote_count()
@@ -75,10 +82,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to update vote counts
-CREATE TRIGGER update_review_vote_count_trigger
-  AFTER INSERT OR DELETE ON review_votes
-  FOR EACH ROW
-  EXECUTE FUNCTION update_review_vote_count();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_review_vote_count_trigger'
+  ) THEN
+    CREATE TRIGGER update_review_vote_count_trigger
+      AFTER INSERT OR DELETE ON review_votes
+      FOR EACH ROW
+      EXECUTE FUNCTION update_review_vote_count();
+  END IF;
+END $$;
 
 COMMENT ON TABLE product_reviews IS 'Customer product reviews and ratings';
 COMMENT ON TABLE review_votes IS 'Helpful/not helpful votes on reviews';
