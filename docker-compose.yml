@@ -97,7 +97,6 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_URL: http://localhost:3001
-      CHOKIDAR_USEPOLLING: true # Enable file watching in Docker
       # Region Configuration
       VITE_DEFAULT_REGION: ${VITE_DEFAULT_REGION:-us}
       # PayPal Frontend Configuration

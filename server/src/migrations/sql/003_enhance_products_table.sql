@@ -50,10 +50,17 @@ CREATE INDEX IF NOT EXISTS idx_products_search ON products USING GIN (
 );
 
 -- Trigger for updated_at
-CREATE TRIGGER update_products_updated_at
-    BEFORE UPDATE ON products
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_products_updated_at'
+  ) THEN
+    CREATE TRIGGER update_products_updated_at
+        BEFORE UPDATE ON products
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Generate slug from name for existing products
 UPDATE products 
