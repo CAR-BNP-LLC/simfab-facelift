@@ -11,7 +11,14 @@ WHERE id NOT IN (
 );
 
 -- Add unique constraint on transaction_id to prevent duplicate PayPal payments
-ALTER TABLE payments ADD CONSTRAINT payments_transaction_id_unique UNIQUE (transaction_id);
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'payments_transaction_id_unique'
+  ) THEN
+    ALTER TABLE payments ADD CONSTRAINT payments_transaction_id_unique UNIQUE (transaction_id);
+  END IF;
+END $$;
 
 -- Add index for faster lookups on order_id and status
 CREATE INDEX IF NOT EXISTS idx_payments_order_id_status ON payments(order_id, status);
