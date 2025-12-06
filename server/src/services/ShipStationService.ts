@@ -51,12 +51,12 @@ export class ShipStationService {
     try {
       const offset = (page - 1) * limit;
 
-      // Get total count for pagination (only US orders - ShipStation is US only)
+      // Get total count for pagination (US and EU orders)
       const countSql = `
         SELECT COUNT(*)::int as total
         FROM orders o
         WHERE o.payment_status = 'paid'
-        AND o.region = 'us'
+        AND o.region IN ('us', 'eu')
         AND o.created_at >= $1
         AND o.created_at <= $2
       `;
@@ -105,7 +105,7 @@ export class ShipStationService {
         FROM orders o
         LEFT JOIN order_items oi ON oi.order_id = o.id
         WHERE o.payment_status = 'paid'
-        AND o.region = 'us'
+        AND o.region IN ('us', 'eu')
         AND o.created_at >= $1
         AND o.created_at <= $2
         GROUP BY o.id, o.order_number, o.created_at, o.status, o.payment_status, 
@@ -145,7 +145,7 @@ export class ShipStationService {
       return { orders, totalPages };
     } catch (error) {
       console.error('Error fetching orders for ShipStation:', error);
-      throw new Error('Failed to fetch orders for export');
+      throw new Error(`Failed to fetch orders for export: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -329,7 +329,7 @@ export class ShipStationService {
         FROM orders o
         LEFT JOIN order_items oi ON oi.order_id = o.id
         WHERE o.order_number = $1
-        AND o.region = 'us'
+        AND o.region IN ('us', 'eu')
         GROUP BY o.id, o.order_number, o.created_at, o.status, o.payment_status, 
                  o.shipping_status, o.subtotal, o.tax_amount, o.shipping_amount, 
                  o.discount_amount, o.total_amount, o.currency, o.customer_email, 

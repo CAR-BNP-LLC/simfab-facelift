@@ -70,11 +70,7 @@ export class WebhookService {
   }
 
   async handleWebhookEvent(event: PayPalWebhookEvent): Promise<void> {
-    const client = await this.pool.connect();
-    
     try {
-      await client.query('BEGIN');
-
       // Log webhook event
       await this.logWebhookEvent(event);
 
@@ -94,14 +90,9 @@ export class WebhookService {
         default:
           console.log(`Unhandled webhook event: ${event.event_type}`);
       }
-
-      await client.query('COMMIT');
     } catch (error) {
-      await client.query('ROLLBACK');
       console.error('Webhook processing failed:', error);
       throw error;
-    } finally {
-      client.release();
     }
   }
 

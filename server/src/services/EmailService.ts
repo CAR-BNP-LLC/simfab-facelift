@@ -116,6 +116,9 @@ export class EmailService {
         return { success: false, error: 'Template is inactive' };
       }
 
+      // Determine region (default to 'us' for backward compatibility)
+      const region = options.region || 'us';
+
       // Replace variables in subject and body
       const subject = this.templateEngine.replaceVariables(template.subject, options.variables);
       let htmlBody = this.templateEngine.replaceVariables(template.html_body, options.variables);
@@ -127,7 +130,8 @@ export class EmailService {
       htmlBody = EmailTemplateWrapper.wrap(
         htmlBody,
         template.header_title,
-        template.header_image
+        template.header_image,
+        region
       );
       
       const textBody = template.text_body 
@@ -135,9 +139,6 @@ export class EmailService {
             this.templateEngine.replaceVariables(template.text_body, options.variables)
           )
         : null;
-
-      // Determine region (default to 'us' for backward compatibility)
-      const region = options.region || 'us';
 
       // Get email settings for the region
       const settings = await this.getEmailSettings(region);
@@ -612,7 +613,8 @@ export class EmailService {
         options.content,
         options.unsubscribeToken,
         'SimFab Marketing',
-        undefined
+        undefined,
+        region
       );
 
       // Determine actual recipient

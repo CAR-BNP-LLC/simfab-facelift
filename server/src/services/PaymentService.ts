@@ -535,7 +535,8 @@ export class PaymentService {
       );
 
       // CRITICAL: Confirm order payment and stock reservations atomically
-      await this.orderService.confirmOrderPayment(orderId);
+      // Pass the existing client to prevent deadlock
+      await this.orderService.confirmOrderPayment(orderId, client);
 
       // Get order details to find cart ID and send confirmation emails
       const order = await this.orderService.getOrderById(orderId);
