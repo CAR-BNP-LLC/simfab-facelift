@@ -12,7 +12,7 @@ This phase focuses on:
 - Updating ProductAdditionalInfo component to display manuals
 - Adding "View Online" functionality
 - Updating product detail page to show assigned manuals
-
+  
 ---
 
 ## 🌐 Public Manual Viewing Page

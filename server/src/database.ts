@@ -155,17 +155,6 @@ class Database {
     console.log('✅ PostgreSQL database initialized successfully');
   }
 
-  async dropProductsTable(): Promise<void> {
-    try {
-      await this.pool.query('DROP TABLE IF EXISTS products');
-      console.log('Products table dropped successfully');
-      await this.initDatabase();
-    } catch (err) {
-      console.error('Error dropping products table:', err);
-      throw err;
-    }
-  }
-
   async insertProduct(product: Omit<Product, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
     try {
       await this.pool.query(`

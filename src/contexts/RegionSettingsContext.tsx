@@ -29,9 +29,9 @@ export const RegionSettingsProvider: React.FC<{ children: ReactNode }> = ({ chil
   // Set default contact info immediately so UI can render
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     email: region === 'eu' ? 'info@simfab.eu' : 'info@simfab.com',
-    phone: region === 'eu' ? '+49-XXX-XXXXXXX' : '1-888-299-2746',
+    phone: region === 'eu' ? '+359 88 930 6855' : '1-888-299-2746',
     phone_display: region === 'eu' 
-      ? 'EU Support: +49-XXX-XXXXXXX' 
+      ? 'EU Support: +359 88 930 6855' 
       : 'Toll free for USA & Canada: 1-888-299-2746'
   });
   const [loading, setLoading] = useState(false); // Start as false to allow immediate render
@@ -62,9 +62,9 @@ export const RegionSettingsProvider: React.FC<{ children: ReactNode }> = ({ chil
       // Set fallback values
       setContactInfo({
         email: region === 'eu' ? 'info@simfab.eu' : 'info@simfab.com',
-        phone: region === 'eu' ? '+49-XXX-XXXXXXX' : '1-888-299-2746',
+        phone: region === 'eu' ? '+359 88 930 6855' : '1-888-299-2746',
         phone_display: region === 'eu' 
-          ? 'EU Support: +49-XXX-XXXXXXX' 
+          ? 'EU Support: +359 88 930 6855' 
           : 'Toll free for USA & Canada: 1-888-299-2746'
       });
     } finally {

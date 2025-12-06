@@ -601,7 +601,7 @@ export default function SettingsTab() {
                         id="eu_phone_number"
                         value={euSettings.phone_number}
                         onChange={(e) => setEuSettings({ ...euSettings, phone_number: e.target.value })}
-                        placeholder="+49-XXX-XXXXXXX"
+                        placeholder="+359 88 930 6855"
                       />
                     </div>
                     <div>
@@ -610,7 +610,7 @@ export default function SettingsTab() {
                         id="eu_phone_display"
                         value={euSettings.phone_display}
                         onChange={(e) => setEuSettings({ ...euSettings, phone_display: e.target.value })}
-                        placeholder="EU Support: +49-XXX-XXXXXXX"
+                        placeholder="EU Support: +359 88 930 6855"
                       />
                       <p className="text-sm text-muted-foreground mt-1">
                         This text will be displayed to users on the website

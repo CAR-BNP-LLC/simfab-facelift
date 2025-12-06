@@ -69,7 +69,18 @@ export class AdminSettingsController {
       const { settings } = req.body;
       const adminId = req.session?.userId;
 
+      console.log('📝 [Settings Update] Request received:', {
+        region,
+        adminId,
+        settingsKeys: settings ? Object.keys(settings) : null,
+        settingsCount: settings ? Object.keys(settings).length : 0,
+        bodyKeys: Object.keys(req.body || {}),
+        hasSettings: !!settings,
+        settingsType: typeof settings
+      });
+
       if (!adminId) {
+        console.error('❌ [Settings Update] Unauthorized - no adminId in session');
         return res.status(401).json({
           success: false,
           error: { message: 'Unauthorized' }
@@ -77,20 +88,37 @@ export class AdminSettingsController {
       }
 
       if (region !== 'us' && region !== 'eu') {
+        console.error('❌ [Settings Update] Invalid region:', region);
         throw new ValidationError('Invalid region. Must be "us" or "eu"');
       }
 
       if (!settings || typeof settings !== 'object') {
+        console.error('❌ [Settings Update] Invalid settings:', {
+          settings,
+          type: typeof settings,
+          isArray: Array.isArray(settings)
+        });
         throw new ValidationError('Settings must be an object');
       }
 
+      console.log('✅ [Settings Update] Validation passed, calling service...');
       await this.regionSettingsService.updateSettings(region, settings, adminId);
+      console.log('✅ [Settings Update] Settings updated successfully for region:', region);
       
       res.json(successResponse({ 
         message: 'Settings updated successfully',
         region 
       }));
-    } catch (error) {
+    } catch (error: any) {
+      console.error('❌ [Settings Update] Error:', {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint,
+        region: req.params.region,
+        adminId: req.session?.userId
+      });
       next(error);
     }
   };
