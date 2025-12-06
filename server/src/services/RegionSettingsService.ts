@@ -216,6 +216,13 @@ export class RegionSettingsService {
       throw new NotFoundError(`Setting "${key}" not found for region "${region}"`);
     }
 
+    // Check if this is a sensitive value that is being saved in its masked form
+    // If so, skip the update to preserve the original value
+    if (this.isSensitiveKey(key) && typeof value === 'string' && value.endsWith('xxxxx')) {
+      console.log(`Skipping update for masked sensitive setting: ${region}.${key}`);
+      return;
+    }
+
     const settingType = existing.rows[0].setting_type;
     const stringValue = this.stringifySettingValue(value, settingType);
 
@@ -262,12 +269,12 @@ export class RegionSettingsService {
       let updatedCount = 0;
 
       for (const [key, value] of Object.entries(settings)) {
-        console.log(`🔧 [RegionSettingsService] Processing setting: ${key}`, {
-          valueType: typeof value,
-          value: key.includes('password') || key.includes('secret') ? '[REDACTED]' : value,
-          isNull: value === null,
-          isUndefined: value === undefined
-        });
+        // Check if this is a sensitive value that is being saved in its masked form
+        // If so, skip the update to preserve the original value
+        if (this.isSensitiveKey(key) && typeof value === 'string' && value.endsWith('xxxxx')) {
+          console.log(`Skipping update for masked sensitive setting: ${region}.${key}`);
+          continue;
+        }
 
         // Get existing setting type
         const existing = await client.query(

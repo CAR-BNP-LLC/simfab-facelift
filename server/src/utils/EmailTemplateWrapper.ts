@@ -57,7 +57,8 @@ export class EmailTemplateWrapper {
   static wrap(
     content: string,
     headerTitle?: string,
-    headerImage?: string
+    headerImage?: string,
+    region: 'us' | 'eu' = 'us'
   ): string {
     // Use absolute URL for logo in emails
     const baseUrl = this.getFrontendUrl();
@@ -94,57 +95,60 @@ export class EmailTemplateWrapper {
     
     const title = headerTitle || 'SimFab';
     
+    // Determine support email based on region
+    const supportEmail = region === 'eu' ? 'eu@simfab.com' : 'info@simfab.com';
+    
     return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>${title}</title>
-  <!--[if mso]>
-  <style type="text/css">
-    body, table, td {font-family: Arial, sans-serif !important;}
-  </style>
-  <![endif]-->
-</head>
-<body style="margin: 0; padding: 0; background-color: ${this.BG_BLACK}; font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${this.BG_BLACK};">
-    <tr>
-      <td align="center" style="padding: 50px 20px;">
-        <!-- Main Container -->
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; background-color: ${this.CARD_BG}; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);">
-          <!-- Logo Header -->
-          <tr>
-            <td style="padding: 40px 40px 20px 40px; text-align: center; border-bottom: 1px solid ${this.BORDER_COLOR};">
-              <img src="${logoUrl}" alt="SimFab" style="max-width: 160px; height: auto; display: block; margin: 0 auto;" />
-            </td>
-          </tr>
-          <!-- Content -->
-          <tr>
-            <td style="padding: 50px 40px; background-color: ${this.CARD_BG}; color: ${this.TEXT_PRIMARY};">
-              ${content}
-            </td>
-          </tr>
-          <!-- Footer -->
-          <tr>
-            <td style="background-color: ${this.BG_BLACK}; padding: 40px; text-align: center; border-top: 1px solid ${this.BORDER_COLOR};">
-              <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
-                &copy; ${new Date().getFullYear()} SimFab. All rights reserved.
-              </p>
-              <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
-                Questions? <a href="mailto:info@simfab.com" style="color: ${this.BRAND_COLOR}; text-decoration: none;">info@simfab.com</a>
-              </p>
-              <p style="margin: 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
-                <a href="${process.env.FRONTEND_URL || 'https://www.simfab.com'}" style="color: ${this.BRAND_COLOR}; text-decoration: none; font-weight: 500;">Visit SimFab.com</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <title>${title}</title>
+      <!--[if mso]>
+      <style type="text/css">
+        body, table, td {font-family: Arial, sans-serif !important;}
+      </style>
+      <![endif]-->
+    </head>
+    <body style="margin: 0; padding: 0; background-color: ${this.BG_BLACK}; font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: ${this.BG_BLACK};">
+        <tr>
+          <td align="center" style="padding: 50px 20px;">
+            <!-- Main Container -->
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; background-color: ${this.CARD_BG}; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);">
+              <!-- Logo Header -->
+              <tr>
+                <td style="padding: 40px 40px 20px 40px; text-align: center; border-bottom: 1px solid ${this.BORDER_COLOR};">
+                  <img src="${logoUrl}" alt="SimFab" style="max-width: 160px; height: auto; display: block; margin: 0 auto;" />
+                </td>
+              </tr>
+              <!-- Content -->
+              <tr>
+                <td style="padding: 50px 40px; background-color: ${this.CARD_BG}; color: ${this.TEXT_PRIMARY};">
+                  ${content}
+                </td>
+              </tr>
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: ${this.BG_BLACK}; padding: 40px; text-align: center; border-top: 1px solid ${this.BORDER_COLOR};">
+                  <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
+                    &copy; ${new Date().getFullYear()} SimFab. All rights reserved.
+                  </p>
+                  <p style="margin: 0 0 12px 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
+                    Questions? <a href="mailto:${supportEmail}" style="color: ${this.BRAND_COLOR}; text-decoration: none;">${supportEmail}</a>
+                  </p>
+                  <p style="margin: 0; color: ${this.TEXT_MUTED}; font-size: 12px; line-height: 1.6;">
+                    <a href="${process.env.FRONTEND_URL || 'https://www.simfab.com'}" style="color: ${this.BRAND_COLOR}; text-decoration: none; font-weight: 500;">Visit SimFab.com</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>`;
   }
 
   /**
@@ -259,7 +263,8 @@ export class EmailTemplateWrapper {
     content: string,
     unsubscribeToken: string,
     headerTitle?: string,
-    headerImage?: string
+    headerImage?: string,
+    region: 'us' | 'eu' = 'us'
   ): string {
     const baseUrl = this.getFrontendUrl();
     
@@ -277,7 +282,7 @@ export class EmailTemplateWrapper {
     `;
     
     // Use the regular wrap method with the content that includes unsubscribe
-    return this.wrap(contentWithUnsubscribe, headerTitle, headerImage);
+    return this.wrap(contentWithUnsubscribe, headerTitle, headerImage, region);
   }
 }
 
