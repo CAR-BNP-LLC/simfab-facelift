@@ -74,6 +74,17 @@ app.use(cors(corsOptions));
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
+// Order is important!
+// 1. Text parser for ShipStation XML requests
+// ShipStation might send with various content-types or none, so we should be permissive
+app.use('/api/shipstation', (req, res, next) => {
+  if (req.method === 'POST') {
+    express.text({ type: '*/*' })(req, res, next);
+  } else {
+    next();
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

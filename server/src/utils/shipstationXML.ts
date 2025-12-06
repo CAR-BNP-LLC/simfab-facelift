@@ -220,15 +220,17 @@ export function parseShipmentUpdateXML(xmlBody: string): ShipStationTrackingData
     const shippedDateMatch = xmlBody.match(/<ShippedDate>(.*?)<\/ShippedDate>/);
     const serviceCodeMatch = xmlBody.match(/<ServiceCode>(.*?)<\/ServiceCode>/);
 
-    if (!orderNumberMatch || !trackingNumberMatch || !carrierMatch || !shippedDateMatch) {
-      return null;
+    // Some fields might be missing or empty strings, so be flexible
+    if (!orderNumberMatch) {
+        console.error('Missing OrderNumber in XML');
+        return null;
     }
 
     return {
       order_number: orderNumberMatch[1],
-      tracking_number: trackingNumberMatch[1],
-      carrier: carrierMatch[1],
-      shipped_date: shippedDateMatch[1],
+      tracking_number: trackingNumberMatch ? trackingNumberMatch[1] : '',
+      carrier: carrierMatch ? carrierMatch[1] : 'Unknown',
+      shipped_date: shippedDateMatch ? shippedDateMatch[1] : new Date().toISOString(),
       service_code: serviceCodeMatch ? serviceCodeMatch[1] : undefined
     };
   } catch (error) {

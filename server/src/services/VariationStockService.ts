@@ -207,14 +207,17 @@ export class VariationStockService {
   /**
    * Confirm reservation and deduct stock (on payment)
    */
-  async confirmReservation(orderId: number): Promise<void> {
-    const client = await this.pool.connect();
+  async confirmReservation(orderId: number, client?: any): Promise<void> {
+    const useProvidedClient = !!client;
+    const dbClient = client || await this.pool.connect();
     
     try {
-      await client.query('BEGIN');
+      if (!useProvidedClient) {
+        await dbClient.query('BEGIN');
+      }
 
       // Get pending reservations
-      const reservations = await client.query(
+      const reservations = await dbClient.query(
         `SELECT variation_option_id, quantity 
          FROM variation_stock_reservations 
          WHERE order_id = $1 AND status = 'pending'`,
@@ -224,7 +227,7 @@ export class VariationStockService {
       // Deduct stock and reduce reserved quantity
       // Allow negative stock for backorders
       for (const reservation of reservations.rows) {
-        await client.query(
+        await dbClient.query(
           `UPDATE variation_options 
            SET 
              stock_quantity = stock_quantity - $1,
@@ -235,20 +238,26 @@ export class VariationStockService {
       }
 
       // Mark as confirmed
-      await client.query(
+      await dbClient.query(
         `UPDATE variation_stock_reservations 
          SET status = 'confirmed'
          WHERE order_id = $1 AND status = 'pending'`,
         [orderId]
       );
 
-      await client.query('COMMIT');
+      if (!useProvidedClient) {
+        await dbClient.query('COMMIT');
+      }
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!useProvidedClient) {
+        await dbClient.query('ROLLBACK');
+      }
       console.error('Error confirming variation stock reservation:', error);
       throw error;
     } finally {
-      client.release();
+      if (!useProvidedClient) {
+        dbClient.release();
+      }
     }
   }
 

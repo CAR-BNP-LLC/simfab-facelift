@@ -147,9 +147,17 @@ export class CartService {
    * @param cartId - Specific cart ID to retrieve (optional, overrides other params)
    * @param createIfNotExists - If true, creates a new cart if none exists (default: false)
    */
-  async getCartWithItems(sessionId?: string, userId?: number, region?: 'us' | 'eu', cartId?: number, createIfNotExists: boolean = false): Promise<CartWithItems | null> {
+  async getCartWithItems(sessionId?: string, userId?: number, region?: 'us' | 'eu', cartId?: number, createIfNotExists: boolean = false, client?: any): Promise<CartWithItems | null> {
     try {
       let cart: Cart | null = null;
+      // Use provided client or pool (but don't create a new client from pool if one isn't provided, 
+      // just use pool.query directly which gets a client from pool and releases it)
+      // Actually, for getCartWithItems we might need consistent reads if in transaction.
+      // But usually this is called for read-only.
+      // However, if we are in a transaction (like creating order), we MUST use the same client to see uncommitted changes if any?
+      // Or to avoid using another connection.
+      
+      const queryExecutor = client || this.pool;
       
       // If cartId is provided, get that specific cart (with security check)
       if (cartId) {
@@ -165,7 +173,7 @@ export class CartService {
           cartParams.push(sessionId);
         }
         
-        const cartResult = await this.pool.query(cartSql, cartParams);
+        const cartResult = await queryExecutor.query(cartSql, cartParams);
         cart = cartResult.rows[0] || null;
         
         if (!cart) {
@@ -232,11 +240,11 @@ export class CartService {
         ORDER BY ci.created_at ASC
       `;
 
-      const itemsResult = await this.pool.query(itemsSql, [cart.id]);
+      const itemsResult = await queryExecutor.query(itemsSql, [cart.id]);
       const items = itemsResult.rows;
 
       // Get applied coupons
-      const couponsResult = await this.pool.query(
+      const couponsResult = await queryExecutor.query(
         `SELECT c.id, c.code, c.discount_type as type, c.discount_value as value, 
                 c.description, cc.discount_amount as amount
          FROM cart_coupons cc
@@ -247,7 +255,11 @@ export class CartService {
       const appliedCoupons = couponsResult.rows;
 
       // Calculate totals (pass cart region for currency)
-      const totals = await this.calculateTotals(cart.id, items, cart.region);
+      // Note: calculateTotals is internal and uses getCouponDiscounts which uses this.pool.
+      // Ideally we should pass client to calculateTotals too, but let's check its dependencies.
+      // calculateTotals -> getCouponDiscounts -> this.pool.query
+      // We should refactor calculateTotals and getCouponDiscounts too.
+      const totals = await this.calculateTotals(cart.id, items, cart.region, undefined, 0, queryExecutor);
 
       return {
         ...cart,
@@ -406,9 +418,11 @@ export class CartService {
       }
       
       // Check available stock (considering reservations and variation stock)
+      // Pass client to reuse transaction
       const availableStock = await this.stockReservationService.getAvailableStock(
         product.id, 
-        normalizedConfig
+        normalizedConfig,
+        client
       );
       
       // Check if product allows backorders
@@ -960,7 +974,8 @@ export class CartService {
     items: CartItemWithProduct[], 
     cartRegion?: 'us' | 'eu',
     shippingAddress?: Address,
-    shippingAmount: number = 0
+    shippingAmount: number = 0,
+    client?: any
   ): Promise<CartTotals> {
     // Calculate subtotal from items
     const subtotal = items.reduce((sum, item) => sum + parseFloat(item.total_price.toString()), 0);
@@ -979,7 +994,7 @@ export class CartService {
     }, 0);
 
     // Get coupon discounts
-    const couponDiscount = await this.getCouponDiscounts(cartId);
+    const couponDiscount = await this.getCouponDiscounts(cartId, client);
 
     const totalDiscount = productDiscount + couponDiscount;
     const shipping = shippingAmount;
@@ -1037,9 +1052,10 @@ export class CartService {
   /**
    * Get total coupon discount amount for cart
    */
-  private async getCouponDiscounts(cartId: number): Promise<number> {
+  private async getCouponDiscounts(cartId: number, client?: any): Promise<number> {
     try {
-      const result = await this.pool.query(
+      const queryExecutor = client || this.pool;
+      const result = await queryExecutor.query(
         'SELECT COALESCE(SUM(discount_amount), 0) as total FROM cart_coupons WHERE cart_id = $1',
         [cartId]
       );
@@ -1053,8 +1069,9 @@ export class CartService {
   /**
    * Validate cart before checkout
    */
-  async validateCartForCheckout(cartId: number): Promise<{ valid: boolean; errors: string[] }> {
+  async validateCartForCheckout(cartId: number, client?: any): Promise<{ valid: boolean; errors: string[] }> {
     const errors: string[] = [];
+    const queryExecutor = client || this.pool;
 
     try {
       // Get cart items with backorder information
@@ -1074,7 +1091,7 @@ export class CartService {
         WHERE ci.cart_id = $1
       `;
 
-      const result = await this.pool.query(itemsSql, [cartId]);
+      const result = await queryExecutor.query(itemsSql, [cartId]);
       const items = result.rows;
 
       if (items.length === 0) {
@@ -1108,7 +1125,7 @@ export class CartService {
             if (isNaN(numericVariationId)) continue;
 
             // Check if this variation tracks stock
-            const variationCheck = await this.pool.query(
+            const variationCheck = await queryExecutor.query(
               'SELECT tracks_stock FROM product_variations WHERE id = $1',
               [numericVariationId]
             );
@@ -1120,7 +1137,7 @@ export class CartService {
 
             const numericOptionId = Number(optionId);
             if (!isNaN(numericOptionId) && numericOptionId > 0) {
-              const available = await this.variationStockService.getVariationOptionStock(numericOptionId);
+              const available = await this.variationStockService.getVariationOptionStock(numericOptionId, client);
               
               // We need to know if this specific option/variation combination allows backorders.
               // VariationStockService.reserveVariationStock checks this.
@@ -1131,7 +1148,7 @@ export class CartService {
               if (available < item.quantity) {
                  // Double check backorders allowed for this variation product
                  // This query matches what's in VariationStockService
-                 const productResult = await this.pool.query(
+                 const productResult = await queryExecutor.query(
                   `SELECT 
                    CASE 
                      WHEN p.backorders_allowed IS NULL THEN false
@@ -1148,7 +1165,7 @@ export class CartService {
 
                 if (!variationBackordersAllowed) {
                    // Get option name for better error message
-                   const optionResult = await this.pool.query(
+                   const optionResult = await queryExecutor.query(
                      'SELECT option_name, v.name as variation_name FROM variation_options vo JOIN product_variations v ON v.id = vo.variation_id WHERE vo.id = $1',
                      [numericOptionId]
                    );

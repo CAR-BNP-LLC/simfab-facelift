@@ -1103,6 +1103,7 @@ export const paymentAPI = {
       success: boolean;
       data: {
         payment: any;
+        status?: string;
       };
     }>(`/api/payments/${paymentId}`);
   }

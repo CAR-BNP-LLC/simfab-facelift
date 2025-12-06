@@ -11,7 +11,7 @@ The current admin dashboard analytics is basic and limited. This plan outlines a
 - Order counts and status tracking
 - Product inventory stats
 - Recent orders list
-- Top products by sales
+- Top products by sales 
 - Low stock alerts
 
 ### Current Limitations ❌

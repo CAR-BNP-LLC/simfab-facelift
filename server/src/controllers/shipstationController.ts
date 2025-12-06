@@ -140,8 +140,22 @@ export class ShipStationController {
       // Get XML body from ShipStation
       const xmlBody = req.body;
       
+      console.log('ShipStation Update Body Type:', typeof xmlBody);
+      console.log('ShipStation Update Body Length:', xmlBody ? xmlBody.length : 0);
+      console.log('ShipStation Update Body Preview:', xmlBody ? (typeof xmlBody === 'string' ? xmlBody.substring(0, 100) : JSON.stringify(xmlBody)) : 'null');
+
       if (!xmlBody || typeof xmlBody !== 'string') {
-        return res.status(400).send(buildErrorResponseXML('Invalid XML body'));
+        const debugInfo = {
+          type: typeof xmlBody,
+          isNull: xmlBody === null,
+          isUndefined: xmlBody === undefined,
+          isObject: typeof xmlBody === 'object',
+          preview: typeof xmlBody === 'object' ? JSON.stringify(xmlBody) : String(xmlBody)
+        };
+        console.error('Invalid XML body received:', debugInfo);
+        
+        // Return raw JSON for debugging instead of XML to see the full object
+        return res.status(400).send(`Invalid XML body. Debug info: ${JSON.stringify(debugInfo)}`);
       }
 
       // Process the shipment update

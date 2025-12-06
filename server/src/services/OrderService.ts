@@ -41,7 +41,9 @@ export class OrderService {
 
       // Get cart with items - don't pass region, let it find the cart and use cart.region
       // This ensures we use the cart's region as the source of truth, not the request's region
-      const cart = await this.cartService.getCartWithItems(sessionId, userId);
+      // Pass the client to reuse connection and see uncommitted changes if any, though here it's read-only
+      // but passing client avoids creating a new one from pool
+      const cart = await this.cartService.getCartWithItems(sessionId, userId, undefined, undefined, false, client);
 
       if (!cart || cart.items.length === 0) {
         throw new ValidationError('Cannot create order with empty cart');
@@ -55,7 +57,8 @@ export class OrderService {
       const region = cart.region as 'us' | 'eu';
       
       // Validate cart
-      const validation = await this.cartService.validateCartForCheckout(cart.id);
+      // Pass client to avoid creating new connection
+      const validation = await this.cartService.validateCartForCheckout(cart.id, client);
       if (!validation.valid) {
         throw new ValidationError('Cart validation failed', { errors: validation.errors });
       }
@@ -358,17 +361,20 @@ export class OrderService {
   /**
    * Confirm stock reservations for paid order
    */
-  async confirmOrderPayment(orderId: number): Promise<void> {
-    const client = await this.pool.connect();
+  async confirmOrderPayment(orderId: number, transactionClient?: any): Promise<void> {
+    const client = transactionClient || await this.pool.connect();
+    const shouldManageTransaction = !transactionClient;
     
     try {
-      await client.query('BEGIN');
+      if (shouldManageTransaction) {
+        await client.query('BEGIN');
+      }
 
       // Confirm stock reservations (both product-level and variation-level)
       await this.stockReservationService.confirmReservation(orderId, client);
       
       // Confirm variation stock reservations
-      await this.stockReservationService.confirmVariationReservations(orderId);
+      await this.stockReservationService.confirmVariationReservations(orderId, client);
 
       // Update order status
       await client.query(
@@ -405,13 +411,19 @@ export class OrderService {
         }
       }
 
-      await client.query('COMMIT');
+      if (shouldManageTransaction) {
+        await client.query('COMMIT');
+      }
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (shouldManageTransaction) {
+        await client.query('ROLLBACK');
+      }
       console.error('Error confirming order payment:', error);
       throw error;
     } finally {
-      client.release();
+      if (shouldManageTransaction) {
+        client.release();
+      }
     }
   }
 
