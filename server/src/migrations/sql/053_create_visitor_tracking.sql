@@ -97,10 +97,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to auto-update updated_at
-CREATE TRIGGER update_visitor_sessions_timestamp_trigger
-  BEFORE UPDATE ON visitor_sessions
-  FOR EACH ROW
-  EXECUTE FUNCTION update_visitor_sessions_timestamp();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_visitor_sessions_timestamp_trigger'
+  ) THEN
+    CREATE TRIGGER update_visitor_sessions_timestamp_trigger
+      BEFORE UPDATE ON visitor_sessions
+      FOR EACH ROW
+      EXECUTE FUNCTION update_visitor_sessions_timestamp();
+  END IF;
+END $$;
 
 -- Function to update page_views_count in visitor_sessions
 CREATE OR REPLACE FUNCTION update_visitor_session_page_views()
@@ -115,10 +122,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to update page views count
-CREATE TRIGGER update_visitor_session_page_views_trigger
-  AFTER INSERT ON page_views
-  FOR EACH ROW
-  EXECUTE FUNCTION update_visitor_session_page_views();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_visitor_session_page_views_trigger'
+  ) THEN
+    CREATE TRIGGER update_visitor_session_page_views_trigger
+      AFTER INSERT ON page_views
+      FOR EACH ROW
+      EXECUTE FUNCTION update_visitor_session_page_views();
+  END IF;
+END $$;
 
 -- Function to update events_count in visitor_sessions
 CREATE OR REPLACE FUNCTION update_visitor_session_events()
@@ -132,10 +146,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to update events count
-CREATE TRIGGER update_visitor_session_events_trigger
-  AFTER INSERT ON visitor_events
-  FOR EACH ROW
-  EXECUTE FUNCTION update_visitor_session_events();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_visitor_session_events_trigger'
+  ) THEN
+    CREATE TRIGGER update_visitor_session_events_trigger
+      AFTER INSERT ON visitor_events
+      FOR EACH ROW
+      EXECUTE FUNCTION update_visitor_session_events();
+  END IF;
+END $$;
 
 -- Comments
 COMMENT ON TABLE visitor_sessions IS 'Tracks unique visitor sessions, supports linking anonymous sessions to authenticated users';

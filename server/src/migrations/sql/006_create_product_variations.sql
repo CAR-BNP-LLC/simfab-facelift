@@ -51,11 +51,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to ensure only one default option
-CREATE TRIGGER ensure_one_default_option_trigger
-  BEFORE INSERT OR UPDATE ON variation_options
-  FOR EACH ROW
-  WHEN (NEW.is_default = true)
-  EXECUTE FUNCTION ensure_one_default_option();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'ensure_one_default_option_trigger'
+  ) THEN
+    CREATE TRIGGER ensure_one_default_option_trigger
+      BEFORE INSERT OR UPDATE ON variation_options
+      FOR EACH ROW
+      WHEN (NEW.is_default = true)
+      EXECUTE FUNCTION ensure_one_default_option();
+  END IF;
+END $$;
 
 COMMENT ON TABLE product_variations IS 'Product variation types (model, dropdown, etc.)';
 COMMENT ON TABLE variation_options IS 'Options for each variation with pricing adjustments';

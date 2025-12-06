@@ -49,10 +49,17 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_marketing_campaigns_updated_at
-  BEFORE UPDATE ON marketing_campaigns
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_marketing_campaigns_updated_at'
+  ) THEN
+    CREATE TRIGGER update_marketing_campaigns_updated_at
+      BEFORE UPDATE ON marketing_campaigns
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Comments
 COMMENT ON TABLE marketing_campaigns IS 'Marketing email campaigns created by admins';

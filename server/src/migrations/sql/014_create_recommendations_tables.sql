@@ -61,10 +61,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to update view count on conflict
-CREATE TRIGGER update_product_view_trigger
-  BEFORE UPDATE ON product_views
-  FOR EACH ROW
-  EXECUTE FUNCTION update_product_view();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_product_view_trigger'
+  ) THEN
+    CREATE TRIGGER update_product_view_trigger
+      BEFORE UPDATE ON product_views
+      FOR EACH ROW
+      EXECUTE FUNCTION update_product_view();
+  END IF;
+END $$;
 
 COMMENT ON TABLE product_views IS 'Track product views for recommendations';
 COMMENT ON TABLE product_relationships IS 'Product relationships for recommendations';

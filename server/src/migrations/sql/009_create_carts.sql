@@ -37,16 +37,30 @@ CREATE INDEX IF NOT EXISTS idx_cart_items_product_id ON cart_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_cart_items_configuration ON cart_items USING GIN (configuration);
 
 -- Trigger for cart updated_at
-CREATE TRIGGER update_carts_updated_at
-    BEFORE UPDATE ON carts
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_carts_updated_at'
+  ) THEN
+    CREATE TRIGGER update_carts_updated_at
+        BEFORE UPDATE ON carts
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Trigger for cart_items updated_at
-CREATE TRIGGER update_cart_items_updated_at
-    BEFORE UPDATE ON cart_items
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_cart_items_updated_at'
+  ) THEN
+    CREATE TRIGGER update_cart_items_updated_at
+        BEFORE UPDATE ON cart_items
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Function to automatically update cart's updated_at when items change
 CREATE OR REPLACE FUNCTION update_cart_timestamp()
@@ -58,10 +72,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to update cart timestamp when items are added/updated
-CREATE TRIGGER update_cart_on_item_change
-  AFTER INSERT OR UPDATE ON cart_items
-  FOR EACH ROW
-  EXECUTE FUNCTION update_cart_timestamp();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_cart_on_item_change'
+  ) THEN
+    CREATE TRIGGER update_cart_on_item_change
+      AFTER INSERT OR UPDATE ON cart_items
+      FOR EACH ROW
+      EXECUTE FUNCTION update_cart_timestamp();
+  END IF;
+END $$;
 
 COMMENT ON TABLE carts IS 'Shopping carts for guest and logged-in users';
 COMMENT ON TABLE cart_items IS 'Items in shopping cart with configuration';

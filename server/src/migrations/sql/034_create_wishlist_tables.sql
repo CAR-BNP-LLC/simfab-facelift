@@ -71,11 +71,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger
-DROP TRIGGER IF EXISTS update_wishlists_updated_at ON wishlists;
-CREATE TRIGGER update_wishlists_updated_at
-  BEFORE UPDATE ON wishlists
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_wishlists_updated_at'
+  ) THEN
+    CREATE TRIGGER update_wishlists_updated_at
+      BEFORE UPDATE ON wishlists
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Comments
 COMMENT ON TABLE wishlists IS 'User wishlist with notification preferences';

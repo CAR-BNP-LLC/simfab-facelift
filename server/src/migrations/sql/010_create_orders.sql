@@ -78,10 +78,17 @@ CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON order_items(product_id)
 CREATE INDEX IF NOT EXISTS idx_order_status_history_order_id ON order_status_history(order_id);
 
 -- Trigger for orders updated_at
-CREATE TRIGGER update_orders_updated_at
-    BEFORE UPDATE ON orders
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_orders_updated_at'
+  ) THEN
+    CREATE TRIGGER update_orders_updated_at
+        BEFORE UPDATE ON orders
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Function to auto-generate order number
 CREATE OR REPLACE FUNCTION generate_order_number()
@@ -95,10 +102,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to generate order number
-CREATE TRIGGER generate_order_number_trigger
-  BEFORE INSERT ON orders
-  FOR EACH ROW
-  EXECUTE FUNCTION generate_order_number();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'generate_order_number_trigger'
+  ) THEN
+    CREATE TRIGGER generate_order_number_trigger
+      BEFORE INSERT ON orders
+      FOR EACH ROW
+      EXECUTE FUNCTION generate_order_number();
+  END IF;
+END $$;
 
 -- Function to log status changes
 CREATE OR REPLACE FUNCTION log_order_status_change()
@@ -113,10 +127,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to log status changes
-CREATE TRIGGER log_order_status_change_trigger
-  AFTER UPDATE ON orders
-  FOR EACH ROW
-  EXECUTE FUNCTION log_order_status_change();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'log_order_status_change_trigger'
+  ) THEN
+    CREATE TRIGGER log_order_status_change_trigger
+      AFTER UPDATE ON orders
+      FOR EACH ROW
+      EXECUTE FUNCTION log_order_status_change();
+  END IF;
+END $$;
 
 COMMENT ON TABLE orders IS 'Customer orders with comprehensive tracking';
 COMMENT ON TABLE order_items IS 'Products in orders with configuration snapshots';

@@ -42,7 +42,14 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS update_product_faqs_updated_at ON product_faqs;
 
 -- Create trigger
-CREATE TRIGGER update_product_faqs_updated_at
-  BEFORE UPDATE ON product_faqs
-  FOR EACH ROW
-  EXECUTE FUNCTION update_product_faqs_updated_at();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_product_faqs_updated_at'
+  ) THEN
+    CREATE TRIGGER update_product_faqs_updated_at
+      BEFORE UPDATE ON product_faqs
+      FOR EACH ROW
+      EXECUTE FUNCTION update_product_faqs_updated_at();
+  END IF;
+END $$;

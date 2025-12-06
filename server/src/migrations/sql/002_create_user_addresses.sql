@@ -36,10 +36,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger for updated_at
-CREATE TRIGGER update_user_addresses_updated_at
-    BEFORE UPDATE ON user_addresses
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_user_addresses_updated_at'
+  ) THEN
+    CREATE TRIGGER update_user_addresses_updated_at
+        BEFORE UPDATE ON user_addresses
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 COMMENT ON TABLE user_addresses IS 'Customer shipping and billing addresses';
 COMMENT ON COLUMN user_addresses.type IS 'Address type: billing or shipping';

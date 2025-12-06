@@ -44,10 +44,17 @@ BEGIN
     CREATE INDEX idx_newsletter_subscriptions_status ON newsletter_subscriptions(status);
     CREATE INDEX idx_newsletter_subscriptions_verified ON newsletter_subscriptions(verified_at);
     
-    CREATE TRIGGER update_newsletter_subscriptions_updated_at
-      BEFORE UPDATE ON newsletter_subscriptions
-      FOR EACH ROW
-      EXECUTE FUNCTION update_updated_at_column();
+    DO $$ 
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger WHERE tgname = 'update_newsletter_subscriptions_updated_at'
+      ) THEN
+        CREATE TRIGGER update_newsletter_subscriptions_updated_at
+          BEFORE UPDATE ON newsletter_subscriptions
+          FOR EACH ROW
+          EXECUTE FUNCTION update_updated_at_column();
+      END IF;
+    END $$;
   END IF;
 END $$;
 
@@ -90,10 +97,17 @@ CREATE INDEX IF NOT EXISTS idx_newsletter_tracking_campaign_id ON newsletter_tra
 CREATE INDEX IF NOT EXISTS idx_newsletter_tracking_subscriber_id ON newsletter_tracking(subscriber_id);
 
 -- Trigger for campaigns updated_at
-CREATE TRIGGER update_newsletter_campaigns_updated_at
-    BEFORE UPDATE ON newsletter_campaigns
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_newsletter_campaigns_updated_at'
+  ) THEN
+    CREATE TRIGGER update_newsletter_campaigns_updated_at
+        BEFORE UPDATE ON newsletter_campaigns
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 COMMENT ON TABLE newsletter_campaigns IS 'Email marketing campaigns';
 COMMENT ON TABLE newsletter_tracking IS 'Track email opens, clicks, and unsubscribes';

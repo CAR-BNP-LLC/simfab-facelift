@@ -37,10 +37,17 @@ CREATE INDEX IF NOT EXISTS idx_system_settings_key ON system_settings(setting_ke
 CREATE INDEX IF NOT EXISTS idx_system_settings_public ON system_settings(is_public) WHERE is_public = true;
 
 -- Trigger for system_settings updated_at
-CREATE TRIGGER update_system_settings_updated_at
-    BEFORE UPDATE ON system_settings
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_system_settings_updated_at'
+  ) THEN
+    CREATE TRIGGER update_system_settings_updated_at
+        BEFORE UPDATE ON system_settings
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Insert default system settings
 INSERT INTO system_settings (setting_key, setting_value, setting_type, description, is_public) VALUES

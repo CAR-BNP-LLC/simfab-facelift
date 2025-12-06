@@ -31,11 +31,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to ensure only one primary image
-CREATE TRIGGER ensure_one_primary_image_trigger
-  BEFORE INSERT OR UPDATE ON product_images
-  FOR EACH ROW
-  WHEN (NEW.is_primary = true)
-  EXECUTE FUNCTION ensure_one_primary_image();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'ensure_one_primary_image_trigger'
+  ) THEN
+    CREATE TRIGGER ensure_one_primary_image_trigger
+      BEFORE INSERT OR UPDATE ON product_images
+      FOR EACH ROW
+      WHEN (NEW.is_primary = true)
+      EXECUTE FUNCTION ensure_one_primary_image();
+  END IF;
+END $$;
 
 COMMENT ON TABLE product_images IS 'Product image gallery with ordering support';
 COMMENT ON COLUMN product_images.is_primary IS 'Primary image shown in product listings';

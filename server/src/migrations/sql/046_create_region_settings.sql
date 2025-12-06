@@ -28,10 +28,17 @@ CREATE INDEX IF NOT EXISTS idx_region_settings_region_public ON region_settings(
   WHERE is_public = true;
 
 -- Trigger for updated_at
-CREATE TRIGGER update_region_settings_updated_at
-    BEFORE UPDATE ON region_settings
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_region_settings_updated_at'
+  ) THEN
+    CREATE TRIGGER update_region_settings_updated_at
+        BEFORE UPDATE ON region_settings
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Insert default settings for US region
 INSERT INTO region_settings (region, setting_key, setting_value, setting_type, description, is_public) VALUES

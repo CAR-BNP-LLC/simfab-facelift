@@ -36,11 +36,17 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-DROP TRIGGER IF EXISTS payments_updated_at ON payments;
-CREATE TRIGGER payments_updated_at
-    BEFORE UPDATE ON payments
-    FOR EACH ROW
-    EXECUTE FUNCTION update_payments_updated_at();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'payments_updated_at'
+  ) THEN
+    CREATE TRIGGER payments_updated_at
+        BEFORE UPDATE ON payments
+        FOR EACH ROW
+        EXECUTE FUNCTION update_payments_updated_at();
+  END IF;
+END $$;
 
 -- Add metadata column for storing additional payment information
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';

@@ -92,10 +92,17 @@ CREATE INDEX IF NOT EXISTS idx_email_queue_scheduled ON email_queue(scheduled_fo
 CREATE INDEX IF NOT EXISTS idx_email_queue_priority ON email_queue(priority DESC);
 
 -- Trigger for updated_at on email_templates
-CREATE TRIGGER update_email_templates_updated_at
-    BEFORE UPDATE ON email_templates
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_email_templates_updated_at'
+  ) THEN
+    CREATE TRIGGER update_email_templates_updated_at
+        BEFORE UPDATE ON email_templates
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Insert default email templates
 INSERT INTO email_templates (type, name, description, subject, html_body, recipient_type, default_recipients) VALUES

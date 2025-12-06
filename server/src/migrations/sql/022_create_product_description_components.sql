@@ -26,10 +26,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_update_product_description_components_updated_at
-  BEFORE UPDATE ON product_description_components
-  FOR EACH ROW
-  EXECUTE FUNCTION update_product_description_components_updated_at();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trigger_update_product_description_components_updated_at'
+  ) THEN
+    CREATE TRIGGER trigger_update_product_description_components_updated_at
+      BEFORE UPDATE ON product_description_components
+      FOR EACH ROW
+      EXECUTE FUNCTION update_product_description_components_updated_at();
+  END IF;
+END $$;
 
 -- Add table comment
 COMMENT ON TABLE product_description_components IS 'Stores dynamic product description components with JSON content';

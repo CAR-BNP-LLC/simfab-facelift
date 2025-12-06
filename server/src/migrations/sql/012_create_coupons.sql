@@ -48,10 +48,17 @@ CREATE INDEX IF NOT EXISTS idx_coupon_usage_user_id ON coupon_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_coupon_usage_order_id ON coupon_usage(order_id);
 
 -- Trigger for coupons updated_at
-CREATE TRIGGER update_coupons_updated_at
-    BEFORE UPDATE ON coupons
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_coupons_updated_at'
+  ) THEN
+    CREATE TRIGGER update_coupons_updated_at
+        BEFORE UPDATE ON coupons
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Function to increment usage count when coupon is used
 CREATE OR REPLACE FUNCTION increment_coupon_usage()
@@ -65,10 +72,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to increment usage count
-CREATE TRIGGER increment_coupon_usage_trigger
-  AFTER INSERT ON coupon_usage
-  FOR EACH ROW
-  EXECUTE FUNCTION increment_coupon_usage();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'increment_coupon_usage_trigger'
+  ) THEN
+    CREATE TRIGGER increment_coupon_usage_trigger
+      AFTER INSERT ON coupon_usage
+      FOR EACH ROW
+      EXECUTE FUNCTION increment_coupon_usage();
+  END IF;
+END $$;
 
 COMMENT ON TABLE coupons IS 'Discount coupons and promotional codes';
 COMMENT ON TABLE coupon_usage IS 'Tracking of coupon usage per user/order';

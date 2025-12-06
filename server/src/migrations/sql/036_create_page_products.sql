@@ -41,10 +41,17 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create trigger for updated_at
-CREATE TRIGGER update_page_products_updated_at
-  BEFORE UPDATE ON page_products
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'update_page_products_updated_at'
+  ) THEN
+    CREATE TRIGGER update_page_products_updated_at
+      BEFORE UPDATE ON page_products
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END $$;
 
 -- Add comments
 COMMENT ON TABLE page_products IS 'Manages which products are featured on specific pages and sections';
